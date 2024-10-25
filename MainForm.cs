@@ -425,7 +425,7 @@ namespace Jornal
 
         private void NewOrd()
         {
-            int myColor = -1;
+            int myColor;
             bool isColor = int.TryParse(ConfigurationManager.AppSettings["TechnologColor"], out myColor);
             if (!isColor) myColor = -1;
             
@@ -1170,16 +1170,7 @@ namespace Jornal
         }
 
         void Button_ColorDialogClick(object sender, EventArgs e)
-        {
-            if (checkBox_checkColor.Checked)
-            {
-                if (colorDialog.ShowDialog() == DialogResult.OK)
-                {
-                    int color = colorDialog.Color.ToArgb();
-                    richTextBox_Result.Text = color.ToString();
-                }
-                
-            }
+        {                     
             if (Grid_Order.Rows.Count != 0 && !checkBox_checkColor.Checked)
             {
                 if (colorDialog.ShowDialog() == DialogResult.OK)
@@ -1191,6 +1182,15 @@ namespace Jornal
                     ColorRow(color, key);
                     UpdateDataGrid();
                 }
+            }
+            if (checkBox_checkColor.Checked)
+            {
+                if (colorDialog.ShowDialog() == DialogResult.OK)
+                {
+                    int color = colorDialog.Color.ToArgb();
+                    richTextBox_Result.Text = color.ToString();
+                }
+                checkBox_checkColor.Checked = false;
             }
         }
 
