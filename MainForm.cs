@@ -514,11 +514,11 @@ namespace Jornal
                     string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
 
                     string query =
-                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Коэффициент) " +
+                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
                         "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
                         "', '" + steelGrade + "', '" + thickness +
                         "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
-                        priceResult + "','" + kFDetPunDB + "'  )";
+                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
 
                     ConnectAccess(query);
                     dbConn.Close();
@@ -543,12 +543,11 @@ namespace Jornal
                     string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
 
                     string query =
-                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Коэффициент) " +
+                       "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
                         "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
                         "', '" + steelGrade + "', '" + thickness +
                         "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
-                        priceResult + "','" + kFDetPunDB + "'  )";
-
+                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
                     ConnectAccess(query);
                     dbConn.Close();
                     flagCut = false;
@@ -572,11 +571,11 @@ namespace Jornal
                     string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
 
                     string query =
-                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Коэффициент) " +
+                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
                         "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
                         "', '" + steelGrade + "', '" + thickness +
                         "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
-                        priceResult + "','" + kFDetPunDB + "'  )";
+                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
 
                     ConnectAccess(query);
                     dbConn.Close();
