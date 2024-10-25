@@ -33,19 +33,19 @@
             // 
             // LoadForm
             // 
+            this.AccessibleRole = System.Windows.Forms.AccessibleRole.Graphic;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.SkyBlue;
+            this.BackColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("$this.BackgroundImage")));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
-            this.ClientSize = new System.Drawing.Size(384, 211);
+            this.ClientSize = new System.Drawing.Size(525, 350);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Name = "LoadForm";
             this.Opacity = 0.8D;
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Load";
             this.TopMost = true;
             this.ResumeLayout(false);
 

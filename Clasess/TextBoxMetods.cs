@@ -48,5 +48,14 @@ namespace Jornal
             tb.Text = "";
             tb.Focus();
         }
+        public static void ClearInfo(ToolStripStatusLabel tSSL)
+        {
+            tSSL.Text= string.Empty;
+        }
+        public static void AddTextInfo(StatusStrip stStrip, ToolStripStatusLabel tSSL, string info)
+        {
+            stStrip.Visible = true;
+           tSSL.Text = info;
+        }
     }
 }

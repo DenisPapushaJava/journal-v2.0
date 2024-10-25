@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Text.RegularExpressions;
 using static Jornal.TextBoxMetods;
 using static Jornal.Clasess.CalculationCoefficient;
+using System.Configuration;
 
 namespace Jornal
 {
@@ -12,8 +13,33 @@ namespace Jornal
     {
         public Form_NewOrder()
         {
-
             InitializeComponent();
+            string[] Managers = ConfigurationManager.AppSettings["Managers"]?.Split(',') ?? new string[0];
+            string[] Customers = ConfigurationManager.AppSettings["Customers"]?.Split(',') ?? new string[0];
+            AutoCompleteStringCollection managersCollection = new AutoCompleteStringCollection();
+            AutoCompleteStringCollection customersCollection = new AutoCompleteStringCollection();
+            managersCollection.AddRange(Managers);
+            customersCollection.AddRange(Customers);
+
+            textBox_Manager.AutoCompleteCustomSource = managersCollection;
+            textBox_Manager.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            textBox_Manager.AutoCompleteSource = AutoCompleteSource.CustomSource;
+
+            textBox_Client.AutoCompleteCustomSource = customersCollection;
+            textBox_Client.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            textBox_Client.AutoCompleteSource = AutoCompleteSource.CustomSource;
+
+        }
+        public string tBDate
+        {
+            get
+            {
+                return textBox_date.Text;
+            }
+            set
+            {
+                textBox_date.Text = value;
+            }
         }
         public string tBManager
         {
@@ -493,7 +519,36 @@ namespace Jornal
                     MessageBox.Show("Кажется этот текст не из спецификации БЛОК", "Что-то пошло не так", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 }
+                string[] dates = Regex.Split(textBox_Run.Text, "Спецификация №");
+                if (dates.Length < 2)
+                {
+                    flag = true;
+                }
+                else
+                {
+                    string[] dates1 = Regex.Split(dates[1], "-");
+                    string[] year = Regex.Split(dates1[0], " ");                    
+                    textBox_date.Text = $"{dates1[2]}.{dates1[1]}.{year[3]}";
+                }
 
+                //автозаполнение тип резки
+                string[] typeCut = Regex.Split(textBox_Run.Text, ".rcam");
+                
+                string typeCutCB = typeCut[0];
+               
+
+                if (typeCutCB.Contains("ЛАЗЕР"))
+                {
+                    comboBox_Cut.Text = "Лазер";
+                }
+                if (typeCutCB.Contains("ПЛАЗМА"))
+                {
+                    comboBox_Cut.Text = "Плазма";
+                }
+                if (typeCutCB.Contains("ГАЗО-КИСЛОРОДНАЯ"))
+                {
+                    comboBox_Cut.Text = "Газо-кислородная";
+                } 
             }
 
         }

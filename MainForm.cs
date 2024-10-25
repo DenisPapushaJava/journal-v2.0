@@ -13,6 +13,9 @@ using static Jornal.TextBoxMetods;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Globalization;
+using System.Collections;
+using Microsoft.Office.Interop.Excel;
 
 namespace Jornal
 {
@@ -25,10 +28,8 @@ namespace Jornal
             loadForm.Show();            
             InitializeComponent();           
             //Grid_Order.DefaultCellStyle.SelectionBackColor = ColorTranslator.FromHtml("#9bc3c9");
-            LoadData();
+          // LoadData();
             comboBox1.SelectedIndex = 0;
-            
-            
         }
 
         private void Grid_OrderMouseDown(object sender, MouseEventArgs e)
@@ -69,37 +70,38 @@ namespace Jornal
                 Environment.Exit(0);
             }
         }
+        private void ConnectDB(ConnectionStringSettings conStr, string qry)
+        {
+            OleDbConnection dbConn = new OleDbConnection(conStr.ConnectionString);
+            OleDbCommand dbCommand = new OleDbCommand(qry, dbConn);
+            OleDbDataAdapter da = new OleDbDataAdapter();
+            DataTable dt = new DataTable();
+            DataSet ds = new DataSet();
+            dbCommand.Connection = dbConn;
+            dbCommand.CommandText = qry;
+            dbConn.Open();
+            da.SelectCommand = dbCommand;
+            da.Fill(ds);
+            dt = ds.Tables[0];
+            Grid_Order.DataSource = dt;
+            Grid_Order.Columns["Код"].Visible = false;
+            Grid_Order.Columns["Color"].Visible = false;
+            Grid_Order.Columns["Коэффициент"].Visible = false;
+            Grid_Order.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dbConn.Close();
+            statusStrip.Visible = false;
+        }
 
 
         private void LoadData()
         {
-            //Stopwatch timeLoad = new Stopwatch(); 
-            //timeLoad.Start();
 
             ConnectionStringSettings conString;
             conString = ConfigurationManager.ConnectionStrings["pathdb"];
+            string query = "SELECT * FROM Orders";
             try
             {
-                OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
-                string query = "SELECT * FROM Orders";
-                OleDbCommand dbCommand = new OleDbCommand(query, dbConn);
-                OleDbDataAdapter da = new OleDbDataAdapter();
-                DataTable dt = new DataTable();
-                DataSet ds = new DataSet();
-                dbCommand.Connection = dbConn;
-                dbCommand.CommandText = query;
-                dbConn.Open();
-                da.SelectCommand = dbCommand;
-                da.Fill(ds);
-                dt = ds.Tables[0];
-                Grid_Order.DataSource = dt;
-                Grid_Order.Columns["Код"].Visible = false;
-                Grid_Order.Columns["Color"].Visible = false;
-                Grid_Order.Columns["Коэффициент"].Visible = false;
-                Grid_Order.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-                dbConn.Close();
-                statusStrip.Visible = false;
-
+               ConnectDB(conString, query);
             }
             catch
             {
@@ -107,14 +109,7 @@ namespace Jornal
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(0);
             }
-            //timeLoad.Stop();
-
-
-            //ProgressBar_Info.Maximum = (int)timeLoad.ElapsedMilliseconds;
-            // for (int i = 0; i <= (int)timeLoad.ElapsedMilliseconds; i++)
-            //{
-            //    await Task.Run(() => ProgressBar_Info.Value = i);
-            //}
+           
            
             
         }
@@ -122,25 +117,23 @@ namespace Jornal
         private void LoadDataSortDay()
         {
             checkBox_Finished.Checked = false;
-            checkBox_InWork.Checked = false;
             checkBox_Sent.Checked = false;
-            checkBox_SortChoiceDayON.Checked = false;
-            LoadData();
-            DateTime dt;
-            if (checkBox_DateDay.Checked)
+            checkBox_InWork.Checked = false;
+           
+
+            ConnectionStringSettings conString;
+            conString = ConfigurationManager.ConnectionStrings["pathdb"];
+            string query = "SELECT * FROM Orders WHERE Дата =  Date()";
+            OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+            try
             {
-                for (int i = (Grid_Order.Rows.Count - 1); i >= 0; i--)
-                {
-                    DateTime.TryParse(Grid_Order.Rows[i].Cells[1].Value.ToString(), out dt);
-                    if (DateTime.Now.Year != dt.Year || DateTime.Now.Month != dt.Month || DateTime.Now.Day != dt.Day)
-                    {
-                        Grid_Order.Rows.RemoveAt(i);
-                    }
-                }
+                ConnectDB(conString, query);
             }
-            else
+            catch
             {
-                LoadData();
+                MessageBox.Show("Не удалось подключиться к Базе Данных, программа будет закрыта", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Environment.Exit(0);
             }
         }
 
@@ -149,124 +142,110 @@ namespace Jornal
             checkBox_DateDay.Checked = false;
             checkBox_Finished.Checked = false;
             checkBox_Sent.Checked = false;
-            checkBox_InWork.Checked = false;
+          
 
-            LoadData();
-            DateTime dt;
-            DateTime dv;
-            bool flagCheckChoiceDate = true;
-            for (int i = (Grid_Order.Rows.Count - 1); i >= 0; i--)
+            ConnectionStringSettings conString;
+            conString = ConfigurationManager.ConnectionStrings["pathdb"];
+            
+            DateTime selectDate = dateTimePicker_DateSort.Value;
+            string sDFormat ="#" + selectDate.ToString("yyyy-MM-dd") + "#";
+            string query = "SELECT * FROM Orders WHERE Дата =" + sDFormat;
+            OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+            try
             {
-                DateTime.TryParse(Grid_Order.Rows[i].Cells[1].Value.ToString(), out dt);
-                DateTime.TryParse(dateTimePicker_DateSort.Value.ToShortDateString(), out dv);
-                if (dt.Date.ToShortDateString() != dv.Date.ToShortDateString())
-                {
-                    Grid_Order.Rows.RemoveAt(i);
-                }
-                else
-                {
-                    flagCheckChoiceDate = false;
-                }
+                ConnectDB(conString, query);
+            }
+            catch
+            {
+                MessageBox.Show("Не удалось подключиться к Базе Данных, программа будет закрыта", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Environment.Exit(0);
             }
 
-            if (flagCheckChoiceDate)
+            if (Grid_Order.Rows.Count == 0)
             {
                 checkBox_SortChoiceDayON.Checked = false;
                 MessageBox.Show("Заявки за " + dateTimePicker_DateSort.Value.ToShortDateString() + " не найдены!",
                     "Поиск по дате...", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                UpdateDataGrid();
+                statusStrip.Visible = true;
+                toolStripStatusLabel_Info.Text = "Заявки за " + dateTimePicker_DateSort.Value.ToShortDateString() + " не найдены!";
             }
         }
 
         private void LoadInWork()
-        {
-            LoadData();
+        {           
             checkBox_DateDay.Checked = false;
             checkBox_Finished.Checked = false;
             checkBox_Sent.Checked = false;
-            //checkBox_SortChoiceDayON.Checked = false;
+
             if (checkBox_InWork.Checked)
             {
-                for (int i = (Grid_Order.Rows.Count - 1); i >= 0; i--)
+                ConnectionStringSettings conString;
+                conString = ConfigurationManager.ConnectionStrings["pathdb"];
+                string query = "SELECT * FROM Orders WHERE Color = -882036";
+                OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+                try
                 {
-                    int color = ColorFromDB(i);
-                    int numColors = 0;
-                    if (color != -1)
-                    {
-                        numColors = Convert.ToInt32(Grid_Order.Rows[i].Cells[14].Value);
-                    }
-
-                    if (numColors != -882036)
-                    {
-                        Grid_Order.Rows.RemoveAt(i);
-                    }
+                    ConnectDB(conString, query);
                 }
-            }
-            else
-            {
-                LoadData();
+                catch
+                {
+                    MessageBox.Show("Не удалось подключиться к Базе Данных, программа будет закрыта", "Ошибка",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(0);
+                }
             }
         }
 
         private void LoadFinished()
         {
-            LoadData();
+            
             checkBox_DateDay.Checked = false;
             checkBox_InWork.Checked = false;
             checkBox_Sent.Checked = false;
-            //checkBox_SortChoiceDayON.Checked = false;
+           
+           
             if (checkBox_Finished.Checked)
-            {
-                for (int i = (Grid_Order.Rows.Count - 1); i >= 0; i--)
+            {               
+                ConnectionStringSettings conString;
+                conString = ConfigurationManager.ConnectionStrings["pathdb"];
+                string query = "SELECT * FROM Orders WHERE Color = -10238087";
+                OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+                try
                 {
-                    int color = ColorFromDB(i);
-                    int numColors = 0;
-
-                    if (color != -1)
-                    {
-                        numColors = Convert.ToInt32(Grid_Order.Rows[i].Cells[14].Value);
-                    }
-
-                    if (numColors != -10238087)
-                    {
-                        Grid_Order.Rows.RemoveAt(i);
-                    }
+                    ConnectDB(conString, query);
                 }
-            }
-            else
-            {
-                LoadData();
+                catch
+                {
+                    MessageBox.Show("Не удалось подключиться к Базе Данных, программа будет закрыта", "Ошибка",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(0);
+                }
             }
         }
 
         private void LoadSented()
         {
-            LoadData();
             checkBox_DateDay.Checked = false;
             checkBox_InWork.Checked = false;
             checkBox_Finished.Checked = false;
-            //checkBox_SortChoiceDayON.Checked = false;
+
             if (checkBox_Sent.Checked)
             {
-                for (int i = (Grid_Order.Rows.Count - 1); i >= 0; i--)
+                ConnectionStringSettings conString;
+                conString = ConfigurationManager.ConnectionStrings["pathdb"];
+                string query = "SELECT * FROM Orders WHERE Color = -8154114";
+                OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+                try
                 {
-                    int color = ColorFromDB(i);
-                    int numColors = 0;
-
-                    if (color != -1)
-                    {
-                        numColors = Convert.ToInt32(Grid_Order.Rows[i].Cells[14].Value);
-                    }
-
-                    if (numColors != -8154114)
-                    {
-                        Grid_Order.Rows.RemoveAt(i);
-                    }
+                    ConnectDB(conString, query);
                 }
-            }
-            else
-            {
-                LoadData();
+                catch
+                {
+                    MessageBox.Show("Не удалось подключиться к Базе Данных, программа будет закрыта", "Ошибка",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(0);
+                }
             }
         }
 
@@ -445,16 +424,19 @@ namespace Jornal
 
         private void NewOrd()
         {
+            
             ClearTextResult();
             Form_NewOrder newOrder = new Form_NewOrder();
-            string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size;
+            string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, doubleSeparator;
             int lenghtCut;
             double thickness, priceResult, kF;
             newOrder.ShowDialog();
+            CultureInfo culture = CultureInfo.CurrentCulture;
+            doubleSeparator = culture.NumberFormat.NumberDecimalSeparator;            
             if (newOrder.DialogResult == DialogResult.OK)
             {
                 //String
-                data = newOrder.dateTimePicker_Order.Text;
+                data = newOrder.tBDate;              
                 manager = newOrder.textBox_Manager.Text;
                 numberOfSpec = newOrder.textBox_NumSpec.Text;
                 client = newOrder.textBox_Client.Text;
@@ -469,7 +451,13 @@ namespace Jornal
                 //thickness = newOrder.comboBox_Thickness.Text;
                 thickness = Double.Parse(newOrder.comboBox_Thickness.Text.Replace('.', ','));
                 thStr = newOrder.comboBox_Thickness.Text.Replace('.', ',');
-                kF = Double.Parse(newOrder.textBox_Kf.Text.Replace('.', ','));
+                if (doubleSeparator == ",") {
+                    kF = Double.Parse(newOrder.textBox_Kf.Text.Replace('.', ','));
+                }
+                else
+                {
+                    kF = Double.Parse(newOrder.textBox_Kf.Text.Replace(',', '.'));
+                }
                 //weight = double.Parse(newOrder.textBox_Weight.Text.Replace('.', ','));
                 weight = newOrder.textBox_Weight.Text;
                 bool flagCut = true;
@@ -533,7 +521,7 @@ namespace Jornal
                     flagCut = false;
                 }
 
-                if (newOrder.comboBox_Cut.Text == "Плазма" & thickness >= 2 & thickness <= 30)
+                if (newOrder.comboBox_Cut.Text == "Плазма" & thickness >= 2 & thickness <= 32)
                 {
                     string queryPrice = "SELECT * FROM PriceP";
                     ConnectionStringSettings conString;
@@ -562,7 +550,7 @@ namespace Jornal
                     flagCut = false;
                 }
 
-                if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 80)
+                if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 90)
                 {
                     string queryPrice = "SELECT * FROM PriceG";
                     ConnectionStringSettings conString;
@@ -631,12 +619,15 @@ namespace Jornal
             if (Grid_Order.Rows.Count != 0)
             {
                 Form_NewOrder newOrder = new Form_NewOrder();
-                string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, kFStr, cntDet, cntPun;
+                string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, kFStr, cntDet, cntPun, doubleSeparator;
                 int lenghtCut, key;
                 double thickness, priceResult, kF;
                 string[] kFDetPun;
+                CultureInfo culture = CultureInfo.CurrentCulture;
+                doubleSeparator = culture.NumberFormat.NumberDecimalSeparator;
                 //Автозаполнение полей формы из GridView
-                newOrder.dateTimePicker_Order.Text = Convert.ToString(Grid_Order.CurrentRow.Cells[1].Value);
+                //newOrder.dateTimePicker_Order.Text = Convert.ToString(Grid_Order.CurrentRow.Cells[1].Value);
+                newOrder.tBDate = (Convert.ToString((Grid_Order.CurrentRow.Cells[1].Value)).TrimEnd('0', ':', ' '));
                 newOrder.tBManager = Convert.ToString(Grid_Order.CurrentRow.Cells[2].Value);
                 newOrder.tBNSpec = Convert.ToString(Grid_Order.CurrentRow.Cells[3].Value);
                 newOrder.tBClient = Convert.ToString(Grid_Order.CurrentRow.Cells[4].Value);
@@ -673,7 +664,7 @@ namespace Jornal
                 if (newOrder.DialogResult == DialogResult.OK)
                 {
                     //String
-                    data = newOrder.dateTimePicker_Order.Text;
+                    data = newOrder.tBDate;
                     manager = newOrder.textBox_Manager.Text;
                     numberOfSpec = newOrder.textBox_NumSpec.Text;
                     client = newOrder.textBox_Client.Text;
@@ -687,7 +678,14 @@ namespace Jornal
                     //thickness = newOrder.comboBox_Thickness.Text;
                     thickness = double.Parse(newOrder.comboBox_Thickness.Text.Replace('.', ','));
                     thStr = newOrder.comboBox_Thickness.Text.Replace('.', ',');
-                    kF = double.Parse(newOrder.textBox_Kf.Text.Replace('.', ','));
+                    if (doubleSeparator == ",")
+                    {
+                        kF = Double.Parse(newOrder.textBox_Kf.Text.Replace('.', ','));
+                    }
+                    else
+                    {
+                        kF = Double.Parse(newOrder.textBox_Kf.Text.Replace(',', '.'));
+                    }
                     //weight = double.Parse(newOrder.textBox_Weight.Text.Replace('.', ','));
                     weight = newOrder.textBox_Weight.Text;
                     if (newOrder.comboBox_Cut.Text == "Лазер" & thickness <= 20)
@@ -780,7 +778,7 @@ namespace Jornal
                         dbConn.Close();
                     }
 
-                    if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 80)
+                    if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 90)
                     {
                         string queryPrice = "SELECT * FROM PriceG";
                         ConnectionStringSettings conString;
@@ -878,6 +876,7 @@ namespace Jornal
                     if (!numberUsedRows.Contains(i))
                     {
                         string stellGrade, thickness, size, sheetCount, weight, priceR, cut;
+                        int priceRnumder;
 
                         cut = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[5].Value);
                         stellGrade = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[6].Value);
@@ -885,17 +884,20 @@ namespace Jornal
                         size = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[8].Value);
                         sheetCount = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[11].Value);
                         weight = (Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[10].Value).Replace('.', ','));
-                        priceR = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[12].Value);
-
+                        priceRnumder= Convert.ToInt32(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[12].Value);
+                        if(priceRnumder < 500) { priceRnumder = 500; }
+                        priceR = Convert.ToString(priceRnumder);
+                       
                         cut = SpacesCount(cut, cutLen);
                         stellGrade = SpacesCount(stellGrade, steelGradeLen);
                         thickness = SpacesCount(thickness, thicknessLen);
                         sheetCount = SpacesCount(sheetCount, sheetCountLen);
                         weight = SpacesCount(weight, weightLen);
                         priceR = SpacesCount(priceR, priceRLen);
+                        
 
                         richTextBox_Result.Text = richTextBox_Result.Text + "Лист " + thickness + "x" + size + "," + "\t" + "   Сталь " + stellGrade + "," + "\t"
-                            + "   " + sheetCount + " шт." + "\t" + "   Вес " + weight + " кг." + "\t" + "   Резка " + priceR + " руб." + "\t" + "   резка " + cut + "\n";
+                            + "   " + sheetCount + " шт." + "\t" + "   Вес " + weight + " кг." + "\t" + "   Резка " + priceR + " ₽." + "\t" + "   резка " + cut + "\n";
                         numberUsedRows.Add(i);
                     }
                 }
@@ -984,15 +986,15 @@ namespace Jornal
 
                                 if (typeCut == "Лазер")
                                 {
-                                    commResultLaser += $"**{thikchess} мм {steelGreed}**  ";
+                                    commResultLaser += $"**{thikchess} мм {steelGreed}**  \n";
                                 }
                                 if (typeCut == "Плазма")
                                 {
-                                    commResultPlasma += $"**{thikchess} мм {steelGreed}**  ";
+                                    commResultPlasma += $"**{thikchess} мм {steelGreed}**  \n";
                                 }
                                 if (typeCut == "Газо-кислородная")
                                 {
-                                    commResultGas += $"**{thikchess} мм {steelGreed}**  ";
+                                    commResultGas += $"**{thikchess} мм {steelGreed}**  \n";
                                 }
                             }
                         }
@@ -1005,21 +1007,22 @@ namespace Jornal
                         string commResult = commResultHeader;
                         if (commResultLaser != "")
                         {
-                            commResult += $"{commResultLaser} на Лазер\n";
+                            commResult += $"{commResultLaser.TrimEnd('\n')} на Лазер\n\n";
                         }
                         if (commResultPlasma != "")
                         {
-                            commResult += $"{commResultPlasma} на Плазму\n";
+                            commResult += $"{commResultPlasma.TrimEnd('\n')} на Плазму\n\n";
                         }
                         if (commResultGas != "")
                         {
-                            commResult += $"{commResultGas} на Кристалл резка газом";
+                            commResult += $"{commResultGas.TrimEnd('\n')} на Кристалл резка газом";
                         }
                         if (commResult != "")
                         {
                             Clipboard.SetText(commResult);
-                            statusStrip.Visible = true;
-                            toolStripStatusLabel_Info.Text = "Комментарий для Telegram скопирован";
+                            
+                            AddTextInfo(statusStrip, toolStripStatusLabel_Info, "Комментарий для Telegram скопирован");
+                            
                         }
                     }
                     numberSelectedRows.Clear();
@@ -1345,5 +1348,32 @@ namespace Jornal
             ColorSelectedRows(Grid_Order);
         }
 
-           }
+        private void MainForm_Activated(object sender, EventArgs e)
+        {
+            ClearInfo(toolStripStatusLabel_Info);
+        }
+
+        private void button_Update_MouseEnter(object sender, EventArgs e)
+        {
+            statusStrip.Visible = true;
+            AddTextInfo(statusStrip, toolStripStatusLabel_Info, "Синхронизировать с базой данных");
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            Microsoft.Office.Interop.Excel.Application excelapp = new Microsoft.Office.Interop.Excel.Application();
+            Microsoft.Office.Interop.Excel.Workbook workbook = excelapp.Workbooks.Add();
+            Microsoft.Office.Interop.Excel.Worksheet worksheet = workbook.ActiveSheet;
+            for (int i = 1; i < Grid_Order.RowCount+1; i++)
+            {
+                for(int j = 1;j < Grid_Order.ColumnCount+1; j++)
+                {
+                    worksheet.Rows[i].Columns[j] = Grid_Order.Rows[i - 1].Cells[j - 1].Value;
+                }
+            }
+            excelapp.AlertBeforeOverwriting = false;
+            workbook.SaveAs(@"C:\файл.xls");
+            excelapp.Quit();
+        }
+    }
 }

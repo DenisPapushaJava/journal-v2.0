@@ -69,7 +69,7 @@ namespace Jornal
             this.label_Punchs = new System.Windows.Forms.Label();
             this.label13 = new System.Windows.Forms.Label();
             this.label14 = new System.Windows.Forms.Label();
-            this.dateTimePicker_Order = new System.Windows.Forms.DateTimePicker();
+            this.textBox_date = new System.Windows.Forms.TextBox();
             this.panel1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -163,6 +163,7 @@ namespace Jornal
             "0,5",
             "0,8",
             "1",
+            "1,2",
             "1,5",
             "2",
             "2,5",
@@ -174,6 +175,7 @@ namespace Jornal
             "10",
             "12",
             "14",
+            "15",
             "16",
             "18",
             "20",
@@ -188,7 +190,8 @@ namespace Jornal
             "55",
             "60",
             "70",
-            "80"});
+            "80",
+            "90"});
             this.comboBox_Thickness.Location = new System.Drawing.Point(156, 416);
             this.comboBox_Thickness.Name = "comboBox_Thickness";
             this.comboBox_Thickness.Size = new System.Drawing.Size(257, 21);
@@ -407,20 +410,19 @@ namespace Jornal
             this.label14.TabIndex = 146;
             this.label14.Text = "Пробивок:";
             // 
-            // dateTimePicker_Order
+            // textBox_date
             // 
-            this.dateTimePicker_Order.Format = System.Windows.Forms.DateTimePickerFormat.Short;
-            this.dateTimePicker_Order.Location = new System.Drawing.Point(7, 178);
-            this.dateTimePicker_Order.Name = "dateTimePicker_Order";
-            this.dateTimePicker_Order.Size = new System.Drawing.Size(78, 20);
-            this.dateTimePicker_Order.TabIndex = 147;
+            this.textBox_date.Location = new System.Drawing.Point(15, 178);
+            this.textBox_date.Name = "textBox_date";
+            this.textBox_date.Size = new System.Drawing.Size(65, 20);
+            this.textBox_date.TabIndex = 147;
             // 
             // Form_NewOrder
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.ClientSize = new System.Drawing.Size(449, 721);
-            this.Controls.Add(this.dateTimePicker_Order);
+            this.Controls.Add(this.textBox_date);
             this.Controls.Add(this.label14);
             this.Controls.Add(this.label13);
             this.Controls.Add(this.label_Punchs);
@@ -495,6 +497,6 @@ namespace Jornal
         private System.Windows.Forms.Label label_Punchs;
         private System.Windows.Forms.Label label13;
         private System.Windows.Forms.Label label14;
-        public System.Windows.Forms.DateTimePicker dateTimePicker_Order;
+        private System.Windows.Forms.TextBox textBox_date;
     }
 }

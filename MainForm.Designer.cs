@@ -28,10 +28,10 @@ namespace Jornal
 		{
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle4 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle5 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle6 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle7 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle8 = new System.Windows.Forms.DataGridViewCellStyle();
             this.button_Update = new System.Windows.Forms.Button();
             this.button_NewOrder = new System.Windows.Forms.Button();
             this.button_Edit = new System.Windows.Forms.Button();
@@ -80,6 +80,7 @@ namespace Jornal
             this.toolStripStatusLabel_Info = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.ProgressBar_Info = new System.Windows.Forms.ProgressBar();
+            this.button2 = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.Grid_Order)).BeginInit();
             this.contextMenuStrip1.SuspendLayout();
             this.panel1.SuspendLayout();
@@ -101,6 +102,7 @@ namespace Jornal
             this.button_Update.Text = " ";
             this.button_Update.UseVisualStyleBackColor = false;
             this.button_Update.Click += new System.EventHandler(this.Button_UpdateClick);
+            this.button_Update.MouseEnter += new System.EventHandler(this.button_Update_MouseEnter);
             // 
             // button_NewOrder
             // 
@@ -153,41 +155,41 @@ namespace Jornal
             this.Grid_Order.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             this.Grid_Order.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.RaisedHorizontal;
             this.Grid_Order.ColumnHeadersBorderStyle = System.Windows.Forms.DataGridViewHeaderBorderStyle.Sunken;
-            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.TopCenter;
-            dataGridViewCellStyle1.BackColor = System.Drawing.SystemColors.Control;
-            dataGridViewCellStyle1.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            dataGridViewCellStyle1.ForeColor = System.Drawing.SystemColors.WindowText;
-            dataGridViewCellStyle1.SelectionBackColor = System.Drawing.Color.Transparent;
-            dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
-            this.Grid_Order.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
+            dataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.TopCenter;
+            dataGridViewCellStyle5.BackColor = System.Drawing.SystemColors.Control;
+            dataGridViewCellStyle5.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            dataGridViewCellStyle5.ForeColor = System.Drawing.SystemColors.WindowText;
+            dataGridViewCellStyle5.SelectionBackColor = System.Drawing.Color.Transparent;
+            dataGridViewCellStyle5.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle5.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this.Grid_Order.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle5;
             this.Grid_Order.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.Grid_Order.ContextMenuStrip = this.contextMenuStrip1;
             this.Grid_Order.Cursor = System.Windows.Forms.Cursors.Hand;
-            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle2.BackColor = System.Drawing.SystemColors.InactiveBorder;
-            dataGridViewCellStyle2.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
-            dataGridViewCellStyle2.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
-            dataGridViewCellStyle2.SelectionBackColor = System.Drawing.Color.Transparent;
-            dataGridViewCellStyle2.SelectionForeColor = System.Drawing.Color.White;
-            dataGridViewCellStyle2.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
-            this.Grid_Order.DefaultCellStyle = dataGridViewCellStyle2;
+            dataGridViewCellStyle6.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle6.BackColor = System.Drawing.SystemColors.InactiveBorder;
+            dataGridViewCellStyle6.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
+            dataGridViewCellStyle6.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
+            dataGridViewCellStyle6.SelectionBackColor = System.Drawing.Color.Transparent;
+            dataGridViewCellStyle6.SelectionForeColor = System.Drawing.Color.White;
+            dataGridViewCellStyle6.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
+            this.Grid_Order.DefaultCellStyle = dataGridViewCellStyle6;
             this.Grid_Order.GridColor = System.Drawing.SystemColors.Control;
             this.Grid_Order.Location = new System.Drawing.Point(12, 152);
             this.Grid_Order.Name = "Grid_Order";
             this.Grid_Order.ReadOnly = true;
             this.Grid_Order.RowHeadersBorderStyle = System.Windows.Forms.DataGridViewHeaderBorderStyle.None;
-            dataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            dataGridViewCellStyle3.BackColor = System.Drawing.SystemColors.Control;
-            dataGridViewCellStyle3.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            dataGridViewCellStyle3.ForeColor = System.Drawing.SystemColors.WindowText;
-            dataGridViewCellStyle3.SelectionBackColor = System.Drawing.Color.Transparent;
-            dataGridViewCellStyle3.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle3.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
-            this.Grid_Order.RowHeadersDefaultCellStyle = dataGridViewCellStyle3;
+            dataGridViewCellStyle7.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle7.BackColor = System.Drawing.SystemColors.Control;
+            dataGridViewCellStyle7.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            dataGridViewCellStyle7.ForeColor = System.Drawing.SystemColors.WindowText;
+            dataGridViewCellStyle7.SelectionBackColor = System.Drawing.Color.Transparent;
+            dataGridViewCellStyle7.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle7.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this.Grid_Order.RowHeadersDefaultCellStyle = dataGridViewCellStyle7;
             this.Grid_Order.RowHeadersVisible = false;
-            dataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            this.Grid_Order.RowsDefaultCellStyle = dataGridViewCellStyle4;
+            dataGridViewCellStyle8.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.Grid_Order.RowsDefaultCellStyle = dataGridViewCellStyle8;
             this.Grid_Order.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.Grid_Order.Size = new System.Drawing.Size(1812, 333);
             this.Grid_Order.TabIndex = 4;
@@ -333,6 +335,7 @@ namespace Jornal
             // 
             this.panel1.AllowDrop = true;
             this.panel1.BackColor = System.Drawing.SystemColors.ActiveCaption;
+            this.panel1.Controls.Add(this.button2);
             this.panel1.Controls.Add(this.button_Clear_Searh);
             this.panel1.Controls.Add(this.comboBox1);
             this.panel1.Controls.Add(this.checkBox_SortChoiceDayON);
@@ -676,6 +679,16 @@ namespace Jornal
             this.ProgressBar_Info.Size = new System.Drawing.Size(1812, 2);
             this.ProgressBar_Info.TabIndex = 7;
             // 
+            // button2
+            // 
+            this.button2.Location = new System.Drawing.Point(387, 92);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(75, 23);
+            this.button2.TabIndex = 30;
+            this.button2.Text = "button2";
+            this.button2.UseVisualStyleBackColor = true;
+            this.button2.Click += new System.EventHandler(this.button2_Click);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -691,8 +704,9 @@ namespace Jornal
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Журнал заявок";
             this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
+            this.Activated += new System.EventHandler(this.MainForm_Activated);
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainFormFormClosing);
-            this.Load += new System.EventHandler(this.MainFormLoad);           
+            this.Load += new System.EventHandler(this.MainFormLoad);
             ((System.ComponentModel.ISupportInitialize)(this.Grid_Order)).EndInit();
             this.contextMenuStrip1.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
@@ -720,9 +734,6 @@ namespace Jornal
 		private System.Windows.Forms.Button button_Update;
 		private System.Windows.Forms.Button button1;
 		private System.Windows.Forms.CheckBox checkBox_DateDay;
-		private System.Windows.Forms.CheckBox checkBox_Finished;
-		private System.Windows.Forms.CheckBox checkBox_InWork;
-		private System.Windows.Forms.CheckBox checkBox_Sent;
 		private System.Windows.Forms.CheckBox checkBox_SortChoiceDayON;
 		private System.Windows.Forms.ColorDialog colorDialog;
 		private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
@@ -754,6 +765,10 @@ namespace Jornal
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel_Info;
         private System.Windows.Forms.StatusStrip statusStrip;
         private System.Windows.Forms.ProgressBar ProgressBar_Info;
+        private System.Windows.Forms.CheckBox checkBox_Sent;
+        private System.Windows.Forms.CheckBox checkBox_Finished;
+        private System.Windows.Forms.CheckBox checkBox_InWork;
+        private System.Windows.Forms.Button button2;
     }
 }
 	
