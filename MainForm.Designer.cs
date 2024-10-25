@@ -80,7 +80,7 @@ namespace Jornal
             this.toolStripStatusLabel_Info = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.ProgressBar_Info = new System.Windows.Forms.ProgressBar();
-            this.button2 = new System.Windows.Forms.Button();
+            this.checkBox_checkColor = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.Grid_Order)).BeginInit();
             this.contextMenuStrip1.SuspendLayout();
             this.panel1.SuspendLayout();
@@ -335,7 +335,7 @@ namespace Jornal
             // 
             this.panel1.AllowDrop = true;
             this.panel1.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.panel1.Controls.Add(this.button2);
+            this.panel1.Controls.Add(this.checkBox_checkColor);
             this.panel1.Controls.Add(this.button_Clear_Searh);
             this.panel1.Controls.Add(this.comboBox1);
             this.panel1.Controls.Add(this.checkBox_SortChoiceDayON);
@@ -679,15 +679,15 @@ namespace Jornal
             this.ProgressBar_Info.Size = new System.Drawing.Size(1812, 2);
             this.ProgressBar_Info.TabIndex = 7;
             // 
-            // button2
+            // checkBox_checkColor
             // 
-            this.button2.Location = new System.Drawing.Point(387, 92);
-            this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(75, 23);
-            this.button2.TabIndex = 30;
-            this.button2.Text = "button2";
-            this.button2.UseVisualStyleBackColor = true;
-            this.button2.Click += new System.EventHandler(this.button2_Click);
+            this.checkBox_checkColor.AutoSize = true;
+            this.checkBox_checkColor.Location = new System.Drawing.Point(1686, 114);
+            this.checkBox_checkColor.Name = "checkBox_checkColor";
+            this.checkBox_checkColor.Size = new System.Drawing.Size(113, 17);
+            this.checkBox_checkColor.TabIndex = 30;
+            this.checkBox_checkColor.Text = "узнать код цвета";
+            this.checkBox_checkColor.UseVisualStyleBackColor = true;
             // 
             // MainForm
             // 
@@ -768,7 +768,7 @@ namespace Jornal
         private System.Windows.Forms.CheckBox checkBox_Sent;
         private System.Windows.Forms.CheckBox checkBox_Finished;
         private System.Windows.Forms.CheckBox checkBox_InWork;
-        private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.CheckBox checkBox_checkColor;
     }
 }
 	
