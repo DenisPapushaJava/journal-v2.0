@@ -29,7 +29,8 @@ namespace Jornal
             InitializeComponent();           
             //Grid_Order.DefaultCellStyle.SelectionBackColor = ColorTranslator.FromHtml("#9bc3c9");
           // LoadData();
-            comboBox1.SelectedIndex = 0;
+            comboBox1.SelectedIndex = 0;      
+
         }
 
         private void Grid_OrderMouseDown(object sender, MouseEventArgs e)
@@ -75,7 +76,7 @@ namespace Jornal
             OleDbConnection dbConn = new OleDbConnection(conStr.ConnectionString);
             OleDbCommand dbCommand = new OleDbCommand(qry, dbConn);
             OleDbDataAdapter da = new OleDbDataAdapter();
-            DataTable dt = new DataTable();
+            System.Data.DataTable dt = new System.Data.DataTable();
             DataSet ds = new DataSet();
             dbCommand.Connection = dbConn;
             dbCommand.CommandText = qry;
@@ -424,6 +425,9 @@ namespace Jornal
 
         private void NewOrd()
         {
+            int myColor;
+            bool isColor = int.TryParse(ConfigurationManager.AppSettings["TechnologColor"], out myColor);
+            if (!isColor) myColor = -1;
             
             ClearTextResult();
             Form_NewOrder newOrder = new Form_NewOrder();
@@ -482,11 +486,11 @@ namespace Jornal
                     string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
 
                     string query =
-                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Коэффициент) " +
+                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
                         "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
                         "', '" + steelGrade + "', '" + thickness +
                         "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
-                        priceResult + "','" + kFDetPunDB + "'  )";
+                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
                     ConnectAccess(query);
                     dbConn.Close();
                     flagCut = false;
@@ -510,11 +514,11 @@ namespace Jornal
                     string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
 
                     string query =
-                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Коэффициент) " +
+                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
                         "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
                         "', '" + steelGrade + "', '" + thickness +
                         "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
-                        priceResult + "','" + kFDetPunDB + "'  )";
+                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
 
                     ConnectAccess(query);
                     dbConn.Close();
@@ -539,12 +543,11 @@ namespace Jornal
                     string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
 
                     string query =
-                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Коэффициент) " +
+                       "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
                         "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
                         "', '" + steelGrade + "', '" + thickness +
                         "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
-                        priceResult + "','" + kFDetPunDB + "'  )";
-
+                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
                     ConnectAccess(query);
                     dbConn.Close();
                     flagCut = false;
@@ -568,11 +571,11 @@ namespace Jornal
                     string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
 
                     string query =
-                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Коэффициент) " +
+                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
                         "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
                         "', '" + steelGrade + "', '" + thickness +
                         "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
-                        priceResult + "','" + kFDetPunDB + "'  )";
+                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
 
                     ConnectAccess(query);
                     dbConn.Close();
@@ -1036,7 +1039,7 @@ namespace Jornal
             
             Grid_Order.GetType().GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic)
                 .SetValue(Grid_Order, true, null);
-            if (Application.OpenForms["MainForm"] != null)
+            if (System.Windows.Forms.Application.OpenForms["MainForm"] != null)
             {
                 loadForm.Close();
             }
@@ -1167,18 +1170,27 @@ namespace Jornal
         }
 
         void Button_ColorDialogClick(object sender, EventArgs e)
-        {
-            if (Grid_Order.Rows.Count != 0)
+        {                     
+            if (Grid_Order.Rows.Count != 0 && !checkBox_checkColor.Checked)
             {
                 if (colorDialog.ShowDialog() == DialogResult.OK)
                 {
-                    int color = colorDialog.Color.ToArgb();
+                    int color = colorDialog.Color.ToArgb();                   
                     int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
                     ColorInDB(color);
                     button_ColorDialog.BackColor = System.Drawing.Color.FromArgb(color);
                     ColorRow(color, key);
                     UpdateDataGrid();
                 }
+            }
+            if (checkBox_checkColor.Checked)
+            {
+                if (colorDialog.ShowDialog() == DialogResult.OK)
+                {
+                    int color = colorDialog.Color.ToArgb();
+                    richTextBox_Result.Text = color.ToString();
+                }
+                checkBox_checkColor.Checked = false;
             }
         }
 
@@ -1309,11 +1321,11 @@ namespace Jornal
         {
             if (comboBox1.Text == "Толщина")
             {
-                (Grid_Order.DataSource as DataTable).DefaultView.RowFilter = string.Format("Convert(" + comboBox1.Text + ",'System.String') LIKE '{0}'", textBox_Searh.Text);
+                (Grid_Order.DataSource as System.Data.DataTable).DefaultView.RowFilter = string.Format("Convert(" + comboBox1.Text + ",'System.String') LIKE '{0}'", textBox_Searh.Text);
             }
             else
             {
-                (Grid_Order.DataSource as DataTable).DefaultView.RowFilter = string.Format("[{0}] LIKE '%{1}%'", comboBox1.Text, textBox_Searh.Text);
+                (Grid_Order.DataSource as System.Data.DataTable).DefaultView.RowFilter = string.Format("[{0}] LIKE '%{1}%'", comboBox1.Text, textBox_Searh.Text);
             }
         }
         void ComboBox1_SelectedIndexChanged(object sender, EventArgs e)
@@ -1359,21 +1371,5 @@ namespace Jornal
             AddTextInfo(statusStrip, toolStripStatusLabel_Info, "Синхронизировать с базой данных");
         }
 
-        private void button2_Click(object sender, EventArgs e)
-        {
-            Microsoft.Office.Interop.Excel.Application excelapp = new Microsoft.Office.Interop.Excel.Application();
-            Microsoft.Office.Interop.Excel.Workbook workbook = excelapp.Workbooks.Add();
-            Microsoft.Office.Interop.Excel.Worksheet worksheet = workbook.ActiveSheet;
-            for (int i = 1; i < Grid_Order.RowCount+1; i++)
-            {
-                for(int j = 1;j < Grid_Order.ColumnCount+1; j++)
-                {
-                    worksheet.Rows[i].Columns[j] = Grid_Order.Rows[i - 1].Cells[j - 1].Value;
-                }
-            }
-            excelapp.AlertBeforeOverwriting = false;
-            workbook.SaveAs(@"C:\файл.xls");
-            excelapp.Quit();
-        }
     }
 }
