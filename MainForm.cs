@@ -298,7 +298,7 @@ namespace Jornal
 
         private void AddBLCB_In_DB()
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Add_BLCB addBLCBDB = new Add_BLCB();
 
@@ -357,7 +357,7 @@ namespace Jornal
 
         private void ColorInDB(int color)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 if (Grid_Order.SelectedRows.Count > 1)
                 {
@@ -597,7 +597,7 @@ namespace Jornal
         {
             {
                 //Кнопка удалить___________________________________________________
-                if (Grid_Order.Rows.Count != 0)
+                if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
                 {
                     int key;
                     string managerName;
@@ -619,7 +619,7 @@ namespace Jornal
 
         private void Edit()
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Form_NewOrder newOrder = new Form_NewOrder();
                 string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, kFStr, cntDet, cntPun, doubleSeparator;
@@ -851,7 +851,7 @@ namespace Jornal
                 }
             }
 
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 foreach (var i in numberSelectedRows)
                 {
@@ -916,7 +916,7 @@ namespace Jornal
         
         private void CopyComment()
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 
                 int index = Grid_Order.CurrentCell.RowIndex;
@@ -954,83 +954,83 @@ namespace Jornal
         }
         private void CopyCommentTelegramm()
         {
+            ClearTextResult();
             string commResultLaser = "";
             string commResultPlasma = "";
             string commResultGas = "";
             richTextBox_Result.Text = "";
-
-            if (Grid_Order == null || Grid_Order.Rows.Count == 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
-                MessageBox.Show("Нет данных для обработки", "Внимание...", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            string numBLCB = Convert.ToString(Grid_Order.CurrentRow.Cells[13].Value);
-            if (numBLCB.Length > 5)
-            {
-                numBLCB = numBLCB.Substring(numBLCB.Length - 5);
-            }
-
-            if (numBLCB.Length != 5)
-            {
-                MessageBox.Show("Номер реализации не добавлен", "Внимание...", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            string commResultHeader = ""; // Объявляем переменную здесь
-
-            foreach (DataGridViewRow row in Grid_Order.SelectedRows)
-            {
-                string manager = Convert.ToString(row.Cells[2].Value);
-                string client = Convert.ToString(row.Cells[4].Value);
-                string thikchess = Convert.ToString(row.Cells[7].Value);
-                string steelGreed = Convert.ToString(row.Cells[6].Value);
-                string typeCut = Convert.ToString(row.Cells[5].Value);
-
-                if (string.IsNullOrEmpty(manager) || string.IsNullOrEmpty(client) || string.IsNullOrEmpty(thikchess) || string.IsNullOrEmpty(steelGreed) || string.IsNullOrEmpty(typeCut))
+                string numBLCB = (Convert.ToString(Grid_Order.CurrentRow.Cells[13].Value));
+                if (numBLCB.Length > 5)
                 {
-                    MessageBox.Show("Одно из значений в строке пустое или null", "Внимание...", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    continue;
+                    numBLCB = numBLCB.Substring(numBLCB.Length - 5);
                 }
 
-                commResultHeader = $"{numBLCB.TrimStart('0')}  {manager} ({client})\n";
-
-                if (typeCut == "Лазер")
+                for (int i = Grid_Order.SelectedRows.Count - 1; i >= 0; i--)
                 {
-                    commResultLaser += $"**{thikchess} мм {steelGreed}**  \n";
+                    numberSelectedRows.Add(Grid_Order.SelectedRows[i].Index);
                 }
-                else if (typeCut == "Плазма")
-                {
-                    commResultPlasma += $"**{thikchess} мм {steelGreed}**  \n";
-                }
-                else if (typeCut == "Газо-кислородная")
-                {
-                    commResultGas += $"**{thikchess} мм {steelGreed}**  \n";
-                }
-            }
 
-            string commResult = commResultHeader;
-            if (!string.IsNullOrEmpty(commResultLaser))
-            {
-                commResult += $"{commResultLaser.TrimEnd('\n')} на Лазер\n\n";
-            }
-            if (!string.IsNullOrEmpty(commResultPlasma))
-            {
-                commResult += $"{commResultPlasma.TrimEnd('\n')} на Плазму\n\n";
-            }
-            if (!string.IsNullOrEmpty(commResultGas))
-            {
-                commResult += $"{commResultGas.TrimEnd('\n')} на Кристалл резка газом";
-            }
+                if (Grid_Order.Rows.Count != 0)
+                {
+                    foreach (var i in numberSelectedRows)
+                    {
+                        string manager, client, thikchess, steelGreed, typeCut;
+                        manager = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[2].Value);
+                        client = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[4].Value);
+                        thikchess = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[7].Value);
+                        steelGreed = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[6].Value);
+                        typeCut = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[5].Value);
 
-            if (!string.IsNullOrEmpty(commResult))
-            {
-                Clipboard.SetText(commResult);
-                AddTextInfo(statusStrip, toolStripStatusLabel_Info, "Комментарий для Telegram скопирован");
-            }
-            else
-            {
-                MessageBox.Show("Нет данных для копирования", "Внимание...", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        string commResultHeader;
+                        if (numBLCB.Length == 5)
+                        {
+                            {
+                                commResultHeader = $"{numBLCB.TrimStart('0')}  {manager} ({client})\n";
+
+                                if (typeCut == "Лазер")
+                                {
+                                    commResultLaser += $"**{thikchess} мм {steelGreed}**  \n";
+                                }
+                                if (typeCut == "Плазма")
+                                {
+                                    commResultPlasma += $"**{thikchess} мм {steelGreed}**  \n";
+                                }
+                                if (typeCut == "Газо-кислородная")
+                                {
+                                    commResultGas += $"**{thikchess} мм {steelGreed}**  \n";
+                                }
+                            }
+                        }
+                        else
+                        {
+                            MessageBox.Show("Номер реализации не добавлен", "Внимание...",
+                             MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            return;
+                        }
+                        string commResult = commResultHeader;
+                        if (!string.IsNullOrEmpty(commResultLaser))
+                        {
+                            commResult += $"{commResultLaser.TrimEnd('\n')} на Лазер\n\n";
+                        }
+                        if (!string.IsNullOrEmpty(commResultPlasma))
+                        {
+                            commResult += $"{commResultPlasma.TrimEnd('\n')} на Плазму\n\n";
+                        }
+                        if (!string.IsNullOrEmpty(commResultGas))
+                        {
+                            commResult += $"{commResultGas.TrimEnd('\n')} на Кристалл резка газом";
+                        }
+
+                        if (!string.IsNullOrEmpty(commResult))
+                        {
+                            Clipboard.SetText(commResult);
+                            AddTextInfo(statusStrip, toolStripStatusLabel_Info, "Комментарий для Telegram скопирован");
+                        }
+                    }
+                    numberSelectedRows.Clear();
+                }
             }
         }
 
@@ -1135,7 +1135,7 @@ namespace Jornal
 
         void Button_ColorInWorkClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1148,7 +1148,7 @@ namespace Jornal
 
         void Button_ColorFinishClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1160,7 +1160,7 @@ namespace Jornal
 
         void Button_SentClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1172,7 +1172,7 @@ namespace Jornal
 
         void Button_ColorDialogClick(object sender, EventArgs e)
         {                     
-            if (Grid_Order.Rows.Count != 0 && !checkBox_checkColor.Checked)
+            if (Grid_Order.Rows.Count != 0 && !checkBox_checkColor.Checked && Grid_Order.CurrentRow != null)
             {
                 if (colorDialog.ShowDialog() == DialogResult.OK)
                 {
@@ -1202,7 +1202,7 @@ namespace Jornal
 
         void Button_ClearColorClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 ColorInDB(-1);
                 UpdateDataGrid();
@@ -1226,7 +1226,7 @@ namespace Jornal
 
         void ВРаботеToolStripMenuItemClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1238,7 +1238,7 @@ namespace Jornal
 
         void ГотовоToolStripMenuItemClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1250,7 +1250,7 @@ namespace Jornal
 
         void ToolStripMenuItem1Click(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1262,7 +1262,7 @@ namespace Jornal
 
         void ДругойЦветToolStripMenuItemClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 if (colorDialog.ShowDialog() == DialogResult.OK)
                 {
@@ -1278,7 +1278,7 @@ namespace Jornal
 
         void СнятьВыделениеToolStripMenuItemClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 ColorInDB(-1);
                 UpdateDataGrid();
@@ -1300,7 +1300,7 @@ namespace Jornal
 
         void ДобавитьБЛЦБToolStripMenuItem1Click(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 AddBLCB_In_DB();
             }
