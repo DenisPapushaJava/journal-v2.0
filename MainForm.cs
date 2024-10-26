@@ -957,81 +957,82 @@ namespace Jornal
             string commResultLaser = "";
             string commResultPlasma = "";
             string commResultGas = "";
-            if (Grid_Order.Rows.Count != 0)
+            richTextBox_Result.Text = "";
+
+            if (Grid_Order == null || Grid_Order.Rows.Count == 0)
             {
-                string numBLCB = (Convert.ToString(Grid_Order.CurrentRow.Cells[13].Value));
-                if (numBLCB.Length > 5)
+                MessageBox.Show("Нет данных для обработки", "Внимание...", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string numBLCB = Convert.ToString(Grid_Order.CurrentRow.Cells[13].Value);
+            if (numBLCB.Length > 5)
+            {
+                numBLCB = numBLCB.Substring(numBLCB.Length - 5);
+            }
+
+            if (numBLCB.Length != 5)
+            {
+                MessageBox.Show("Номер реализации не добавлен", "Внимание...", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string commResultHeader = ""; // Объявляем переменную здесь
+
+            foreach (DataGridViewRow row in Grid_Order.SelectedRows)
+            {
+                string manager = Convert.ToString(row.Cells[2].Value);
+                string client = Convert.ToString(row.Cells[4].Value);
+                string thikchess = Convert.ToString(row.Cells[7].Value);
+                string steelGreed = Convert.ToString(row.Cells[6].Value);
+                string typeCut = Convert.ToString(row.Cells[5].Value);
+
+                if (string.IsNullOrEmpty(manager) || string.IsNullOrEmpty(client) || string.IsNullOrEmpty(thikchess) || string.IsNullOrEmpty(steelGreed) || string.IsNullOrEmpty(typeCut))
                 {
-                    numBLCB = numBLCB.Substring(numBLCB.Length - 5);
+                    MessageBox.Show("Одно из значений в строке пустое или null", "Внимание...", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    continue;
                 }
 
-                for (int i = Grid_Order.SelectedRows.Count - 1; i >= 0; i--)
+                commResultHeader = $"{numBLCB.TrimStart('0')}  {manager} ({client})\n";
+
+                if (typeCut == "Лазер")
                 {
-                    numberSelectedRows.Add(Grid_Order.SelectedRows[i].Index);
+                    commResultLaser += $"**{thikchess} мм {steelGreed}**  \n";
                 }
-
-                if (Grid_Order.Rows.Count != 0)
+                else if (typeCut == "Плазма")
                 {
-                    foreach (var i in numberSelectedRows)
-                    {
-                        string manager, client, thikchess, steelGreed, typeCut;
-                        manager = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[2].Value);
-                        client = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[4].Value);
-                        thikchess = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[7].Value);
-                        steelGreed = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[6].Value);
-                        typeCut = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[5].Value);
-
-                        string commResultHeader;
-                        if (numBLCB.Length == 5)
-                        {
-                            {
-                                commResultHeader = $"{numBLCB.TrimStart('0')}  {manager} ({client})\n";
-
-                                if (typeCut == "Лазер")
-                                {
-                                    commResultLaser += $"**{thikchess} мм {steelGreed}**  \n";
-                                }
-                                if (typeCut == "Плазма")
-                                {
-                                    commResultPlasma += $"**{thikchess} мм {steelGreed}**  \n";
-                                }
-                                if (typeCut == "Газо-кислородная")
-                                {
-                                    commResultGas += $"**{thikchess} мм {steelGreed}**  \n";
-                                }
-                            }
-                        }
-                        else
-                        {
-                            MessageBox.Show("Номер реализации не добавлен", "Внимание...",
-                             MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            return;
-                        }
-                        string commResult = commResultHeader;
-                        if (commResultLaser != "")
-                        {
-                            commResult += $"{commResultLaser.TrimEnd('\n')} на Лазер\n\n";
-                        }
-                        if (commResultPlasma != "")
-                        {
-                            commResult += $"{commResultPlasma.TrimEnd('\n')} на Плазму\n\n";
-                        }
-                        if (commResultGas != "")
-                        {
-                            commResult += $"{commResultGas.TrimEnd('\n')} на Кристалл резка газом";
-                        }
-                        if (commResult != "")
-                        {
-                            Clipboard.SetText(commResult);
-                            
-                            AddTextInfo(statusStrip, toolStripStatusLabel_Info, "Комментарий для Telegram скопирован");
-                            
-                        }
-                    }
-                    numberSelectedRows.Clear();
+                    commResultPlasma += $"**{thikchess} мм {steelGreed}**  \n";
+                }
+                else if (typeCut == "Газо-кислородная")
+                {
+                    commResultGas += $"**{thikchess} мм {steelGreed}**  \n";
                 }
             }
-        }        
+
+            string commResult = commResultHeader;
+            if (!string.IsNullOrEmpty(commResultLaser))
+            {
+                commResult += $"{commResultLaser.TrimEnd('\n')} на Лазер\n\n";
+            }
+            if (!string.IsNullOrEmpty(commResultPlasma))
+            {
+                commResult += $"{commResultPlasma.TrimEnd('\n')} на Плазму\n\n";
+            }
+            if (!string.IsNullOrEmpty(commResultGas))
+            {
+                commResult += $"{commResultGas.TrimEnd('\n')} на Кристалл резка газом";
+            }
+
+            if (!string.IsNullOrEmpty(commResult))
+            {
+                Clipboard.SetText(commResult);
+                AddTextInfo(statusStrip, toolStripStatusLabel_Info, "Комментарий для Telegram скопирован");
+            }
+            else
+            {
+                MessageBox.Show("Нет данных для копирования", "Внимание...", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
 
         void MainFormLoad(object sender, EventArgs e)
         {
