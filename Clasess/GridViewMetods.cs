@@ -8,31 +8,22 @@ namespace Jornal
     {
         static public void ColorSelectedRows(DataGridView grid)
         {
-            Color colorDefault = Color.DarkCyan;
-            Color colorWork = Color.FromArgb(192, 0, 0);
-            Color colorFinish = Color.Green;
-            Color colorSented = Color.Blue;
-            if (grid.Rows.Count != 0)
+            if (grid == null || grid.CurrentRow == null || grid.CurrentRow.Cells[14] == null || grid.CurrentRow.Cells[14].Value == null)
             {
-                
-                if (Convert.ToString((grid.CurrentRow.Cells[14].Value)) != "")
-                {
-                    switch (Convert.ToInt32((grid.CurrentRow.Cells[14].Value)))
-                    {
-                        case -882036:
-                            grid.CurrentRow.DefaultCellStyle.SelectionBackColor = colorWork;
-                            return;
-                        case -10238087:
-                            grid.CurrentRow.DefaultCellStyle.SelectionBackColor = colorFinish;
-                            return;
-                        case -8154114:
-                            grid.CurrentRow.DefaultCellStyle.SelectionBackColor = colorSented;
-                            return;
-                        default:
-                            grid.CurrentRow.DefaultCellStyle.SelectionBackColor = colorDefault;
-                            return;
-                    }
-                }
+                return;
+            }
+
+            if (Convert.ToInt32((grid.CurrentRow.Cells[14].Value)) == -1)
+            {
+                grid.CurrentRow.DefaultCellStyle.SelectionBackColor = Color.DarkCyan;
+            }
+            else
+            {
+                Color color = Color.FromArgb(Convert.ToInt32((grid.CurrentRow.Cells[14].Value)));
+                int darkerRed = (int)(color.R * 0.6);
+                int darkerGreen = (int)(color.G * 0.6);
+                int darkerBlue = (int)(color.B * 0.6);
+                grid.CurrentRow.DefaultCellStyle.SelectionBackColor = Color.FromArgb(darkerRed, darkerGreen, darkerBlue);
             }
         }
     }
