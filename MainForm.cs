@@ -10,12 +10,7 @@ using System.Configuration;
 using System.Reflection;
 using static Jornal.GridViewMetods;
 using static Jornal.TextBoxMetods;
-using System.Diagnostics;
-using System.Threading.Tasks;
-using System.Threading;
 using System.Globalization;
-using System.Collections;
-using Microsoft.Office.Interop.Excel;
 
 namespace Jornal
 {
@@ -905,6 +900,7 @@ namespace Jornal
                     }
                 }
             }
+            
         }
 
         private void ClearTextResult()
@@ -1130,6 +1126,7 @@ namespace Jornal
 
         void ДобавитьБЛЦБToolStripMenuItemClick(object sender, EventArgs e)
         {
+            ClearTextResult();
             AddBLCB_In_DB();
         }
 
