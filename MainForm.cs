@@ -548,7 +548,7 @@ namespace Jornal
                     flagCut = false;
                 }
 
-                if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 90)
+                if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 200)
                 {
                     string queryPrice = "SELECT * FROM PriceG";
                     ConnectionStringSettings conString;
@@ -575,6 +575,34 @@ namespace Jornal
                     ConnectAccess(query);
                     dbConn.Close();
                     flagCut = false;
+                }
+                if (newOrder.comboBox_Cut.Text == "HansLaser" & thickness <= 60)
+                {
+                    string queryPrice = "SELECT * FROM PriceHL";
+                    ConnectionStringSettings conString;
+                    conString = ConfigurationManager.ConnectionStrings["pathdb"];
+
+                    string price;
+
+                    OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+                    OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
+                    dbConn.Open();
+                    OleDbDataReader dbReader = dbCommand.ExecuteReader();
+                    dbReader.Read();
+                    price = Convert.ToString(dbReader[thStr]);
+                    priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
+                    string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
+
+                    string query =
+                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
+                        "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
+                        "', '" + steelGrade + "', '" + thickness +
+                        "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
+                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
+
+                    ConnectAccess(query);
+                    flagCut = false;
+                    dbConn.Close();
                 }
 
                 if (flagCut)
@@ -776,9 +804,37 @@ namespace Jornal
                         dbConn.Close();
                     }
 
-                    if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 90)
+                    if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 200)
                     {
                         string queryPrice = "SELECT * FROM PriceG";
+                        ConnectionStringSettings conString;
+                        conString = ConfigurationManager.ConnectionStrings["pathdb"];
+
+                        string price;
+
+                        OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+                        OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
+                        dbConn.Open();
+                        OleDbDataReader dbReader = dbCommand.ExecuteReader();
+                        dbReader.Read();
+                        price = Convert.ToString(dbReader[thStr]);
+                        priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
+                        string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
+
+                        string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" + numberOfSpec +
+                                       "',Заказчик='" +
+                                       client + "', Вид_резки='" + cut + "', Марка_стали= '" + steelGrade +
+                                       "',Толщина='" + thickness + "', Размер_листа='" +
+                                       size + "', Ход='" + lenghtCut + "', Вес='" + weight + "', Кол_во_листов='" +
+                                       sheetCount + "', Стоимость='" + priceResult + "', Коэффициент='" + kFDetPunDB + "' WHERE Код = " + key;
+
+                        ConnectAccess(query);
+                        flagCut = false;
+                        dbConn.Close();
+                    }
+                    if (newOrder.comboBox_Cut.Text == "HansLaser"  & thickness <= 60)
+                    {
+                        string queryPrice = "SELECT * FROM PriceHL";
                         ConnectionStringSettings conString;
                         conString = ConfigurationManager.ConnectionStrings["pathdb"];
 
@@ -894,7 +950,7 @@ namespace Jornal
                         priceR = SpacesCount(priceR, priceRLen);
                         
 
-                        richTextBox_Result.Text = richTextBox_Result.Text + "Лист " + thickness + "x" + size + "," + "\t" + "   Сталь " + stellGrade + "," + "\t"
+                        richTextBox_Result.Text = richTextBox_Result.Text + "Лист " + thickness + "x" + size + "," + "\t" + "   Материал: " + stellGrade + "," + "\t"
                             + "   " + sheetCount + " шт." + "\t" + "   Вес " + weight + " кг." + "\t" + "   Резка " + priceR + " ₽." + "\t" + "   резка " + cut + "\n";
                         numberUsedRows.Add(i);
                     }

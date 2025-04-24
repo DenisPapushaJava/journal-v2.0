@@ -135,7 +135,8 @@ namespace Jornal
             this.comboBox_Cut.Items.AddRange(new object[] {
             "Лазер",
             "Плазма",
-            "Газо-кислородная"});
+            "Газо-кислородная",
+            "HansLaser"});
             this.comboBox_Cut.Location = new System.Drawing.Point(156, 330);
             this.comboBox_Cut.Name = "comboBox_Cut";
             this.comboBox_Cut.Size = new System.Drawing.Size(257, 21);
@@ -191,7 +192,10 @@ namespace Jornal
             "60",
             "70",
             "80",
-            "90"});
+            "90",
+            "100",
+            "120",
+            "200"});
             this.comboBox_Thickness.Location = new System.Drawing.Point(156, 416);
             this.comboBox_Thickness.Name = "comboBox_Thickness";
             this.comboBox_Thickness.Size = new System.Drawing.Size(257, 21);
