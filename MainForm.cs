@@ -421,11 +421,13 @@ namespace Jornal
 
         private void NewOrd()
         {
+            ClearTextResult();
             int myColor;
             bool isColor = int.TryParse(ConfigurationManager.AppSettings["TechnologColor"], out myColor);
             if (!isColor) myColor = -1;
-            
-            ClearTextResult();
+            string notValue = "-1";
+
+
             Form_NewOrder newOrder = new Form_NewOrder();
             string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, doubleSeparator, idMat;
             int lenghtCut;
@@ -466,6 +468,7 @@ namespace Jornal
                 if (newOrder.comboBox_Cut.Text == "Лазер" & thickness <= 20)
                 {
                     string queryPrice = "SELECT * FROM PriceLL500";
+                    
 
                     ConnectionStringSettings conString;
                     conString = ConfigurationManager.ConnectionStrings["pathdb"];
@@ -479,8 +482,8 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
-
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.lbMat == "" ? notValue : newOrder.lbMat)}|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
+                    
                     string query =
                         "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
                         "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
@@ -507,7 +510,7 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.lbMat == "" ? notValue : newOrder.lbMat)}|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
 
                     string query =
                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -535,7 +538,7 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.lbMat == "" ? notValue : newOrder.lbMat)}|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
 
                     string query =
                         "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -550,9 +553,8 @@ namespace Jornal
                 }
                 if (newOrder.comboBox_Cut.Text == "HansLaser" & thickness <= 60)
                 {
-                    idMat = newOrder.idMat;
-                 
-                    string queryPrice = "SELECT * FROM PriceHL";
+                    idMat = newOrder.idMat;                 
+                    string queryPrice = $"SELECT * FROM {NameTableDBOfId(idMat)}";
                     ConnectionStringSettings conString;
                     conString = ConfigurationManager.ConnectionStrings["pathdb"];
 
@@ -565,7 +567,7 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.lbMat == "" ? notValue : newOrder.lbMat)}|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
 
                     string query =
                         "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -619,7 +621,7 @@ namespace Jornal
             if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Form_NewOrder newOrder = new Form_NewOrder();
-                string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, kFStr, cntDet, cntPun, doubleSeparator;
+                string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, kFStr, cntDet, cntPun, doubleSeparator, idMat;
                 int lenghtCut, key;
                 double thickness, priceResult, kF;
                 string[] kFDetPun;
@@ -702,8 +704,6 @@ namespace Jornal
                             price = Convert.ToString(dbReader[thStr]);
                             priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
                             string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
-
-
                             string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" +
                                            numberOfSpec + "',Заказчик='" +
                                            client + "', Вид_резки='" + cut + "', Марка_стали= '" + steelGrade +
@@ -777,12 +777,11 @@ namespace Jornal
                     }
                     if (newOrder.comboBox_Cut.Text == "HansLaser"  & thickness <= 60)
                     {
-                        string queryPrice = "SELECT * FROM PriceHL";
+                        idMat = newOrder.idMat;
+                        string price;
+                        string queryPrice = $"SELECT * FROM {NameTableDBOfId(idMat)}";                        
                         ConnectionStringSettings conString;
                         conString = ConfigurationManager.ConnectionStrings["pathdb"];
-
-                        string price;
-
                         OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
                         OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
                         dbConn.Open();

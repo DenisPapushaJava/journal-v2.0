@@ -199,6 +199,28 @@ namespace Jornal
                 comboBox_ID_MAT.Text = value;
             }
         }
+        public string lbMat
+        {
+            get
+            {
+                return label_ID_MAT.Text;
+            }
+            set
+            {
+                label_ID_MAT.Text = value;
+            }
+        }
+        public string lbCurGas
+        {
+            get
+            {
+                return label_CUR_GAS.Text;
+            }
+            set
+            {
+                label_CUR_GAS.Text = value;
+            }
+        }
         
         void Form1Load(object sender, EventArgs e)
         {
