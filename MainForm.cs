@@ -10,6 +10,7 @@ using System.Configuration;
 using System.Reflection;
 using static Jornal.GridViewMetods;
 using static Jornal.TextBoxMetods;
+using static Jornal.IdMaterialPrice;
 using System.Globalization;
 
 namespace Jornal
@@ -426,7 +427,7 @@ namespace Jornal
             
             ClearTextResult();
             Form_NewOrder newOrder = new Form_NewOrder();
-            string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, doubleSeparator;
+            string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, doubleSeparator, idMat;
             int lenghtCut;
             double thickness, priceResult, kF;
             newOrder.ShowDialog();
@@ -442,7 +443,7 @@ namespace Jornal
                 cut = newOrder.comboBox_Cut.Text;
                 steelGrade = newOrder.comboBox_SteelGreed.Text;
                 sheetCount = newOrder.textBox_SheetCount.Text;
-                size = newOrder.comboBox_Size.Text;
+                size = newOrder.comboBox_Size.Text;                
 
                 //Integer
                 lenghtCut = Convert.ToInt32(newOrder.textBox_LengthCut.Text);
@@ -462,7 +463,7 @@ namespace Jornal
                 bool flagCut = true;
 
 
-                if (newOrder.comboBox_Cut.Text == "Лазер" & lenghtCut < 500 & thickness <= 20)
+                if (newOrder.comboBox_Cut.Text == "Лазер" & thickness <= 20)
                 {
                     string queryPrice = "SELECT * FROM PriceLL500";
 
@@ -490,36 +491,7 @@ namespace Jornal
                     dbConn.Close();
                     flagCut = false;
                 }
-                else if (newOrder.comboBox_Cut.Text == "Лазер" & lenghtCut >= 500 & thickness <= 20)
-                {
-                    string queryPrice = "SELECT * FROM PriceLM500";
-
-                    ConnectionStringSettings conString;
-                    conString = ConfigurationManager.ConnectionStrings["pathdb"];
-
-                    string price;
-
-                    OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
-                    OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
-                    dbConn.Open();
-                    OleDbDataReader dbReader = dbCommand.ExecuteReader();
-                    dbReader.Read();
-                    price = Convert.ToString(dbReader[thStr]);
-                    priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
-
-                    string query =
-                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
-                        "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
-                        "', '" + steelGrade + "', '" + thickness +
-                        "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
-                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
-
-                    ConnectAccess(query);
-                    dbConn.Close();
-                    flagCut = false;
-                }
-
+                
                 if (newOrder.comboBox_Cut.Text == "Плазма" & thickness >= 2 & thickness <= 32)
                 {
                     string queryPrice = "SELECT * FROM PriceP";
@@ -578,6 +550,8 @@ namespace Jornal
                 }
                 if (newOrder.comboBox_Cut.Text == "HansLaser" & thickness <= 60)
                 {
+                    idMat = newOrder.idMat;
+                 
                     string queryPrice = "SELECT * FROM PriceHL";
                     ConnectionStringSettings conString;
                     conString = ConfigurationManager.ConnectionStrings["pathdb"];
@@ -715,9 +689,7 @@ namespace Jornal
                     //weight = double.Parse(newOrder.textBox_Weight.Text.Replace('.', ','));
                     weight = newOrder.textBox_Weight.Text;
                     if (newOrder.comboBox_Cut.Text == "Лазер" & thickness <= 20)
-                    {
-                        if (lenghtCut < 500)
-                        {
+                    {  
                             string queryPrice = "SELECT * FROM PriceLL500";
                             ConnectionStringSettings conString;
                             conString = ConfigurationManager.ConnectionStrings["pathdb"];
@@ -742,36 +714,7 @@ namespace Jornal
                             ConnectAccess(query);
                             flagCut = false;
                             dbConn.Close();
-                        }
-                        else if (lenghtCut >= 500)
-                        {
-                            string queryPrice = "SELECT * FROM PriceLM500";
-
-                            ConnectionStringSettings conString;
-                            conString = ConfigurationManager.ConnectionStrings["pathdb"];
-
-                            string price;
-
-                            OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
-                            OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
-                            dbConn.Open();
-                            OleDbDataReader dbReader = dbCommand.ExecuteReader();
-                            dbReader.Read();
-                            price = Convert.ToString(dbReader[thStr]);
-                            priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                            string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
-
-                            string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" +
-                                           numberOfSpec + "',Заказчик='" +
-                                           client + "', Вид_резки='" + cut + "', Марка_стали= '" + steelGrade +
-                                           "',Толщина='" + thickness + "', Размер_листа='" +
-                                           size + "', Ход='" + lenghtCut + "', Вес='" + weight + "', Кол_во_листов='" +
-                                           sheetCount + "', Стоимость='" + priceResult + "', Коэффициент='" + kFDetPunDB + "' WHERE Код = " + key;
-
-                            ConnectAccess(query);
-                            flagCut = false;
-                            dbConn.Close();
-                        }
+                        
                     }
 
 

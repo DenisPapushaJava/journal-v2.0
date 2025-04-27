@@ -89,6 +89,7 @@
     </Compile>
     <Compile Include="Clasess\CalculationCoefficient.cs" />
     <Compile Include="Clasess\GridViewMetods.cs" />
+    <Compile Include="Clasess\IdMaterialPrice.cs" />
     <Compile Include="Clasess\TextBoxMetods.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>

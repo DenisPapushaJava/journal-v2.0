@@ -6,6 +6,7 @@ using static Jornal.TextBoxMetods;
 using static Jornal.Clasess.CalculationCoefficient;
 using System.Configuration;
 using System.Globalization;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace Jornal
 {
@@ -187,14 +188,24 @@ namespace Jornal
                 label_Punchs.Text = value;
             }
         }
-
-
+        public string idMat
+        {
+            get
+            {
+                return comboBox_ID_MAT.Text;
+            }
+            set
+            {
+                comboBox_ID_MAT.Text = value;
+            }
+        }
+        
         void Form1Load(object sender, EventArgs e)
         {
             DateTime today = DateTime.Now;
           //  textBox_MyDate.Text = today.ToShortDateString();
             AcceptButton = button_Ok;
-            CancelButton = button_Cancel;
+            CancelButton = button_Cancel;            
         }
         void Button_OkClick(object sender, EventArgs e)
         {
@@ -224,22 +235,24 @@ namespace Jornal
                 //***************Speca HansLaser
                 if (textBox_Run.Text.StartsWith("@"))
                 {
+                    groupBox_ID_MAT.Visible = true;
                     flag = true;//cneck spec
                     string[] hansLaserSpecArray = textBox_Run.Text.Split(new[] {'\n', '\r'}, StringSplitOptions.RemoveEmptyEntries);
-                   //for (int i = 0; i< hansLaserSpecArray.Length; i++)
-                   // {
-                   //     MessageBox.Show($"{i}--{hansLaserSpecArray[i]}");
-                   // }
+                    //for (int i = 0; i < hansLaserSpecArray.Length; i++)
+                    //{
+                    //    MessageBox.Show($"{i}--{hansLaserSpecArray[i]}");
+                    //}
                     string[] dateSpec = Regex.Split(hansLaserSpecArray[10], "-");//Date
-
                     string[] infoSheets = Regex.Split(hansLaserSpecArray[24], " ");//infomation of sheets
                     string valueStr = hansLaserSpecArray[17].Trim();
                     double lenghtCut = Math.Ceiling(Convert.ToDouble(valueStr, CultureInfo.InvariantCulture) / 1000);
                     tBDate = $"{dateSpec[2]}.{dateSpec[1]}.{dateSpec[0]}";//data
                     tBNSpec = $"{dateSpec[1]}{dateSpec[2]}-{(dateSpec[3] == "" ? dateSpec[4] : dateSpec[3])}";//№Speca                    
-                    cBCut = "HansLaser";
+                    cBCut = "HansLaser";                    
                     cBSteelGrade = $"{infoSheets[3]}";
-                    cBThickness = $"{infoSheets[4]}";                    
+                    idMat = $"{infoSheets[4].Split('_')[0]}";
+                    label_CUR_GAS.Text = $"{infoSheets[4].Split('_')[1]}";
+                    cBThickness = $"{infoSheets[5]}";                    
                     tBSheetCount = $"{hansLaserSpecArray[13]}";
                     cBSize = $"{infoSheets[2]}x{infoSheets[1]}";
                     tBLenCut = lenghtCut.ToString();
@@ -610,6 +623,42 @@ namespace Jornal
         private void textBox_Kf_TextChanged(object sender, EventArgs e)
         {
             CheckTB(textBox_Kf);
+        }
+
+        private void groupBox1_Enter(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label15_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void comboBox_ID_MAT_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (comboBox_ID_MAT.SelectedItem != null) // Проверка, что выбран элемент
+            {
+                switch (comboBox_ID_MAT.SelectedItem) {
+                    case "0":
+                        label_ID_MAT.Text = "Черная сталь";
+                        break;
+                    case "1":
+                        label_ID_MAT.Text = "Нержавеющая сталь";
+                        break;
+                    case "2":
+                        label_ID_MAT.Text = "Цветной металл";
+                        break;
+                    default:
+                        break;
+                }
+            }
+            
+        }
+
+        private void textBox_Run_TextChanged(object sender, EventArgs e)
+        {            
+                groupBox_ID_MAT.Visible = false;            
         }
     }
 }
