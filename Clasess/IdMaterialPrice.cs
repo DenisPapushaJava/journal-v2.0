@@ -1,5 +1,4 @@
-﻿using System.Windows.Forms;
-namespace Jornal
+﻿namespace Jornal
 {
     internal class IdMaterialPrice
     {

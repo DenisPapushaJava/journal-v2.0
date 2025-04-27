@@ -645,17 +645,7 @@ namespace Jornal
         private void textBox_Kf_TextChanged(object sender, EventArgs e)
         {
             CheckTB(textBox_Kf);
-        }
-
-        private void groupBox1_Enter(object sender, EventArgs e)
-        {
-
-        }
-
-        private void label15_Click(object sender, EventArgs e)
-        {
-
-        }
+        }       
 
         private void comboBox_ID_MAT_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -671,16 +661,27 @@ namespace Jornal
                     case "2":
                         label_ID_MAT.Text = "Цветной металл";
                         break;
+                    case "-1":
+                        label_ID_MAT.Text = "Default";
+                        break;
                     default:
                         break;
                 }
             }
             
         }
+           
 
-        private void textBox_Run_TextChanged(object sender, EventArgs e)
-        {            
-                groupBox_ID_MAT.Visible = false;            
+        private void comboBox_Cut_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if(comboBox_Cut.SelectedItem != null && comboBox_Cut.SelectedItem.ToString() == "HansLaser")  
+            {
+                groupBox_ID_MAT.Visible = true;
+            }
+            else
+            {
+                groupBox_ID_MAT.Visible = false;
+            }
         }
     }
 }

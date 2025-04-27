@@ -72,8 +72,8 @@ namespace Jornal
             this.textBox_date = new System.Windows.Forms.TextBox();
             this.comboBox_ID_MAT = new System.Windows.Forms.ComboBox();
             this.groupBox_ID_MAT = new System.Windows.Forms.GroupBox();
-            this.label_ID_MAT = new System.Windows.Forms.Label();
             this.label_CUR_GAS = new System.Windows.Forms.Label();
+            this.label_ID_MAT = new System.Windows.Forms.Label();
             this.panel1.SuspendLayout();
             this.groupBox_ID_MAT.SuspendLayout();
             this.SuspendLayout();
@@ -111,7 +111,6 @@ namespace Jornal
             this.textBox_Run.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             this.textBox_Run.Size = new System.Drawing.Size(432, 88);
             this.textBox_Run.TabIndex = 1;
-            this.textBox_Run.TextChanged += new System.EventHandler(this.textBox_Run_TextChanged);
             // 
             // textBox_Manager
             // 
@@ -147,6 +146,7 @@ namespace Jornal
             this.comboBox_Cut.Name = "comboBox_Cut";
             this.comboBox_Cut.Size = new System.Drawing.Size(257, 21);
             this.comboBox_Cut.TabIndex = 60;
+            this.comboBox_Cut.SelectedIndexChanged += new System.EventHandler(this.comboBox_Cut_SelectedIndexChanged);
             // 
             // comboBox_SteelGreed
             // 
@@ -435,15 +435,17 @@ namespace Jornal
             "1",
             "2"});
             this.comboBox_ID_MAT.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBox_ID_MAT.Enabled = false;
             this.comboBox_ID_MAT.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.comboBox_ID_MAT.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.comboBox_ID_MAT.Items.AddRange(new object[] {
             "0",
             "1",
-            "2"});
-            this.comboBox_ID_MAT.Location = new System.Drawing.Point(191, 16);
+            "2",
+            "-1"});
+            this.comboBox_ID_MAT.Location = new System.Drawing.Point(197, 16);
             this.comboBox_ID_MAT.Name = "comboBox_ID_MAT";
-            this.comboBox_ID_MAT.Size = new System.Drawing.Size(60, 21);
+            this.comboBox_ID_MAT.Size = new System.Drawing.Size(40, 21);
             this.comboBox_ID_MAT.TabIndex = 148;
             this.comboBox_ID_MAT.SelectedIndexChanged += new System.EventHandler(this.comboBox_ID_MAT_SelectedIndexChanged);
             // 
@@ -463,24 +465,22 @@ namespace Jornal
             this.groupBox_ID_MAT.TabStop = false;
             this.groupBox_ID_MAT.Text = "ID Материала";
             this.groupBox_ID_MAT.Visible = false;
-            this.groupBox_ID_MAT.Enter += new System.EventHandler(this.groupBox1_Enter);
-            // 
-            // label_ID_MAT
-            // 
-            this.label_ID_MAT.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.label_ID_MAT.Location = new System.Drawing.Point(18, 16);
-            this.label_ID_MAT.Name = "label_ID_MAT";
-            this.label_ID_MAT.Size = new System.Drawing.Size(165, 20);
-            this.label_ID_MAT.TabIndex = 149;
-            this.label_ID_MAT.Click += new System.EventHandler(this.label15_Click);
             // 
             // label_CUR_GAS
             // 
             this.label_CUR_GAS.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.label_CUR_GAS.Location = new System.Drawing.Point(18, 46);
             this.label_CUR_GAS.Name = "label_CUR_GAS";
-            this.label_CUR_GAS.Size = new System.Drawing.Size(165, 20);
+            this.label_CUR_GAS.Size = new System.Drawing.Size(167, 20);
             this.label_CUR_GAS.TabIndex = 150;
+            // 
+            // label_ID_MAT
+            // 
+            this.label_ID_MAT.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.label_ID_MAT.Location = new System.Drawing.Point(18, 16);
+            this.label_ID_MAT.Name = "label_ID_MAT";
+            this.label_ID_MAT.Size = new System.Drawing.Size(167, 20);
+            this.label_ID_MAT.TabIndex = 149;
             // 
             // Form_NewOrder
             // 
@@ -565,9 +565,9 @@ namespace Jornal
         private System.Windows.Forms.Label label13;
         private System.Windows.Forms.Label label14;
         private System.Windows.Forms.TextBox textBox_date;
-        private System.Windows.Forms.GroupBox groupBox_ID_MAT;
         private System.Windows.Forms.Label label_ID_MAT;
         private System.Windows.Forms.Label label_CUR_GAS;
-        private System.Windows.Forms.ComboBox comboBox_ID_MAT;
+        public System.Windows.Forms.GroupBox groupBox_ID_MAT;
+        public System.Windows.Forms.ComboBox comboBox_ID_MAT;
     }
 }

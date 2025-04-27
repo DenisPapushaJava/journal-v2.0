@@ -427,9 +427,9 @@ namespace Jornal
             if (!isColor) myColor = -1;
             string notValue = "-1";
 
-
             Form_NewOrder newOrder = new Form_NewOrder();
-            string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, doubleSeparator, idMat;
+            string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, 
+                doubleSeparator, idMat;
             int lenghtCut;
             double thickness, priceResult, kF;
             newOrder.ShowDialog();
@@ -464,8 +464,7 @@ namespace Jornal
                 weight = newOrder.textBox_Weight.Text;
                 bool flagCut = true;
 
-
-                if (newOrder.comboBox_Cut.Text == "Лазер" & thickness <= 20)
+                if (newOrder.comboBox_Cut.Text == "Лазер" && thickness <= 20)
                 {
                     string queryPrice = "SELECT * FROM PriceLL500";
                     
@@ -482,7 +481,8 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.lbMat == "" ? notValue : newOrder.lbMat)}|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.idMat == "" ? notValue : newOrder.idMat)}" +
+                        $"|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
                     
                     string query =
                         "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -495,7 +495,7 @@ namespace Jornal
                     flagCut = false;
                 }
                 
-                if (newOrder.comboBox_Cut.Text == "Плазма" & thickness >= 2 & thickness <= 32)
+                if (newOrder.comboBox_Cut.Text == "Плазма" && thickness >= 2 && thickness <= 32)
                 {
                     string queryPrice = "SELECT * FROM PriceP";
                     ConnectionStringSettings conString;
@@ -510,7 +510,8 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.lbMat == "" ? notValue : newOrder.lbMat)}|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.idMat == "" ? notValue : newOrder.idMat)}" +
+                        $"|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
 
                     string query =
                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -523,7 +524,7 @@ namespace Jornal
                     flagCut = false;
                 }
 
-                if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 200)
+                if (newOrder.comboBox_Cut.Text == "Газо-кислородная" && thickness >= 16 && thickness <= 200)
                 {
                     string queryPrice = "SELECT * FROM PriceG";
                     ConnectionStringSettings conString;
@@ -538,7 +539,8 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.lbMat == "" ? notValue : newOrder.lbMat)}|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.idMat == "" ? notValue : newOrder.idMat)}" +
+                        $"|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
 
                     string query =
                         "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -551,7 +553,7 @@ namespace Jornal
                     dbConn.Close();
                     flagCut = false;
                 }
-                if (newOrder.comboBox_Cut.Text == "HansLaser" & thickness <= 60)
+                if (newOrder.comboBox_Cut.Text == "HansLaser" && thickness <= 60)
                 {
                     idMat = newOrder.idMat;                 
                     string queryPrice = $"SELECT * FROM {NameTableDBOfId(idMat)}";
@@ -567,7 +569,9 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.lbMat == "" ? notValue : newOrder.lbMat)}|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|" +
+                        $"{(newOrder.idMat == "" ? notValue : newOrder.idMat)}|" +
+                        $"{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";                   
 
                     string query =
                         "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -619,9 +623,10 @@ namespace Jornal
         private void Edit()
         {
             if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
-            {
-                Form_NewOrder newOrder = new Form_NewOrder();
-                string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, kFStr, cntDet, cntPun, doubleSeparator, idMat;
+            {               
+                Form_NewOrder newOrder = new Form_NewOrder(); 
+                string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount,
+                    thStr, weight, size, kFStr, cntDet, cntPun, doubleSeparator, idMat, curGas;
                 int lenghtCut, key;
                 double thickness, priceResult, kF;
                 string[] kFDetPun;
@@ -640,13 +645,12 @@ namespace Jornal
                 newOrder.tBLenCut = Convert.ToString(Grid_Order.CurrentRow.Cells[9].Value);
                 newOrder.tBWeight = Convert.ToString(Grid_Order.CurrentRow.Cells[10].Value);
                 newOrder.tBSheetCount = Convert.ToString(Grid_Order.CurrentRow.Cells[11].Value);
-                kFDetPun = Convert.ToString(Grid_Order.CurrentRow.Cells[15].Value).Split('|');
-
+                kFDetPun = Convert.ToString(Grid_Order.CurrentRow.Cells[15].Value).Split('|');  
                 if (kFDetPun.Length == 3)
                 {
                     kFStr = kFDetPun[0];
                     cntDet = kFDetPun[1];
-                    cntPun = kFDetPun[2];
+                    cntPun = kFDetPun[2]; 
                     newOrder.tBKf = kFStr;
                     newOrder.LB_Details = cntDet;
                     newOrder.LB_Punchs = cntPun;
@@ -656,8 +660,25 @@ namespace Jornal
                     newOrder.tBKf = "1.0";
                     newOrder.LB_Details = "?";
                     newOrder.LB_Punchs = "?";
+                    newOrder.idMat = "-1";
+                    newOrder.lbCurGas = "-1";
 
                 }
+
+                if(kFDetPun.Length == 5)
+                {
+                    kFStr = kFDetPun[0];
+                    cntDet = kFDetPun[1];
+                    cntPun = kFDetPun[2];
+                    idMat = kFDetPun[3];
+                    curGas = kFDetPun[4];
+                    newOrder.tBKf = kFStr;
+                    newOrder.LB_Details = cntDet;
+                    newOrder.LB_Punchs = cntPun;
+                    newOrder.idMat = idMat;
+                    newOrder.lbCurGas = curGas;
+                }
+               
                 bool flagCut = true;
                 ClearTextResult();
                 key = Convert.ToInt32(Grid_Order.CurrentRow.Cells[0].Value);
@@ -690,7 +711,7 @@ namespace Jornal
                     }
                     //weight = double.Parse(newOrder.textBox_Weight.Text.Replace('.', ','));
                     weight = newOrder.textBox_Weight.Text;
-                    if (newOrder.comboBox_Cut.Text == "Лазер" & thickness <= 20)
+                    if (newOrder.comboBox_Cut.Text == "Лазер" && thickness <= 20)
                     {  
                             string queryPrice = "SELECT * FROM PriceLL500";
                             ConnectionStringSettings conString;
@@ -703,7 +724,9 @@ namespace Jornal
                             dbReader.Read();
                             price = Convert.ToString(dbReader[thStr]);
                             priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                            string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
+                            string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|" +
+                            $"{newOrder.LB_Punchs}|{newOrder.idMat}|{newOrder.lbCurGas}";
+
                             string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" +
                                            numberOfSpec + "',Заказчик='" +
                                            client + "', Вид_резки='" + cut + "', Марка_стали= '" + steelGrade +
@@ -718,7 +741,7 @@ namespace Jornal
                     }
 
 
-                    if (newOrder.comboBox_Cut.Text == "Плазма" & thickness >= 2 & thickness <= 32)
+                    if (newOrder.comboBox_Cut.Text == "Плазма" && thickness >= 2 && thickness <= 32)
                     {
                         string queryPrice = "SELECT * FROM PriceP";
                         ConnectionStringSettings conString;
@@ -747,7 +770,7 @@ namespace Jornal
                         dbConn.Close();
                     }
 
-                    if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 200)
+                    if (newOrder.comboBox_Cut.Text == "Газо-кислородная" && thickness >= 16 && thickness <= 200)
                     {
                         string queryPrice = "SELECT * FROM PriceG";
                         ConnectionStringSettings conString;
@@ -775,8 +798,9 @@ namespace Jornal
                         flagCut = false;
                         dbConn.Close();
                     }
-                    if (newOrder.comboBox_Cut.Text == "HansLaser"  & thickness <= 60)
+                    if (newOrder.comboBox_Cut.Text == "HansLaser" && thickness <= 60)
                     {
+                        
                         idMat = newOrder.idMat;
                         string price;
                         string queryPrice = $"SELECT * FROM {NameTableDBOfId(idMat)}";                        
@@ -789,7 +813,7 @@ namespace Jornal
                         dbReader.Read();
                         price = Convert.ToString(dbReader[thStr]);
                         priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                        string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
+                        string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}|{newOrder.idMat}|{newOrder.lbCurGas}";
 
                         string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" + numberOfSpec +
                                        "',Заказчик='" +
