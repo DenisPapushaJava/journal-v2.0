@@ -221,13 +221,13 @@ namespace Jornal
                 label_CUR_GAS.Text = value;
             }
         }
-        
+
         void Form1Load(object sender, EventArgs e)
         {
             DateTime today = DateTime.Now;
-          //  textBox_MyDate.Text = today.ToShortDateString();
+            //  textBox_MyDate.Text = today.ToShortDateString();
             AcceptButton = button_Ok;
-            CancelButton = button_Cancel;            
+            CancelButton = button_Cancel;
         }
         void Button_OkClick(object sender, EventArgs e)
         {
@@ -259,7 +259,7 @@ namespace Jornal
                 {
                     groupBox_ID_MAT.Visible = true;
                     flag = true;//cneck spec
-                    string[] hansLaserSpecArray = textBox_Run.Text.Split(new[] {'\n', '\r'}, StringSplitOptions.RemoveEmptyEntries);
+                    string[] hansLaserSpecArray = textBox_Run.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                     //for (int i = 0; i < hansLaserSpecArray.Length; i++)
                     //{
                     //    MessageBox.Show($"{i}--{hansLaserSpecArray[i]}");
@@ -270,11 +270,11 @@ namespace Jornal
                     double lenghtCut = Math.Ceiling(Convert.ToDouble(valueStr, CultureInfo.InvariantCulture) / 1000);
                     tBDate = $"{dateSpec[2]}.{dateSpec[1]}.{dateSpec[0]}";//data
                     tBNSpec = $"{dateSpec[1]}{dateSpec[2]}-{(dateSpec[3] == "" ? dateSpec[4] : dateSpec[3])}";//№Speca                    
-                    cBCut = "HansLaser";                    
+                    cBCut = "HansLaser";
                     cBSteelGrade = $"{infoSheets[3]}";
                     idMat = $"{infoSheets[4].Split('_')[0]}";
                     label_CUR_GAS.Text = $"{infoSheets[4].Split('_')[1]}";
-                    cBThickness = $"{infoSheets[5]}";                    
+                    cBThickness = $"{infoSheets[5]}";
                     tBSheetCount = $"{hansLaserSpecArray[13]}";
                     cBSize = $"{infoSheets[2]}x{infoSheets[1]}";
                     tBLenCut = lenghtCut.ToString();
@@ -294,7 +294,8 @@ namespace Jornal
 
 
                 }
-                else {
+                else
+                {
                     if ((textBox_Run.Text.Substring(0, 1)) == " ")
                     {               //условие для спецификации из винтех
                                     // Автозаполение толщины__________________________________________
@@ -623,8 +624,8 @@ namespace Jornal
                     {
                         comboBox_Cut.Text = "Газо-кислородная";
                     }
-                } 
-                 
+                }
+
             }
 
         }
@@ -645,13 +646,14 @@ namespace Jornal
         private void textBox_Kf_TextChanged(object sender, EventArgs e)
         {
             CheckTB(textBox_Kf);
-        }       
+        }
 
         private void comboBox_ID_MAT_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (comboBox_ID_MAT.SelectedItem != null) // Проверка, что выбран элемент
             {
-                switch (comboBox_ID_MAT.SelectedItem) {
+                switch (comboBox_ID_MAT.SelectedItem)
+                {
                     case "0":
                         label_ID_MAT.Text = "Черная сталь";
                         break;
@@ -668,13 +670,13 @@ namespace Jornal
                         break;
                 }
             }
-            
+
         }
-           
+
 
         private void comboBox_Cut_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if(comboBox_Cut.SelectedItem != null && comboBox_Cut.SelectedItem.ToString() == "HansLaser")  
+            if (comboBox_Cut.SelectedItem != null && comboBox_Cut.SelectedItem.ToString() == "HansLaser")
             {
                 groupBox_ID_MAT.Visible = true;
             }

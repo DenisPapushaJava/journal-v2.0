@@ -294,6 +294,7 @@ namespace Jornal
 
         private void AddBLCB_In_DB()
         {
+            ClearTextResult();
             if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Add_BLCB addBLCBDB = new Add_BLCB();
@@ -976,6 +977,8 @@ namespace Jornal
             string commResultLaser = "";
             string commResultPlasma = "";
             string commResultGas = "";
+            string commResultHansLaser = "";
+
             richTextBox_Result.Text = "";
             if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
@@ -1003,13 +1006,16 @@ namespace Jornal
 
                         string commResultHeader;
                         if (numBLCB.Length == 5)
-                        {
-                            {
+                        {                          
                                 commResultHeader = $"{numBLCB.TrimStart('0')}  {manager} ({client})\n";
 
                                 if (typeCut == "Лазер")
                                 {
                                     commResultLaser += $"**{thikchess} мм {steelGreed}**  \n";
+                                }
+                                if (typeCut == "HansLaser")
+                                {
+                                    commResultHansLaser += $"**{thikchess} мм {steelGreed}**  \n";
                                 }
                                 if (typeCut == "Плазма")
                                 {
@@ -1018,8 +1024,7 @@ namespace Jornal
                                 if (typeCut == "Газо-кислородная")
                                 {
                                     commResultGas += $"**{thikchess} мм {steelGreed}**  \n";
-                                }
-                            }
+                                }  
                         }
                         else
                         {
@@ -1031,6 +1036,10 @@ namespace Jornal
                         if (!string.IsNullOrEmpty(commResultLaser))
                         {
                             commResult += $"{commResultLaser.TrimEnd('\n')} на Лазер\n\n";
+                        }
+                        if (!string.IsNullOrEmpty(commResultHansLaser))
+                        {
+                            commResult += $"{commResultHansLaser.TrimEnd('\n')} на HansLaser\n\n";
                         }
                         if (!string.IsNullOrEmpty(commResultPlasma))
                         {
@@ -1148,7 +1157,6 @@ namespace Jornal
 
         void ДобавитьБЛЦБToolStripMenuItemClick(object sender, EventArgs e)
         {
-            ClearTextResult();
             AddBLCB_In_DB();
         }
 
