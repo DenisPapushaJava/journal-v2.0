@@ -105,6 +105,8 @@ namespace Jornal
             // 
             // textBox_Run
             // 
+            this.textBox_Run.AllowDrop = true;
+            this.textBox_Run.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.textBox_Run.Location = new System.Drawing.Point(6, 30);
             this.textBox_Run.MaxLength = 302767;
             this.textBox_Run.Multiline = true;
@@ -112,6 +114,9 @@ namespace Jornal
             this.textBox_Run.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             this.textBox_Run.Size = new System.Drawing.Size(432, 88);
             this.textBox_Run.TabIndex = 1;
+            this.textBox_Run.DragDrop += new System.Windows.Forms.DragEventHandler(this.textBox_Run_DragDrop);
+            this.textBox_Run.DragEnter += new System.Windows.Forms.DragEventHandler(this.textBox_Run_DragEnter);
+            this.textBox_Run.DragLeave += new System.EventHandler(this.textBox_Run_DragLeave);
             // 
             // textBox_Manager
             // 
@@ -494,6 +499,7 @@ namespace Jornal
             // 
             // Form_NewOrder
             // 
+            this.AllowDrop = true;
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.ClientSize = new System.Drawing.Size(449, 740);

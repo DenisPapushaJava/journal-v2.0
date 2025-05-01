@@ -6,6 +6,12 @@ using static Jornal.TextBoxMetods;
 using static Jornal.Clasess.CalculationCoefficient;
 using System.Configuration;
 using System.Globalization;
+using System.Drawing;
+using System.Linq;
+using System.IO;
+using System.Threading.Tasks;
+using iTextSharp.text.pdf;
+using iTextSharp.text.pdf.parser;
 
 namespace Jornal
 {
@@ -253,26 +259,27 @@ namespace Jornal
             {
                 bool flag = false;
                 //***************Speca HansLaser******************
-                if (textBox_Run.Text.StartsWith("@"))
+                if ((textBox_Run.Text[0] == '*' && textBox_Run.Text[1] == '@') || textBox_Run.Text[0] == '@')
                 {
+                    bool isDropText = textBox_Run.Text[0] == '*';                    
                     groupBox_ID_MAT.Visible = true;
                     flag = true;//check spec
                     string[] hansLaserSpecArray = textBox_Run.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                    for (int i = 0; i < hansLaserSpecArray.Length; i++)
-                    {
-                        MessageBox.Show($"{i}--{hansLaserSpecArray[i]}");
-                    }
+                    //for (int i = 0; i < hansLaserSpecArray.Length; i++)
+                    //{
+                    //    MessageBox.Show($"{i}--{hansLaserSpecArray[i]}");
+                    //}
                     string[] dateSpec = Regex.Split(hansLaserSpecArray[10], "-");//Date
-                    string[] infoSheets = Regex.Split(hansLaserSpecArray[25], " ");//infomation of sheets
+                    string[] infoSheets = Regex.Split(hansLaserSpecArray[(isDropText ? 30 : 25)], " ");//infomation of sheets
                     string valueStr = hansLaserSpecArray[17].Trim();
                     double lenghtCut = Math.Ceiling(Convert.ToDouble(valueStr, CultureInfo.InvariantCulture) / 1000);
                     tBDate = $"{dateSpec[2]}.{dateSpec[1]}.{dateSpec[0]}";//data
                     tBNSpec = $"{dateSpec[1]}{dateSpec[2]}-{(dateSpec[3] == "" ? dateSpec[4] : dateSpec[3])}";//№Speca                    
                     cBCut = "HansLaser";
-                    cBSteelGrade = $"{infoSheets[3].Split('_')[0]}";
-                    idMat = $"{infoSheets[3].Split('_')[1]}";
-                    label_CUR_GAS.Text = $"Газ:  {infoSheets[4]}";
-                    cBThickness = $"{infoSheets[5]}";
+                    cBSteelGrade = $"{infoSheets[(isDropText? 0 : 3)].Split('_')[0]}";
+                    idMat = $"{infoSheets[(isDropText ? 0 : 3)].Split('_')[1]}";
+                    label_CUR_GAS.Text = $"Газ:  {(isDropText? hansLaserSpecArray[31].Split(' ')[1] : infoSheets[4])}";                    
+                    cBThickness = $"{(isDropText ? hansLaserSpecArray[29].TrimStart().Split(' ')[1] : infoSheets[5])}";
                     tBSheetCount = $"{hansLaserSpecArray[13]}";
                     cBSize = $"{infoSheets[2]}x{infoSheets[1]}";
                     tBLenCut = lenghtCut.ToString();
@@ -679,6 +686,73 @@ namespace Jornal
                 groupBox_ID_MAT.Visible = false;
             }
         }
+        private readonly Color NORMAL_COLOR = SystemColors.Window;
+        private readonly Color ACTIVE_COLOR = Color.Lavender;
+        private readonly Color ERROR_COLOR = Color.DarkSalmon;
+        private void textBox_Run_DragEnter(object sender, DragEventArgs e)
+        {
+            textBox_Run.Text = "";
+            textBox_Run.BackColor = ACTIVE_COLOR;
+            textBox_Run.BorderStyle = BorderStyle.Fixed3D;
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                if(files.Any(f => System.IO.Path.GetExtension(f).Equals(".pdf", StringComparison.OrdinalIgnoreCase)))
+                {                   
+                    e.Effect = DragDropEffects.Copy;
+                    return;
+                }
+                else
+                {
+                    textBox_Run.BackColor = ERROR_COLOR;
+                    return;
+                }
+            }
+            e.Effect = DragDropEffects.None;
+           
+        }
        
+        private void textBox_Run_DragLeave(object sender, EventArgs e)
+        {
+            textBox_Run.BackColor = NORMAL_COLOR;
+            textBox_Run.BorderStyle = BorderStyle.None;
+        }
+
+        private async void textBox_Run_DragDrop(object sender, DragEventArgs e)
+        {
+            textBox_Run.BackColor = NORMAL_COLOR;            
+            textBox_Run.Refresh();
+            try
+            {
+                if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                {
+                    var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    var pdfFile = files.FirstOrDefault(f =>
+                    System.IO.Path.GetExtension(f).Equals(".pdf", StringComparison.OrdinalIgnoreCase));
+                    if (pdfFile != null)
+                    {
+                        string extractedText = await Task.Run(() => ExtractTextFromPdf(pdfFile));
+                        textBox_Run.Text = $"*{extractedText}";
+                    }
+                }
+            }
+            catch(Exception ex) {
+            MessageBox.Show($"Ошибка {ex.Message}");
+            }   
+        }
+        private string ExtractTextFromPdf(string filePath)
+        {
+            using (PdfReader reader = new PdfReader(filePath))
+            {
+                System.Text.StringBuilder text = new System.Text.StringBuilder();                
+                for (int i = 1; i <= reader.NumberOfPages; i++)
+                {
+                    text.AppendLine(PdfTextExtractor.GetTextFromPage(reader, i, new SimpleTextExtractionStrategy()));
+                }
+
+                return text.ToString();
+            }
+        }
     }
 }
+
