@@ -8,7 +8,7 @@ using System.Windows.Forms;
 using System.Data.OleDb;
 using System.Configuration;
 using System.Reflection;
-using static Jornal.GridViewMetods;
+using static Jornal.GridViewMethods;
 using static Jornal.TextBoxMetods;
 using static Jornal.IdMaterialPrice;
 using System.Globalization;

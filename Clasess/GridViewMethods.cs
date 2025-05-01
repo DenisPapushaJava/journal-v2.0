@@ -4,7 +4,7 @@ using System.Windows.Forms;
 
 namespace Jornal
 {
-    public class GridViewMetods
+    public class GridViewMethods
     {
         static public void ColorSelectedRows(DataGridView grid)
         {
