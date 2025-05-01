@@ -8,7 +8,6 @@ using System.Configuration;
 using System.Globalization;
 using System.Drawing;
 using System.Linq;
-using System.IO;
 using System.Threading.Tasks;
 using iTextSharp.text.pdf;
 using iTextSharp.text.pdf.parser;

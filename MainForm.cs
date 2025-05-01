@@ -1131,6 +1131,7 @@ namespace Jornal
         {
             if (richTextBox_Result.Text.Length != 0)
             {
+                
                 DataObject dto = new DataObject();
                 dto.SetText(richTextBox_Result.Rtf, TextDataFormat.Rtf);
                 dto.SetText(richTextBox_Result.Text, TextDataFormat.UnicodeText);
