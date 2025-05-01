@@ -258,10 +258,10 @@ namespace Jornal
                     groupBox_ID_MAT.Visible = true;
                     flag = true;//check spec
                     string[] hansLaserSpecArray = textBox_Run.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                    //for (int i = 0; i < hansLaserSpecArray.Length; i++)
-                    //{
-                    //    MessageBox.Show($"{i}--{hansLaserSpecArray[i]}");
-                    //}
+                    for (int i = 0; i < hansLaserSpecArray.Length; i++)
+                    {
+                        MessageBox.Show($"{i}--{hansLaserSpecArray[i]}");
+                    }
                     string[] dateSpec = Regex.Split(hansLaserSpecArray[10], "-");//Date
                     string[] infoSheets = Regex.Split(hansLaserSpecArray[25], " ");//infomation of sheets
                     string valueStr = hansLaserSpecArray[17].Trim();
@@ -668,7 +668,6 @@ namespace Jornal
 
         }
 
-
         private void comboBox_Cut_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (comboBox_Cut.SelectedItem != null && comboBox_Cut.SelectedIndex == 3)
@@ -680,5 +679,6 @@ namespace Jornal
                 groupBox_ID_MAT.Visible = false;
             }
         }
+       
     }
 }

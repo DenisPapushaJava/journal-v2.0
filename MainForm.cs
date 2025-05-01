@@ -625,7 +625,8 @@ namespace Jornal
         {
             if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {               
-                Form_NewOrder newOrder = new Form_NewOrder(); 
+                Form_NewOrder newOrder = new Form_NewOrder();
+                newOrder.Text = "Редактировать заявку";
                 string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount,
                     thStr, weight, size, kFStr, cntDet, cntPun, doubleSeparator, idMat, curGas;
                 int lenghtCut, key;

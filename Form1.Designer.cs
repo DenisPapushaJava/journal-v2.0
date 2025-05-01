@@ -74,6 +74,7 @@ namespace Jornal
             this.groupBox_ID_MAT = new System.Windows.Forms.GroupBox();
             this.label_CUR_GAS = new System.Windows.Forms.Label();
             this.label_ID_MAT = new System.Windows.Forms.Label();
+            this.label15 = new System.Windows.Forms.Label();
             this.panel1.SuspendLayout();
             this.groupBox_ID_MAT.SuspendLayout();
             this.SuspendLayout();
@@ -362,11 +363,11 @@ namespace Jornal
             // 
             // label11
             // 
-            this.label11.Location = new System.Drawing.Point(88, 8);
+            this.label11.Location = new System.Drawing.Point(109, 8);
             this.label11.Name = "label11";
-            this.label11.Size = new System.Drawing.Size(264, 18);
+            this.label11.Size = new System.Drawing.Size(232, 18);
             this.label11.TabIndex = 21;
-            this.label11.Text = "Скопировать сюда текст из Спецификации Блок";
+            this.label11.Text = "Скопировать текст из Спецификации Блок";
             // 
             // label12
             // 
@@ -423,7 +424,7 @@ namespace Jornal
             // 
             // textBox_date
             // 
-            this.textBox_date.Location = new System.Drawing.Point(15, 178);
+            this.textBox_date.Location = new System.Drawing.Point(62, 180);
             this.textBox_date.Name = "textBox_date";
             this.textBox_date.Size = new System.Drawing.Size(65, 20);
             this.textBox_date.TabIndex = 147;
@@ -482,11 +483,21 @@ namespace Jornal
             this.label_ID_MAT.Size = new System.Drawing.Size(167, 20);
             this.label_ID_MAT.TabIndex = 149;
             // 
+            // label15
+            // 
+            this.label15.Location = new System.Drawing.Point(-2, 178);
+            this.label15.Name = "label15";
+            this.label15.Size = new System.Drawing.Size(58, 23);
+            this.label15.TabIndex = 150;
+            this.label15.Text = "Дата";
+            this.label15.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
             // Form_NewOrder
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.ClientSize = new System.Drawing.Size(449, 740);
+            this.Controls.Add(this.label15);
             this.Controls.Add(this.groupBox_ID_MAT);
             this.Controls.Add(this.textBox_date);
             this.Controls.Add(this.label14);
@@ -569,5 +580,6 @@ namespace Jornal
         private System.Windows.Forms.Label label_CUR_GAS;
         public System.Windows.Forms.GroupBox groupBox_ID_MAT;
         public System.Windows.Forms.ComboBox comboBox_ID_MAT;
+        private System.Windows.Forms.Label label15;
     }
 }
