@@ -251,9 +251,8 @@ namespace Jornal
             }
             else
             {
-
                 bool flag = false;
-                //***************Speca HansLaser
+                //***************Speca HansLaser******************
                 if (textBox_Run.Text.StartsWith("@"))
                 {
                     groupBox_ID_MAT.Visible = true;
@@ -277,7 +276,7 @@ namespace Jornal
                     tBSheetCount = $"{hansLaserSpecArray[13]}";
                     cBSize = $"{infoSheets[2]}x{infoSheets[1]}";
                     tBLenCut = lenghtCut.ToString();
-                    tBWeight = $"{hansLaserSpecArray[15]}";
+                    tBWeight = $"{hansLaserSpecArray[15]}";                    
                     string kf = "1.0";
                     string coutnDetail = $"{hansLaserSpecArray[11]}".Trim();
                     double cntDetails = Convert.ToDouble(coutnDetail.Trim());
@@ -672,7 +671,7 @@ namespace Jornal
 
         private void comboBox_Cut_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (comboBox_Cut.SelectedItem != null && comboBox_Cut.SelectedItem.ToString() == "HansLaser")
+            if (comboBox_Cut.SelectedItem != null && comboBox_Cut.SelectedIndex == 3)
             {
                 groupBox_ID_MAT.Visible = true;
             }

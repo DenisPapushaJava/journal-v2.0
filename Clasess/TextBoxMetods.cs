@@ -1,4 +1,5 @@
-﻿using System.Windows.Forms;
+﻿using System.Linq;
+using System.Windows.Forms;
 
 namespace Jornal
 {
@@ -43,6 +44,8 @@ namespace Jornal
                 e.Handled |= !char.IsDigit(number) && number != 8 && number != 44 && number != 46;
             }
         }
+
+
         public static void ClearText(TextBox tb)
         {
             tb.Text = "";
@@ -54,7 +57,7 @@ namespace Jornal
         }
         public static void AddTextInfo(StatusStrip stStrip, ToolStripStatusLabel tSSL, string info)
         {
-            stStrip.Visible = true;
+           stStrip.Visible = true;
            tSSL.Text = info;
         }
     }
