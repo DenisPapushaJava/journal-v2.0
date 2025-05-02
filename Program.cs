@@ -1,31 +1,27 @@
-﻿/*
- * Создано в SharpDevelop.
- * Пользователь: denis
- * Дата: 23.03.2022
- * Время: 21:20
- * 
- * Для изменения этого шаблона используйте меню "Инструменты | Параметры | Кодирование | Стандартные заголовки".
- */
+﻿
 using System;
+using System.IO;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace Jornal
 {
-	/// <summary>
-	/// Class with program entry point.
-	/// </summary>
+	
 	internal sealed class Program
-	{
-		/// <summary>
-		/// Program entry point.
-		/// </summary>
+	{	
 		[STAThread]
 		private static void Main(string[] args)
 		{
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
+			Application.ThreadException += new ThreadExceptionEventHandler(Exception);
 			Application.Run(new MainForm());
 		}
-		
-	}
+
+         static void Exception(object sender, ThreadExceptionEventArgs e)
+        {
+            File.AppendAllText("error.log", $"[{DateTime.Now}] {e.Exception}\n\n");
+            MessageBox.Show(e.Exception.ToString(),"Ошибка",MessageBoxButtons.OK,MessageBoxIcon.Error);
+        }
+    }
 }
