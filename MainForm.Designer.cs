@@ -28,10 +28,10 @@ namespace Jornal
 		{
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle4 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle5 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle6 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle7 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle8 = new System.Windows.Forms.DataGridViewCellStyle();
             this.button_Update = new System.Windows.Forms.Button();
             this.button_NewOrder = new System.Windows.Forms.Button();
             this.button_Edit = new System.Windows.Forms.Button();
@@ -81,6 +81,7 @@ namespace Jornal
             this.toolStripStatusLabel_Info = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.ProgressBar_Info = new System.Windows.Forms.ProgressBar();
+            this.v111ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.Grid_Order)).BeginInit();
             this.contextMenuStrip1.SuspendLayout();
             this.panel1.SuspendLayout();
@@ -106,23 +107,28 @@ namespace Jornal
             // 
             // button_NewOrder
             // 
+            this.button_NewOrder.AllowDrop = true;
             this.button_NewOrder.BackColor = System.Drawing.SystemColors.ActiveCaption;
             this.button_NewOrder.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button_NewOrder.Location = new System.Drawing.Point(71, 36);
+            this.button_NewOrder.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.button_NewOrder.Location = new System.Drawing.Point(68, 35);
             this.button_NewOrder.Name = "button_NewOrder";
-            this.button_NewOrder.Size = new System.Drawing.Size(88, 45);
+            this.button_NewOrder.Size = new System.Drawing.Size(112, 97);
             this.button_NewOrder.TabIndex = 1;
             this.button_NewOrder.Text = "Новая заявка";
             this.button_NewOrder.UseVisualStyleBackColor = false;
             this.button_NewOrder.Click += new System.EventHandler(this.Button_NewOrderClick);
+            this.button_NewOrder.DragDrop += new System.Windows.Forms.DragEventHandler(this.button_NewOrder_DragDrop);
+            this.button_NewOrder.DragEnter += new System.Windows.Forms.DragEventHandler(this.button_NewOrder_DragEnter);
+            this.button_NewOrder.DragLeave += new System.EventHandler(this.button_NewOrder_DragLeave);
             // 
             // button_Edit
             // 
             this.button_Edit.BackColor = System.Drawing.SystemColors.ActiveCaption;
             this.button_Edit.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button_Edit.Location = new System.Drawing.Point(166, 36);
+            this.button_Edit.Location = new System.Drawing.Point(193, 39);
             this.button_Edit.Name = "button_Edit";
-            this.button_Edit.Size = new System.Drawing.Size(101, 45);
+            this.button_Edit.Size = new System.Drawing.Size(94, 46);
             this.button_Edit.TabIndex = 2;
             this.button_Edit.Text = "Редактировать";
             this.button_Edit.UseVisualStyleBackColor = false;
@@ -133,9 +139,9 @@ namespace Jornal
             this.button_Delete.BackColor = System.Drawing.SystemColors.ActiveCaption;
             this.button_Delete.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.button_Delete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button_Delete.Location = new System.Drawing.Point(273, 36);
+            this.button_Delete.Location = new System.Drawing.Point(298, 39);
             this.button_Delete.Name = "button_Delete";
-            this.button_Delete.Size = new System.Drawing.Size(91, 45);
+            this.button_Delete.Size = new System.Drawing.Size(88, 46);
             this.button_Delete.TabIndex = 3;
             this.button_Delete.Text = "Удалить";
             this.button_Delete.UseVisualStyleBackColor = false;
@@ -154,41 +160,41 @@ namespace Jornal
             this.Grid_Order.BackgroundColor = System.Drawing.SystemColors.Menu;
             this.Grid_Order.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.RaisedHorizontal;
             this.Grid_Order.ColumnHeadersBorderStyle = System.Windows.Forms.DataGridViewHeaderBorderStyle.Sunken;
-            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.TopCenter;
-            dataGridViewCellStyle1.BackColor = System.Drawing.SystemColors.Control;
-            dataGridViewCellStyle1.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            dataGridViewCellStyle1.ForeColor = System.Drawing.SystemColors.WindowText;
-            dataGridViewCellStyle1.SelectionBackColor = System.Drawing.Color.Transparent;
-            dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
-            this.Grid_Order.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
+            dataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.TopCenter;
+            dataGridViewCellStyle5.BackColor = System.Drawing.SystemColors.Control;
+            dataGridViewCellStyle5.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            dataGridViewCellStyle5.ForeColor = System.Drawing.SystemColors.WindowText;
+            dataGridViewCellStyle5.SelectionBackColor = System.Drawing.Color.Transparent;
+            dataGridViewCellStyle5.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle5.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this.Grid_Order.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle5;
             this.Grid_Order.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.Grid_Order.ContextMenuStrip = this.contextMenuStrip1;
             this.Grid_Order.Cursor = System.Windows.Forms.Cursors.Hand;
-            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle2.BackColor = System.Drawing.SystemColors.InactiveBorder;
-            dataGridViewCellStyle2.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
-            dataGridViewCellStyle2.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
-            dataGridViewCellStyle2.SelectionBackColor = System.Drawing.Color.Transparent;
-            dataGridViewCellStyle2.SelectionForeColor = System.Drawing.Color.White;
-            dataGridViewCellStyle2.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
-            this.Grid_Order.DefaultCellStyle = dataGridViewCellStyle2;
+            dataGridViewCellStyle6.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle6.BackColor = System.Drawing.SystemColors.InactiveBorder;
+            dataGridViewCellStyle6.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
+            dataGridViewCellStyle6.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
+            dataGridViewCellStyle6.SelectionBackColor = System.Drawing.Color.Transparent;
+            dataGridViewCellStyle6.SelectionForeColor = System.Drawing.Color.White;
+            dataGridViewCellStyle6.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
+            this.Grid_Order.DefaultCellStyle = dataGridViewCellStyle6;
             this.Grid_Order.GridColor = System.Drawing.SystemColors.Control;
             this.Grid_Order.Location = new System.Drawing.Point(12, 152);
             this.Grid_Order.Name = "Grid_Order";
             this.Grid_Order.ReadOnly = true;
             this.Grid_Order.RowHeadersBorderStyle = System.Windows.Forms.DataGridViewHeaderBorderStyle.None;
-            dataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            dataGridViewCellStyle3.BackColor = System.Drawing.SystemColors.Control;
-            dataGridViewCellStyle3.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            dataGridViewCellStyle3.ForeColor = System.Drawing.SystemColors.WindowText;
-            dataGridViewCellStyle3.SelectionBackColor = System.Drawing.Color.Transparent;
-            dataGridViewCellStyle3.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle3.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
-            this.Grid_Order.RowHeadersDefaultCellStyle = dataGridViewCellStyle3;
+            dataGridViewCellStyle7.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle7.BackColor = System.Drawing.SystemColors.Control;
+            dataGridViewCellStyle7.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            dataGridViewCellStyle7.ForeColor = System.Drawing.SystemColors.WindowText;
+            dataGridViewCellStyle7.SelectionBackColor = System.Drawing.Color.Transparent;
+            dataGridViewCellStyle7.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle7.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this.Grid_Order.RowHeadersDefaultCellStyle = dataGridViewCellStyle7;
             this.Grid_Order.RowHeadersVisible = false;
-            dataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            this.Grid_Order.RowsDefaultCellStyle = dataGridViewCellStyle4;
+            dataGridViewCellStyle8.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.Grid_Order.RowsDefaultCellStyle = dataGridViewCellStyle8;
             this.Grid_Order.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.Grid_Order.Size = new System.Drawing.Size(1812, 333);
             this.Grid_Order.TabIndex = 4;
@@ -406,7 +412,7 @@ namespace Jornal
             // 
             // checkBox_SortChoiceDayON
             // 
-            this.checkBox_SortChoiceDayON.Location = new System.Drawing.Point(229, 91);
+            this.checkBox_SortChoiceDayON.Location = new System.Drawing.Point(403, 86);
             this.checkBox_SortChoiceDayON.Name = "checkBox_SortChoiceDayON";
             this.checkBox_SortChoiceDayON.Size = new System.Drawing.Size(39, 24);
             this.checkBox_SortChoiceDayON.TabIndex = 27;
@@ -417,7 +423,7 @@ namespace Jornal
             // button_SortChoiceDay
             // 
             this.button_SortChoiceDay.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button_SortChoiceDay.Location = new System.Drawing.Point(167, 91);
+            this.button_SortChoiceDay.Location = new System.Drawing.Point(427, 112);
             this.button_SortChoiceDay.Name = "button_SortChoiceDay";
             this.button_SortChoiceDay.Size = new System.Drawing.Size(56, 24);
             this.button_SortChoiceDay.TabIndex = 26;
@@ -431,9 +437,9 @@ namespace Jornal
             this.dateTimePicker_DateSort.Cursor = System.Windows.Forms.Cursors.Hand;
             this.dateTimePicker_DateSort.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.dateTimePicker_DateSort.Format = System.Windows.Forms.DateTimePickerFormat.Short;
-            this.dateTimePicker_DateSort.Location = new System.Drawing.Point(71, 91);
+            this.dateTimePicker_DateSort.Location = new System.Drawing.Point(298, 113);
             this.dateTimePicker_DateSort.Name = "dateTimePicker_DateSort";
-            this.dateTimePicker_DateSort.Size = new System.Drawing.Size(88, 22);
+            this.dateTimePicker_DateSort.Size = new System.Drawing.Size(117, 22);
             this.dateTimePicker_DateSort.TabIndex = 25;
             // 
             // checkBox_Sent
@@ -441,12 +447,13 @@ namespace Jornal
             this.checkBox_Sent.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.checkBox_Sent.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.checkBox_Sent.ForeColor = System.Drawing.SystemColors.Highlight;
-            this.checkBox_Sent.Location = new System.Drawing.Point(339, 114);
+            this.checkBox_Sent.Location = new System.Drawing.Point(392, 88);
             this.checkBox_Sent.Name = "checkBox_Sent";
             this.checkBox_Sent.Size = new System.Drawing.Size(91, 24);
             this.checkBox_Sent.TabIndex = 24;
             this.checkBox_Sent.Text = "Отгружено";
             this.checkBox_Sent.UseVisualStyleBackColor = true;
+            this.checkBox_Sent.Visible = false;
             this.checkBox_Sent.CheckedChanged += new System.EventHandler(this.CheckBox_SentCheckedChanged);
             // 
             // button_Sent
@@ -478,12 +485,13 @@ namespace Jornal
             this.checkBox_Finished.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.checkBox_Finished.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.checkBox_Finished.ForeColor = System.Drawing.Color.Green;
-            this.checkBox_Finished.Location = new System.Drawing.Point(261, 114);
+            this.checkBox_Finished.Location = new System.Drawing.Point(375, 88);
             this.checkBox_Finished.Name = "checkBox_Finished";
             this.checkBox_Finished.Size = new System.Drawing.Size(72, 24);
             this.checkBox_Finished.TabIndex = 19;
             this.checkBox_Finished.Text = "Готово";
             this.checkBox_Finished.UseVisualStyleBackColor = true;
+            this.checkBox_Finished.Visible = false;
             this.checkBox_Finished.CheckedChanged += new System.EventHandler(this.CheckBox_FinishedCheckedChanged);
             // 
             // checkBox_InWork
@@ -491,12 +499,13 @@ namespace Jornal
             this.checkBox_InWork.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.checkBox_InWork.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.checkBox_InWork.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))));
-            this.checkBox_InWork.Location = new System.Drawing.Point(175, 113);
+            this.checkBox_InWork.Location = new System.Drawing.Point(354, 87);
             this.checkBox_InWork.Name = "checkBox_InWork";
             this.checkBox_InWork.Size = new System.Drawing.Size(80, 25);
             this.checkBox_InWork.TabIndex = 18;
             this.checkBox_InWork.Text = "В работе";
             this.checkBox_InWork.UseVisualStyleBackColor = true;
+            this.checkBox_InWork.Visible = false;
             this.checkBox_InWork.CheckedChanged += new System.EventHandler(this.CheckBox_InWorkCheckedChanged);
             // 
             // checkBox_DateDay
@@ -504,7 +513,7 @@ namespace Jornal
             this.checkBox_DateDay.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.checkBox_DateDay.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.checkBox_DateDay.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.checkBox_DateDay.Location = new System.Drawing.Point(8, 112);
+            this.checkBox_DateDay.Location = new System.Drawing.Point(204, 112);
             this.checkBox_DateDay.Name = "checkBox_DateDay";
             this.checkBox_DateDay.Size = new System.Drawing.Size(72, 24);
             this.checkBox_DateDay.TabIndex = 17;
@@ -595,9 +604,9 @@ namespace Jornal
             // button_Result
             // 
             this.button_Result.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button_Result.Location = new System.Drawing.Point(387, 36);
+            this.button_Result.Location = new System.Drawing.Point(400, 39);
             this.button_Result.Name = "button_Result";
-            this.button_Result.Size = new System.Drawing.Size(88, 44);
+            this.button_Result.Size = new System.Drawing.Size(85, 45);
             this.button_Result.TabIndex = 6;
             this.button_Result.Text = "Результат";
             this.button_Result.UseVisualStyleBackColor = true;
@@ -623,7 +632,8 @@ namespace Jornal
             this.menuStrip1.ImageScalingSize = new System.Drawing.Size(20, 20);
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.добавитьБЛЦБToolStripMenuItem,
-            this.telegramКомментарийToolStripMenuItem1});
+            this.telegramКомментарийToolStripMenuItem1,
+            this.v111ToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
             this.menuStrip1.Size = new System.Drawing.Size(1834, 28);
@@ -687,6 +697,12 @@ namespace Jornal
             this.ProgressBar_Info.Name = "ProgressBar_Info";
             this.ProgressBar_Info.Size = new System.Drawing.Size(1812, 2);
             this.ProgressBar_Info.TabIndex = 7;
+            // 
+            // v111ToolStripMenuItem
+            // 
+            this.v111ToolStripMenuItem.Name = "v111ToolStripMenuItem";
+            this.v111ToolStripMenuItem.Size = new System.Drawing.Size(50, 24);
+            this.v111ToolStripMenuItem.Text = "V1.1.1";
             // 
             // MainForm
             // 
@@ -768,6 +784,7 @@ namespace Jornal
         private System.Windows.Forms.CheckBox checkBox_Finished;
         private System.Windows.Forms.CheckBox checkBox_InWork;
         private System.Windows.Forms.CheckBox checkBox_checkColor;
+        private System.Windows.Forms.ToolStripMenuItem v111ToolStripMenuItem;
     }
 }
 	

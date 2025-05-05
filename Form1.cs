@@ -1,16 +1,14 @@
-﻿
-using System;
-using System.Windows.Forms;
-using System.Text.RegularExpressions;
-using static Jornal.TextBoxMetods;
-using static Jornal.Clasess.CalculationCoefficient;
+﻿using System;
 using System.Configuration;
-using System.Globalization;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using iTextSharp.text.pdf;
-using iTextSharp.text.pdf.parser;
+using System.Windows.Forms;
+using static Jornal.Clasess.CalculationCoefficient;
+using static Jornal.ExtractText;
+using static Jornal.TextBoxMetods;
 
 namespace Jornal
 {
@@ -36,6 +34,7 @@ namespace Jornal
             textBox_Client.AutoCompleteSource = AutoCompleteSource.CustomSource;
 
         }
+        public string SpecaFilePath { get; set; }
         public string tBDate
         {
             get
@@ -226,12 +225,39 @@ namespace Jornal
             }
         }
 
-        void Form1Load(object sender, EventArgs e)
+        private async void Form1Load(object sender, EventArgs e)
         {
             DateTime today = DateTime.Now;
             //  textBox_MyDate.Text = today.ToShortDateString();
             AcceptButton = button_Ok;
             CancelButton = button_Cancel;
+            if (SpecaFilePath != null)
+            {
+                textBox_Run.Text = await ProcessSpecaFileAsync(SpecaFilePath);
+                button_Run.PerformClick();
+            }
+
+        }
+        private async Task<string> ProcessSpecaFileAsync(string specaFilePath)
+        {
+            string extractedTextSpeca = string.Empty;
+            if (!string.IsNullOrEmpty(specaFilePath))
+            {
+                string extension = System.IO.Path.GetExtension(specaFilePath).ToLower();
+
+                if (extension == ".pdf")
+                {
+                    extractedTextSpeca = "*";
+                    extractedTextSpeca += await Task.Run(() => ExtractTextFromPdf(specaFilePath));
+                }
+                else if (extension == ".html")
+                {
+                    extractedTextSpeca = " ";
+                    extractedTextSpeca += await Task.Run(() => ExtractTextFromHtml(specaFilePath));
+                }
+                textBox_Run.Text = extractedTextSpeca;
+            }
+            return extractedTextSpeca;
         }
         void Button_OkClick(object sender, EventArgs e)
         {
@@ -260,7 +286,7 @@ namespace Jornal
                 //***************Speca HansLaser******************
                 if ((textBox_Run.Text[0] == '*' && textBox_Run.Text[1] == '@') || textBox_Run.Text[0] == '@')
                 {
-                    bool isDropText = textBox_Run.Text[0] == '*';                    
+                    bool isDropText = textBox_Run.Text[0] == '*';
                     groupBox_ID_MAT.Visible = true;
                     flag = true;//check spec
                     string[] hansLaserSpecArray = textBox_Run.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
@@ -275,14 +301,14 @@ namespace Jornal
                     tBDate = $"{dateSpec[2]}.{dateSpec[1]}.{dateSpec[0]}";//data
                     tBNSpec = $"{dateSpec[1]}{dateSpec[2]}-{(dateSpec[3] == "" ? dateSpec[4] : dateSpec[3])}";//№Speca                    
                     cBCut = "HansLaser";
-                    cBSteelGrade = $"{infoSheets[(isDropText? 0 : 3)].Split('_')[0]}";
+                    cBSteelGrade = $"{infoSheets[(isDropText ? 0 : 3)].Split('_')[0]}";
                     idMat = $"{infoSheets[(isDropText ? 0 : 3)].Split('_')[1]}";
-                    label_CUR_GAS.Text = $"Газ:  {(isDropText? hansLaserSpecArray[31].Split(' ')[1] : infoSheets[4])}";                    
+                    label_CUR_GAS.Text = $"Газ:  {(isDropText ? hansLaserSpecArray[31].Split(' ')[1] : infoSheets[4])}";
                     cBThickness = $"{(isDropText ? hansLaserSpecArray[29].TrimStart().Split(' ')[1] : infoSheets[5])}";
                     tBSheetCount = $"{hansLaserSpecArray[13]}";
                     cBSize = $"{infoSheets[2]}x{infoSheets[1]}";
                     tBLenCut = lenghtCut.ToString();
-                    tBWeight = $"{hansLaserSpecArray[15]}";                    
+                    tBWeight = $"{hansLaserSpecArray[15]}";
                     string kf = "1.0";
                     string coutnDetail = $"{hansLaserSpecArray[11]}".Trim();
                     double cntDetails = Convert.ToDouble(coutnDetail.Trim());
@@ -693,24 +719,34 @@ namespace Jornal
             textBox_Run.Text = "";
             textBox_Run.BackColor = ACTIVE_COLOR;
             textBox_Run.BorderStyle = BorderStyle.Fixed3D;
+
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                if(files.Any(f => System.IO.Path.GetExtension(f).Equals(".pdf", StringComparison.OrdinalIgnoreCase)))
-                {                   
+
+                // Проверяем поддерживаемые расширения (PDF и HTML)
+                bool isSupportedFile = files.Any(f =>
+                {
+                    string ext = System.IO.Path.GetExtension(f).ToLower();
+                    return ext == ".pdf" || ext == ".html" || ext == ".htm";
+                });
+
+                if (isSupportedFile)
+                {
                     e.Effect = DragDropEffects.Copy;
                     return;
                 }
                 else
                 {
                     textBox_Run.BackColor = ERROR_COLOR;
+                    textBox_Run.Text = "Поддерживаются только спецификации PDF и HTML";
                     return;
                 }
             }
+
             e.Effect = DragDropEffects.None;
-           
         }
-       
+
         private void textBox_Run_DragLeave(object sender, EventArgs e)
         {
             textBox_Run.BackColor = NORMAL_COLOR;
@@ -719,39 +755,40 @@ namespace Jornal
 
         private async void textBox_Run_DragDrop(object sender, DragEventArgs e)
         {
-            textBox_Run.BackColor = NORMAL_COLOR;            
+            textBox_Run.BackColor = NORMAL_COLOR;
             textBox_Run.Refresh();
-            try
+
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
-                if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                var fileSpeca = files.FirstOrDefault();
+                if (fileSpeca != null)
                 {
-                    var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                    var pdfFile = files.FirstOrDefault(f =>
-                    System.IO.Path.GetExtension(f).Equals(".pdf", StringComparison.OrdinalIgnoreCase));
-                    if (pdfFile != null)
+                    string extension = System.IO.Path.GetExtension(fileSpeca).ToLower();
+                    string extractedTextSpeca = string.Empty;
+                    try
                     {
-                        string extractedText = await Task.Run(() => ExtractTextFromPdf(pdfFile));
-                        textBox_Run.Text = $"*{extractedText}";
+                        if (extension == ".pdf")
+                        {
+                            extractedTextSpeca = "*";
+                            extractedTextSpeca += await Task.Run(() => ExtractTextFromPdf(fileSpeca));
+                        }
+                        else if (extension == ".html")
+                        {
+                            extractedTextSpeca = " ";
+                            extractedTextSpeca += await Task.Run(() => ExtractTextFromHtml(fileSpeca));
+                        }
+                        textBox_Run.Text = extractedTextSpeca;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка {ex.Message}");
                     }
                 }
             }
-            catch(Exception ex) {
-            MessageBox.Show($"Ошибка {ex.Message}");
-            }   
-        }
-        private string ExtractTextFromPdf(string filePath)
-        {
-            using (PdfReader reader = new PdfReader(filePath))
-            {
-                System.Text.StringBuilder text = new System.Text.StringBuilder();                
-                for (int i = 1; i <= reader.NumberOfPages; i++)
-                {
-                    text.AppendLine(PdfTextExtractor.GetTextFromPage(reader, i, new SimpleTextExtractionStrategy()));
-                }
 
-                return text.ToString();
-            }
         }
+
     }
 }
 
