@@ -76,12 +76,12 @@ namespace Jornal
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.добавитьБЛЦБToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.telegramКомментарийToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.v111ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.colorDialog = new System.Windows.Forms.ColorDialog();
             this.timer_Color = new System.Windows.Forms.Timer(this.components);
             this.toolStripStatusLabel_Info = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.ProgressBar_Info = new System.Windows.Forms.ProgressBar();
-            this.v111ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.Grid_Order)).BeginInit();
             this.contextMenuStrip1.SuspendLayout();
             this.panel1.SuspendLayout();
@@ -657,6 +657,12 @@ namespace Jornal
             this.telegramКомментарийToolStripMenuItem1.Text = "Telegram комментарий";
             this.telegramКомментарийToolStripMenuItem1.Click += new System.EventHandler(this.TelegramКомментарийToolStripMenuItem1_Click);
             // 
+            // v111ToolStripMenuItem
+            // 
+            this.v111ToolStripMenuItem.Name = "v111ToolStripMenuItem";
+            this.v111ToolStripMenuItem.Size = new System.Drawing.Size(50, 24);
+            this.v111ToolStripMenuItem.Text = "V1.1.2";
+            // 
             // colorDialog
             // 
             this.colorDialog.Color = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(192)))), ((int)(((byte)(0)))));
@@ -697,12 +703,6 @@ namespace Jornal
             this.ProgressBar_Info.Name = "ProgressBar_Info";
             this.ProgressBar_Info.Size = new System.Drawing.Size(1812, 2);
             this.ProgressBar_Info.TabIndex = 7;
-            // 
-            // v111ToolStripMenuItem
-            // 
-            this.v111ToolStripMenuItem.Name = "v111ToolStripMenuItem";
-            this.v111ToolStripMenuItem.Size = new System.Drawing.Size(50, 24);
-            this.v111ToolStripMenuItem.Text = "V1.1.1";
             // 
             // MainForm
             // 

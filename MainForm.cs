@@ -1438,24 +1438,57 @@ namespace Jornal
 
         private void button_NewOrder_DragDrop(object sender, DragEventArgs e)
         {
-            _buttonNewOrderStyleManager.ResetAppearance();
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
-                var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                var file = files.FirstOrDefault();
+            _buttonNewOrderStyleManager?.ResetAppearance();
+            string fileToOpen = null;
 
-                if (file != null)
+            try
+            {
+                if (e.Data.GetDataPresent(DataFormats.FileDrop))
                 {
-                    string ext = Path.GetExtension(file).ToLower();
-                    if (ext == ".pdf" || ext == ".html" || ext == ".htm")
+                    var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    var file = files?.FirstOrDefault();
+
+                    if (file != null && File.Exists(file) && IsSupportedFile(file))
                     {
                         e.Effect = DragDropEffects.None;
-                        // Открываем новую форму и передаем путь к файлу
-                        NewOrd(file);
+                        fileToOpen = file;
                     }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка обработки файла: {ex.Message}");
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+
+                if (fileToOpen != null)
+                {
+                    BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            NewOrd(fileToOpen);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Ошибка открытия файла: {ex.Message}");
+                        }
+                    }));
                 }
             }
         }
 
+        private static bool IsSupportedFile(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return false;
+
+            string ext = Path.GetExtension(filePath).ToLower();
+            return ext == ".pdf" || ext == ".html" || ext == ".htm";
+        }
+
     }
+
 }
