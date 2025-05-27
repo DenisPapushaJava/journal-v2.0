@@ -28,10 +28,10 @@ namespace Jornal
 		{
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle5 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle6 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle7 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle8 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle4 = new System.Windows.Forms.DataGridViewCellStyle();
             this.button_Update = new System.Windows.Forms.Button();
             this.button_NewOrder = new System.Windows.Forms.Button();
             this.button_Edit = new System.Windows.Forms.Button();
@@ -82,6 +82,8 @@ namespace Jornal
             this.toolStripStatusLabel_Info = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.ProgressBar_Info = new System.Windows.Forms.ProgressBar();
+            this.создатьПапкиToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.создатьПапкToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.Grid_Order)).BeginInit();
             this.contextMenuStrip1.SuspendLayout();
             this.panel1.SuspendLayout();
@@ -160,46 +162,47 @@ namespace Jornal
             this.Grid_Order.BackgroundColor = System.Drawing.SystemColors.Menu;
             this.Grid_Order.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.RaisedHorizontal;
             this.Grid_Order.ColumnHeadersBorderStyle = System.Windows.Forms.DataGridViewHeaderBorderStyle.Sunken;
-            dataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.TopCenter;
-            dataGridViewCellStyle5.BackColor = System.Drawing.SystemColors.Control;
-            dataGridViewCellStyle5.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            dataGridViewCellStyle5.ForeColor = System.Drawing.SystemColors.WindowText;
-            dataGridViewCellStyle5.SelectionBackColor = System.Drawing.Color.Transparent;
-            dataGridViewCellStyle5.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle5.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
-            this.Grid_Order.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle5;
+            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.TopCenter;
+            dataGridViewCellStyle1.BackColor = System.Drawing.SystemColors.Control;
+            dataGridViewCellStyle1.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            dataGridViewCellStyle1.ForeColor = System.Drawing.SystemColors.WindowText;
+            dataGridViewCellStyle1.SelectionBackColor = System.Drawing.Color.Transparent;
+            dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this.Grid_Order.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
             this.Grid_Order.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.Grid_Order.ContextMenuStrip = this.contextMenuStrip1;
             this.Grid_Order.Cursor = System.Windows.Forms.Cursors.Hand;
-            dataGridViewCellStyle6.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle6.BackColor = System.Drawing.SystemColors.InactiveBorder;
-            dataGridViewCellStyle6.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
-            dataGridViewCellStyle6.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
-            dataGridViewCellStyle6.SelectionBackColor = System.Drawing.Color.Transparent;
-            dataGridViewCellStyle6.SelectionForeColor = System.Drawing.Color.White;
-            dataGridViewCellStyle6.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
-            this.Grid_Order.DefaultCellStyle = dataGridViewCellStyle6;
+            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle2.BackColor = System.Drawing.SystemColors.InactiveBorder;
+            dataGridViewCellStyle2.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
+            dataGridViewCellStyle2.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
+            dataGridViewCellStyle2.SelectionBackColor = System.Drawing.Color.Transparent;
+            dataGridViewCellStyle2.SelectionForeColor = System.Drawing.Color.White;
+            dataGridViewCellStyle2.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
+            this.Grid_Order.DefaultCellStyle = dataGridViewCellStyle2;
             this.Grid_Order.GridColor = System.Drawing.SystemColors.Control;
             this.Grid_Order.Location = new System.Drawing.Point(12, 152);
             this.Grid_Order.Name = "Grid_Order";
             this.Grid_Order.ReadOnly = true;
             this.Grid_Order.RowHeadersBorderStyle = System.Windows.Forms.DataGridViewHeaderBorderStyle.None;
-            dataGridViewCellStyle7.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            dataGridViewCellStyle7.BackColor = System.Drawing.SystemColors.Control;
-            dataGridViewCellStyle7.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            dataGridViewCellStyle7.ForeColor = System.Drawing.SystemColors.WindowText;
-            dataGridViewCellStyle7.SelectionBackColor = System.Drawing.Color.Transparent;
-            dataGridViewCellStyle7.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle7.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
-            this.Grid_Order.RowHeadersDefaultCellStyle = dataGridViewCellStyle7;
+            dataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle3.BackColor = System.Drawing.SystemColors.Control;
+            dataGridViewCellStyle3.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            dataGridViewCellStyle3.ForeColor = System.Drawing.SystemColors.WindowText;
+            dataGridViewCellStyle3.SelectionBackColor = System.Drawing.Color.Transparent;
+            dataGridViewCellStyle3.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle3.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this.Grid_Order.RowHeadersDefaultCellStyle = dataGridViewCellStyle3;
             this.Grid_Order.RowHeadersVisible = false;
-            dataGridViewCellStyle8.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            this.Grid_Order.RowsDefaultCellStyle = dataGridViewCellStyle8;
+            dataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.Grid_Order.RowsDefaultCellStyle = dataGridViewCellStyle4;
             this.Grid_Order.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.Grid_Order.Size = new System.Drawing.Size(1812, 333);
             this.Grid_Order.TabIndex = 4;
             this.Grid_Order.VirtualMode = true;
             this.Grid_Order.SelectionChanged += new System.EventHandler(this.Grid_Order_SelectionChanged);
+            this.Grid_Order.DoubleClick += new System.EventHandler(this.Button_EditClick);
             this.Grid_Order.MouseDown += new System.Windows.Forms.MouseEventHandler(this.Grid_OrderMouseDown);
             // 
             // contextMenuStrip1
@@ -212,12 +215,13 @@ namespace Jornal
             this.редактироватьToolStripMenuItem,
             this.результатToolStripMenuItem,
             this.копироватьКомментарийToolStripMenuItem,
+            this.создатьПапкиToolStripMenuItem,
             this.telegramКомментарийToolStripMenuItem,
             this.удалитьToolStripMenuItem,
             this.цветToolStripMenuItem,
             this.добавитьБЛЦБToolStripMenuItem1});
             this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(223, 198);
+            this.contextMenuStrip1.Size = new System.Drawing.Size(223, 224);
             // 
             // toolStripSeparator1
             // 
@@ -633,6 +637,7 @@ namespace Jornal
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.добавитьБЛЦБToolStripMenuItem,
             this.telegramКомментарийToolStripMenuItem1,
+            this.создатьПапкToolStripMenuItem,
             this.v111ToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
@@ -661,7 +666,7 @@ namespace Jornal
             // 
             this.v111ToolStripMenuItem.Name = "v111ToolStripMenuItem";
             this.v111ToolStripMenuItem.Size = new System.Drawing.Size(50, 24);
-            this.v111ToolStripMenuItem.Text = "V1.1.2";
+            this.v111ToolStripMenuItem.Text = "V1.1.3";
             // 
             // colorDialog
             // 
@@ -703,6 +708,22 @@ namespace Jornal
             this.ProgressBar_Info.Name = "ProgressBar_Info";
             this.ProgressBar_Info.Size = new System.Drawing.Size(1812, 2);
             this.ProgressBar_Info.TabIndex = 7;
+            // 
+            // создатьПапкиToolStripMenuItem
+            // 
+            this.создатьПапкиToolStripMenuItem.Image = ((System.Drawing.Image)(resources.GetObject("создатьПапкиToolStripMenuItem.Image")));
+            this.создатьПапкиToolStripMenuItem.Name = "создатьПапкиToolStripMenuItem";
+            this.создатьПапкиToolStripMenuItem.Size = new System.Drawing.Size(222, 26);
+            this.создатьПапкиToolStripMenuItem.Text = "Создать папки";
+            this.создатьПапкиToolStripMenuItem.Click += new System.EventHandler(this.создатьПапкиToolStripMenuItem_Click);
+            // 
+            // создатьПапкToolStripMenuItem
+            // 
+            this.создатьПапкToolStripMenuItem.Image = ((System.Drawing.Image)(resources.GetObject("создатьПапкToolStripMenuItem.Image")));
+            this.создатьПапкToolStripMenuItem.Name = "создатьПапкToolStripMenuItem";
+            this.создатьПапкToolStripMenuItem.Size = new System.Drawing.Size(118, 24);
+            this.создатьПапкToolStripMenuItem.Text = "Создать папки";
+            this.создатьПапкToolStripMenuItem.Click += new System.EventHandler(this.создатьПапкиToolStripMenuItem_Click);
             // 
             // MainForm
             // 
@@ -785,6 +806,8 @@ namespace Jornal
         private System.Windows.Forms.CheckBox checkBox_InWork;
         private System.Windows.Forms.CheckBox checkBox_checkColor;
         private System.Windows.Forms.ToolStripMenuItem v111ToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem создатьПапкиToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem создатьПапкToolStripMenuItem;
     }
 }
 	

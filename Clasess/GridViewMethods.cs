@@ -26,5 +26,6 @@ namespace Jornal
                 grid.CurrentRow.DefaultCellStyle.SelectionBackColor = Color.FromArgb(darkerRed, darkerGreen, darkerBlue);
             }
         }
-    }
+
+     }
 }

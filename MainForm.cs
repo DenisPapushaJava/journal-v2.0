@@ -1,4 +1,5 @@
-﻿using System;
+﻿using iTextSharp.text;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -8,6 +9,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using static Jornal.GridViewMethods;
@@ -19,6 +21,8 @@ namespace Jornal
 
     public partial class MainForm : Form
     {
+        private List<string> tempRoots = new List<string>();
+
         private readonly ButtonNewOrderStyleManager _buttonNewOrderStyleManager;
         LoadForm loadForm = new LoadForm();
         public MainForm()
@@ -940,44 +944,92 @@ namespace Jornal
             numberUsedRows.Clear();
         }
 
-        private void CopyComment()
+        //private void CopyComment(bool folder = false)
+        //{
+        //    if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
+        //    {
+
+        //        int index = Grid_Order.CurrentCell.RowIndex;
+        //        string numBLCB = (Convert.ToString(Grid_Order.Rows[index].Cells[13].Value));
+
+        //        if (Grid_Order.SelectedRows.Count == 1 || folder)
+        //        {
+        //            if (numBLCB.Length > 5)
+        //            {
+
+        //                string numSpec, manager, client, thickness;
+        //                numSpec = Convert.ToString(Grid_Order.Rows[index].Cells[3].Value);
+        //                manager = Convert.ToString(Grid_Order.Rows[index].Cells[2].Value);
+        //                client = Convert.ToString(Grid_Order.Rows[index].Cells[4].Value);
+        //                thickness = Convert.ToString(Grid_Order.Rows[index].Cells[7].Value);
+        //                numBLCB = Convert.ToString(Grid_Order.Rows[index].Cells[13].Value);
+        //                Clipboard.SetText($"({thickness} мм)  {numSpec},  {manager},  ({client}),  {numBLCB}");
+        //                statusStrip.Visible = true;
+        //                toolStripStatusLabel_Info.Text = "Комментарий скопирован";
+        //            }
+        //            else
+        //            {
+        //                MessageBox.Show("Номер реализации не добавлен", "Внимание...",
+        //               MessageBoxButtons.OK, MessageBoxIcon.Information);
+        //            }
+
+        //        }
+        //        else
+        //        {
+        //            MessageBox.Show("Нужно выбрать одну строку", "Внимание...",
+        //                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        //        }
+
+        //    }
+        //}
+        private void CopyComment(bool folder = false)
         {
             if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
-
-                int index = Grid_Order.CurrentCell.RowIndex;
-                string numBLCB = (Convert.ToString(Grid_Order.Rows[index].Cells[13].Value));
-
-                if (Grid_Order.SelectedRows.Count == 1)
+                if (!folder && Grid_Order.SelectedRows.Count > 1)
                 {
-                    if (numBLCB.Length > 5)
-                    {
+                    MessageBox.Show("Нужно выбрать одну строку", "Внимание...",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
 
-                        string numSpec, manager, client, thickness;
-                        numSpec = Convert.ToString(Grid_Order.Rows[index].Cells[3].Value);
-                        manager = Convert.ToString(Grid_Order.Rows[index].Cells[2].Value);
-                        client = Convert.ToString(Grid_Order.Rows[index].Cells[4].Value);
-                        thickness = Convert.ToString(Grid_Order.Rows[index].Cells[7].Value);
-                        numBLCB = Convert.ToString(Grid_Order.Rows[index].Cells[13].Value);
-                        Clipboard.SetText($"({thickness} мм)  {numSpec},  {manager},  ({client}),  {numBLCB}");
+                if (folder || Grid_Order.SelectedRows.Count == 1)
+                {
+                    string result = "";
+                    foreach (DataGridViewRow row in Grid_Order.SelectedRows)
+                    {
+                        string numBLCB = Convert.ToString(row.Cells[13].Value);
+                        if (numBLCB.Length > 5)
+                        {
+                            string numSpec = Convert.ToString(row.Cells[3].Value);
+                            string manager = Convert.ToString(row.Cells[2].Value);
+                            string client = Convert.ToString(row.Cells[4].Value);
+                            string thickness = Convert.ToString(row.Cells[7].Value);
+                            result += $"({thickness} мм)  {numSpec},  {manager},  ({client}),  {numBLCB}\n";
+                        }
+                        else
+                        {
+                            MessageBox.Show($"Номер реализации не добавлен для строки {row.Index + 1}", "Внимание...",
+                                MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            return;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(result))
+                    {
+                        Clipboard.SetText(result.TrimEnd('\n'));
                         statusStrip.Visible = true;
                         toolStripStatusLabel_Info.Text = "Комментарий скопирован";
                     }
-                    else
-                    {
-                        MessageBox.Show("Номер реализации не добавлен", "Внимание...",
-                       MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-
                 }
                 else
                 {
                     MessageBox.Show("Нужно выбрать одну строку", "Внимание...",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
-
             }
         }
+
         private void CopyCommentTelegramm()
         {
             ClearTextResult();
@@ -1098,6 +1150,7 @@ namespace Jornal
             {
                 e.Cancel = true;
             }
+            CleanupTempFolders();
         }
 
         void Button_NewOrderClick(object sender, EventArgs e)
@@ -1391,6 +1444,126 @@ namespace Jornal
             CopyCommentTelegramm();
         }
 
+        private void создатьПапкиToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // Очищаем предыдущие временные папки
+            CleanupTempFolders();
+
+            // Уточнить, нужен ли вызов CopyComment
+            CopyComment(true); // Проверить, не влияет ли на буфер обмена
+            try
+            {
+                string clipboardText = Clipboard.GetText();
+                if (string.IsNullOrWhiteSpace(clipboardText))
+                {
+                    MessageBox.Show("Буфер обмена пуст!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                string[] lines = clipboardText.Split(
+                    new[] { "\r\n", "\r", "\n" },
+                    StringSplitOptions.RemoveEmptyEntries
+                );
+
+                if (lines.Length == 0)
+                {
+                    MessageBox.Show("Нет названий папок!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                // Создаем временную папку
+                string tempRoot = Path.Combine(Path.GetTempPath(), "ClipboardFolders_" + Guid.NewGuid().ToString());
+                try
+                {
+                    Directory.CreateDirectory(tempRoot);
+                    tempRoots.Add(tempRoot); // Сохраняем путь для последующей очистки
+
+                    List<string> tempFolders = new List<string>();
+                    foreach (string line in lines)
+                    {
+                        string folderName = line.Trim();
+                        if (string.IsNullOrEmpty(folderName))
+                            continue;
+
+                        // Проверка на недопустимые символы в имени папки
+                        if (folderName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                        {
+                            MessageBox.Show($"Недопустимое имя папки: {folderName}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            continue;
+                        }
+
+                        try
+                        {
+                            string tempFolderPath = Path.Combine(tempRoot, folderName);
+                            Directory.CreateDirectory(tempFolderPath);
+                            tempFolders.Add(tempFolderPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Ошибка при создании папки '{folderName}': {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+
+                    if (tempFolders.Count == 0)
+                    {
+                        MessageBox.Show("Не удалось создать ни одной папки!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        tempRoots.Remove(tempRoot); // Удаляем из списка, если папки не созданы
+                        try { Directory.Delete(tempRoot, true); } catch { } // Удаляем пустую папку
+                        return;
+                    }
+
+                    // Копируем пути папок в буфер обмена как FileDrop
+                    try
+                    {
+                        DataObject data = new DataObject();
+                        data.SetData(DataFormats.FileDrop, tempFolders.ToArray());
+                        Clipboard.SetDataObject(data, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка при копировании в буфер обмена: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    MessageBox.Show(
+                        $"Скопировано {tempFolders.Count} 🗀 в буфер.\nВставьте их в нужное место через ПКМ → Вставить.",
+                        "Готово",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка при создании временной папки: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    tempRoots.Remove(tempRoot); // Удаляем из списка при ошибке
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при работе с буфером обмена: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Метод для очистки временных папок
+        private void CleanupTempFolders()
+        {
+            foreach (string tempRoot in tempRoots.ToList())
+            {
+                try
+                {
+                    if (Directory.Exists(tempRoot))
+                    {
+                        Directory.Delete(tempRoot, true);
+                        tempRoots.Remove(tempRoot);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Ошибка при удалении временной папки '{tempRoot}': {ex.Message}");
+                }
+            }
+        }
+
         private void Grid_Order_SelectionChanged(object sender, EventArgs e)
         {
             ColorSelectedRows(Grid_Order);
@@ -1488,7 +1661,7 @@ namespace Jornal
             string ext = Path.GetExtension(filePath).ToLower();
             return ext == ".pdf" || ext == ".html" || ext == ".htm";
         }
-
+       
     }
 
 }
