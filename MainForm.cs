@@ -1,35 +1,36 @@
-﻿using System;
+﻿using iTextSharp.text;
+using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data;
+using System.Data.OleDb;
 using System.Drawing;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
-using System.Data.OleDb;
-using System.Configuration;
-using System.Reflection;
-using static Jornal.GridViewMetods;
+using static Jornal.GridViewMethods;
+using static Jornal.IdMaterialPrice;
 using static Jornal.TextBoxMetods;
-using System.Diagnostics;
-using System.Threading.Tasks;
-using System.Threading;
-using System.Globalization;
-using System.Collections;
-using Microsoft.Office.Interop.Excel;
 
 namespace Jornal
 {
 
     public partial class MainForm : Form
     {
+        private List<string> tempRoots = new List<string>();
+
+        private readonly ButtonNewOrderStyleManager _buttonNewOrderStyleManager;
         LoadForm loadForm = new LoadForm();
-         public MainForm()
-        {           
-            loadForm.Show();            
-            InitializeComponent();           
-            //Grid_Order.DefaultCellStyle.SelectionBackColor = ColorTranslator.FromHtml("#9bc3c9");
-          // LoadData();
-            comboBox1.SelectedIndex = 0;      
+        public MainForm()
+        {
+            loadForm.Show();
+            InitializeComponent();
+            _buttonNewOrderStyleManager = new ButtonNewOrderStyleManager(button_NewOrder);
+            comboBox1.SelectedIndex = 0;
 
         }
 
@@ -102,7 +103,7 @@ namespace Jornal
             string query = "SELECT * FROM Orders";
             try
             {
-               ConnectDB(conString, query);
+                ConnectDB(conString, query);
             }
             catch
             {
@@ -110,9 +111,9 @@ namespace Jornal
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(0);
             }
-           
-           
-            
+
+
+
         }
 
         private void LoadDataSortDay()
@@ -120,7 +121,7 @@ namespace Jornal
             checkBox_Finished.Checked = false;
             checkBox_Sent.Checked = false;
             checkBox_InWork.Checked = false;
-           
+
 
             ConnectionStringSettings conString;
             conString = ConfigurationManager.ConnectionStrings["pathdb"];
@@ -143,13 +144,13 @@ namespace Jornal
             checkBox_DateDay.Checked = false;
             checkBox_Finished.Checked = false;
             checkBox_Sent.Checked = false;
-          
+
 
             ConnectionStringSettings conString;
             conString = ConfigurationManager.ConnectionStrings["pathdb"];
-            
+
             DateTime selectDate = dateTimePicker_DateSort.Value;
-            string sDFormat ="#" + selectDate.ToString("yyyy-MM-dd") + "#";
+            string sDFormat = "#" + selectDate.ToString("yyyy-MM-dd") + "#";
             string query = "SELECT * FROM Orders WHERE Дата =" + sDFormat;
             OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
             try
@@ -174,7 +175,7 @@ namespace Jornal
         }
 
         private void LoadInWork()
-        {           
+        {
             checkBox_DateDay.Checked = false;
             checkBox_Finished.Checked = false;
             checkBox_Sent.Checked = false;
@@ -200,14 +201,14 @@ namespace Jornal
 
         private void LoadFinished()
         {
-            
+
             checkBox_DateDay.Checked = false;
             checkBox_InWork.Checked = false;
             checkBox_Sent.Checked = false;
-           
-           
+
+
             if (checkBox_Finished.Checked)
-            {               
+            {
                 ConnectionStringSettings conString;
                 conString = ConfigurationManager.ConnectionStrings["pathdb"];
                 string query = "SELECT * FROM Orders WHERE Color = -10238087";
@@ -270,7 +271,7 @@ namespace Jornal
 
         private void UpdateDataGrid()
         {
-            
+
             if (checkBox_DateDay.Checked)
             {
                 LoadDataSortDay();
@@ -293,12 +294,13 @@ namespace Jornal
             }
             else
                 LoadData();
-            ClearTextResult();           
+            ClearTextResult();
         }
 
         private void AddBLCB_In_DB()
         {
-            if (Grid_Order.Rows.Count != 0)
+            ClearTextResult();
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Add_BLCB addBLCBDB = new Add_BLCB();
 
@@ -357,7 +359,7 @@ namespace Jornal
 
         private void ColorInDB(int color)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 if (Grid_Order.SelectedRows.Count > 1)
                 {
@@ -423,24 +425,30 @@ namespace Jornal
             }
         }
 
-        private void NewOrd()
+        private void NewOrd(string SpecaFilePath = "")
         {
+            ClearTextResult();
             int myColor;
             bool isColor = int.TryParse(ConfigurationManager.AppSettings["TechnologColor"], out myColor);
             if (!isColor) myColor = -1;
-            
-            ClearTextResult();
+            string notValue = "-1";
+
             Form_NewOrder newOrder = new Form_NewOrder();
-            string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, doubleSeparator;
+            if (SpecaFilePath != "")
+            {
+                newOrder.SpecaFilePath = SpecaFilePath;
+            }
+            string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size,
+                doubleSeparator, idMat;
             int lenghtCut;
             double thickness, priceResult, kF;
             newOrder.ShowDialog();
             CultureInfo culture = CultureInfo.CurrentCulture;
-            doubleSeparator = culture.NumberFormat.NumberDecimalSeparator;            
+            doubleSeparator = culture.NumberFormat.NumberDecimalSeparator;
             if (newOrder.DialogResult == DialogResult.OK)
             {
                 //String
-                data = newOrder.tBDate;              
+                data = newOrder.tBDate;
                 manager = newOrder.textBox_Manager.Text;
                 numberOfSpec = newOrder.textBox_NumSpec.Text;
                 client = newOrder.textBox_Client.Text;
@@ -455,7 +463,8 @@ namespace Jornal
                 //thickness = newOrder.comboBox_Thickness.Text;
                 thickness = Double.Parse(newOrder.comboBox_Thickness.Text.Replace('.', ','));
                 thStr = newOrder.comboBox_Thickness.Text.Replace('.', ',');
-                if (doubleSeparator == ",") {
+                if (doubleSeparator == ",")
+                {
                     kF = Double.Parse(newOrder.textBox_Kf.Text.Replace('.', ','));
                 }
                 else
@@ -466,38 +475,10 @@ namespace Jornal
                 weight = newOrder.textBox_Weight.Text;
                 bool flagCut = true;
 
-
-                if (newOrder.comboBox_Cut.Text == "Лазер" & lenghtCut < 500 & thickness <= 20)
+                if (newOrder.comboBox_Cut.Text == "Лазер" && thickness <= 20)
                 {
                     string queryPrice = "SELECT * FROM PriceLL500";
 
-                    ConnectionStringSettings conString;
-                    conString = ConfigurationManager.ConnectionStrings["pathdb"];
-
-                    string price;
-
-                    OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
-                    OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
-                    dbConn.Open();
-                    OleDbDataReader dbReader = dbCommand.ExecuteReader();
-                    dbReader.Read();
-                    price = Convert.ToString(dbReader[thStr]);
-                    priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
-
-                    string query =
-                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
-                        "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
-                        "', '" + steelGrade + "', '" + thickness +
-                        "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
-                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
-                    ConnectAccess(query);
-                    dbConn.Close();
-                    flagCut = false;
-                }
-                else if (newOrder.comboBox_Cut.Text == "Лазер" & lenghtCut >= 500 & thickness <= 20)
-                {
-                    string queryPrice = "SELECT * FROM PriceLM500";
 
                     ConnectionStringSettings conString;
                     conString = ConfigurationManager.ConnectionStrings["pathdb"];
@@ -511,7 +492,8 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.idMat == "" ? notValue : newOrder.idMat)}" +
+                        $"|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
 
                     string query =
                         "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -519,13 +501,12 @@ namespace Jornal
                         "', '" + steelGrade + "', '" + thickness +
                         "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
                         priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
-
                     ConnectAccess(query);
                     dbConn.Close();
                     flagCut = false;
                 }
 
-                if (newOrder.comboBox_Cut.Text == "Плазма" & thickness >= 2 & thickness <= 32)
+                if (newOrder.comboBox_Cut.Text == "Плазма" && thickness >= 2 && thickness <= 32)
                 {
                     string queryPrice = "SELECT * FROM PriceP";
                     ConnectionStringSettings conString;
@@ -540,7 +521,8 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.idMat == "" ? notValue : newOrder.idMat)}" +
+                        $"|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
 
                     string query =
                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -553,7 +535,7 @@ namespace Jornal
                     flagCut = false;
                 }
 
-                if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 90)
+                if (newOrder.comboBox_Cut.Text == "Газо-кислородная" && thickness >= 16 && thickness <= 200)
                 {
                     string queryPrice = "SELECT * FROM PriceG";
                     ConnectionStringSettings conString;
@@ -568,7 +550,8 @@ namespace Jornal
                     dbReader.Read();
                     price = Convert.ToString(dbReader[thStr]);
                     priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}";
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|{(newOrder.idMat == "" ? notValue : newOrder.idMat)}" +
+                        $"|{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
 
                     string query =
                         "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
@@ -580,6 +563,37 @@ namespace Jornal
                     ConnectAccess(query);
                     dbConn.Close();
                     flagCut = false;
+                }
+                if (newOrder.comboBox_Cut.Text == "HansLaser" && thickness <= 60)
+                {
+                    idMat = newOrder.idMat;
+                    string queryPrice = $"SELECT * FROM {NameTableDBOfId(idMat)}";
+                    ConnectionStringSettings conString;
+                    conString = ConfigurationManager.ConnectionStrings["pathdb"];
+
+                    string price;
+
+                    OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+                    OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
+                    dbConn.Open();
+                    OleDbDataReader dbReader = dbCommand.ExecuteReader();
+                    dbReader.Read();
+                    price = Convert.ToString(dbReader[thStr]);
+                    priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
+                    string kFDetPunDB = $"{kF}|{newOrder.cntDetPun}|" +
+                        $"{(newOrder.idMat == "" ? notValue : newOrder.idMat)}|" +
+                        $"{(newOrder.lbCurGas == "" ? notValue : newOrder.lbCurGas)}";
+
+                    string query =
+                        "INSERT INTO Orders (Дата, Менеджер, Спецификация, Заказчик, Вид_резки, Марка_стали, Толщина, Размер_листа, Ход, Вес, Кол_во_листов, Стоимость, Color, Коэффициент) " +
+                        "VALUES('" + data + "','" + manager + "','" + numberOfSpec + "', '" + client + "', '" + cut +
+                        "', '" + steelGrade + "', '" + thickness +
+                        "', '" + size + "', '" + lenghtCut + "', '" + weight + "', '" + sheetCount + "','" +
+                        priceResult + "','" + myColor + "','" + kFDetPunDB + "'  )";
+
+                    ConnectAccess(query);
+                    flagCut = false;
+                    dbConn.Close();
                 }
 
                 if (flagCut)
@@ -597,7 +611,7 @@ namespace Jornal
         {
             {
                 //Кнопка удалить___________________________________________________
-                if (Grid_Order.Rows.Count != 0)
+                if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
                 {
                     int key;
                     string managerName;
@@ -619,10 +633,12 @@ namespace Jornal
 
         private void Edit()
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Form_NewOrder newOrder = new Form_NewOrder();
-                string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount, thStr, weight, size, kFStr, cntDet, cntPun, doubleSeparator;
+                newOrder.Text = "Редактировать заявку";
+                string data, manager, numberOfSpec, client, cut, steelGrade, sheetCount,
+                    thStr, weight, size, kFStr, cntDet, cntPun, doubleSeparator, idMat, curGas;
                 int lenghtCut, key;
                 double thickness, priceResult, kF;
                 string[] kFDetPun;
@@ -642,7 +658,6 @@ namespace Jornal
                 newOrder.tBWeight = Convert.ToString(Grid_Order.CurrentRow.Cells[10].Value);
                 newOrder.tBSheetCount = Convert.ToString(Grid_Order.CurrentRow.Cells[11].Value);
                 kFDetPun = Convert.ToString(Grid_Order.CurrentRow.Cells[15].Value).Split('|');
-
                 if (kFDetPun.Length == 3)
                 {
                     kFStr = kFDetPun[0];
@@ -657,8 +672,25 @@ namespace Jornal
                     newOrder.tBKf = "1.0";
                     newOrder.LB_Details = "?";
                     newOrder.LB_Punchs = "?";
+                    newOrder.idMat = "-1";
+                    newOrder.lbCurGas = "-1";
 
                 }
+
+                if (kFDetPun.Length == 5)
+                {
+                    kFStr = kFDetPun[0];
+                    cntDet = kFDetPun[1];
+                    cntPun = kFDetPun[2];
+                    idMat = kFDetPun[3];
+                    curGas = kFDetPun[4];
+                    newOrder.tBKf = kFStr;
+                    newOrder.LB_Details = cntDet;
+                    newOrder.LB_Punchs = cntPun;
+                    newOrder.idMat = idMat;
+                    newOrder.lbCurGas = curGas;
+                }
+
                 bool flagCut = true;
                 ClearTextResult();
                 key = Convert.ToInt32(Grid_Order.CurrentRow.Cells[0].Value);
@@ -691,68 +723,37 @@ namespace Jornal
                     }
                     //weight = double.Parse(newOrder.textBox_Weight.Text.Replace('.', ','));
                     weight = newOrder.textBox_Weight.Text;
-                    if (newOrder.comboBox_Cut.Text == "Лазер" & thickness <= 20)
+                    if (newOrder.comboBox_Cut.Text == "Лазер" && thickness <= 20)
                     {
-                        if (lenghtCut < 500)
-                        {
-                            string queryPrice = "SELECT * FROM PriceLL500";
-                            ConnectionStringSettings conString;
-                            conString = ConfigurationManager.ConnectionStrings["pathdb"];
-                            string price;
-                            OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
-                            OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
-                            dbConn.Open();
-                            OleDbDataReader dbReader = dbCommand.ExecuteReader();
-                            dbReader.Read();
-                            price = Convert.ToString(dbReader[thStr]);
-                            priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                            string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
+                        string queryPrice = "SELECT * FROM PriceLL500";
+                        ConnectionStringSettings conString;
+                        conString = ConfigurationManager.ConnectionStrings["pathdb"];
+                        string price;
+                        OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+                        OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
+                        dbConn.Open();
+                        OleDbDataReader dbReader = dbCommand.ExecuteReader();
+                        dbReader.Read();
+                        price = Convert.ToString(dbReader[thStr]);
+                        priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
+                        string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|" +
+                        $"{newOrder.LB_Punchs}|{newOrder.idMat}|{newOrder.lbCurGas}";
 
+                        string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" +
+                                       numberOfSpec + "',Заказчик='" +
+                                       client + "', Вид_резки='" + cut + "', Марка_стали= '" + steelGrade +
+                                       "',Толщина='" + thickness + "', Размер_листа='" +
+                                       size + "', Ход='" + lenghtCut + "', Вес='" + weight + "', Кол_во_листов='" +
+                                       sheetCount + "', Стоимость='" + priceResult + "', Коэффициент='" + kFDetPunDB + "' WHERE Код = " + key;
 
-                            string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" +
-                                           numberOfSpec + "',Заказчик='" +
-                                           client + "', Вид_резки='" + cut + "', Марка_стали= '" + steelGrade +
-                                           "',Толщина='" + thickness + "', Размер_листа='" +
-                                           size + "', Ход='" + lenghtCut + "', Вес='" + weight + "', Кол_во_листов='" +
-                                           sheetCount + "', Стоимость='" + priceResult + "', Коэффициент='" + kFDetPunDB + "' WHERE Код = " + key;
+                        ConnectAccess(query);
+                        flagCut = false;
+                        dbConn.Close();
 
-                            ConnectAccess(query);
-                            flagCut = false;
-                            dbConn.Close();
-                        }
-                        else if (lenghtCut >= 500)
-                        {
-                            string queryPrice = "SELECT * FROM PriceLM500";
-
-                            ConnectionStringSettings conString;
-                            conString = ConfigurationManager.ConnectionStrings["pathdb"];
-
-                            string price;
-
-                            OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
-                            OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
-                            dbConn.Open();
-                            OleDbDataReader dbReader = dbCommand.ExecuteReader();
-                            dbReader.Read();
-                            price = Convert.ToString(dbReader[thStr]);
-                            priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
-                            string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
-
-                            string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" +
-                                           numberOfSpec + "',Заказчик='" +
-                                           client + "', Вид_резки='" + cut + "', Марка_стали= '" + steelGrade +
-                                           "',Толщина='" + thickness + "', Размер_листа='" +
-                                           size + "', Ход='" + lenghtCut + "', Вес='" + weight + "', Кол_во_листов='" +
-                                           sheetCount + "', Стоимость='" + priceResult + "', Коэффициент='" + kFDetPunDB + "' WHERE Код = " + key;
-
-                            ConnectAccess(query);
-                            flagCut = false;
-                            dbConn.Close();
-                        }
                     }
 
 
-                    if (newOrder.comboBox_Cut.Text == "Плазма" & thickness >= 2 & thickness <= 32)
+                    if (newOrder.comboBox_Cut.Text == "Плазма" && thickness >= 2 && thickness <= 32)
                     {
                         string queryPrice = "SELECT * FROM PriceP";
                         ConnectionStringSettings conString;
@@ -781,7 +782,7 @@ namespace Jornal
                         dbConn.Close();
                     }
 
-                    if (newOrder.comboBox_Cut.Text == "Газо-кислородная" & thickness >= 16 & thickness <= 90)
+                    if (newOrder.comboBox_Cut.Text == "Газо-кислородная" && thickness >= 16 && thickness <= 200)
                     {
                         string queryPrice = "SELECT * FROM PriceG";
                         ConnectionStringSettings conString;
@@ -797,6 +798,34 @@ namespace Jornal
                         price = Convert.ToString(dbReader[thStr]);
                         priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
                         string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}";
+
+                        string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" + numberOfSpec +
+                                       "',Заказчик='" +
+                                       client + "', Вид_резки='" + cut + "', Марка_стали= '" + steelGrade +
+                                       "',Толщина='" + thickness + "', Размер_листа='" +
+                                       size + "', Ход='" + lenghtCut + "', Вес='" + weight + "', Кол_во_листов='" +
+                                       sheetCount + "', Стоимость='" + priceResult + "', Коэффициент='" + kFDetPunDB + "' WHERE Код = " + key;
+
+                        ConnectAccess(query);
+                        flagCut = false;
+                        dbConn.Close();
+                    }
+                    if (newOrder.comboBox_Cut.Text == "HansLaser" && thickness <= 60)
+                    {
+
+                        idMat = newOrder.idMat;
+                        string price;
+                        string queryPrice = $"SELECT * FROM {NameTableDBOfId(idMat)}";
+                        ConnectionStringSettings conString;
+                        conString = ConfigurationManager.ConnectionStrings["pathdb"];
+                        OleDbConnection dbConn = new OleDbConnection(conString.ConnectionString);
+                        OleDbCommand dbCommand = new OleDbCommand(queryPrice, dbConn);
+                        dbConn.Open();
+                        OleDbDataReader dbReader = dbCommand.ExecuteReader();
+                        dbReader.Read();
+                        price = Convert.ToString(dbReader[thStr]);
+                        priceResult = Math.Round(Convert.ToDouble(price) * lenghtCut * kF);
+                        string kFDetPunDB = $"{kF}|{newOrder.LB_Details}|{newOrder.LB_Punchs}|{newOrder.idMat}|{newOrder.lbCurGas}";
 
                         string query = "UPDATE Orders set Менеджер='" + manager + "', Дата= '" + data + "',Спецификация='" + numberOfSpec +
                                        "',Заказчик='" +
@@ -851,7 +880,7 @@ namespace Jornal
                 }
             }
 
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 foreach (var i in numberSelectedRows)
                 {
@@ -887,24 +916,25 @@ namespace Jornal
                         size = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[8].Value);
                         sheetCount = Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[11].Value);
                         weight = (Convert.ToString(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[10].Value).Replace('.', ','));
-                        priceRnumder= Convert.ToInt32(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[12].Value);
-                        if(priceRnumder < 500) { priceRnumder = 500; }
+                        priceRnumder = Convert.ToInt32(Grid_Order.Rows[Grid_Order.Rows[i].Index].Cells[12].Value);
+                        if (priceRnumder < 500) { priceRnumder = 500; }
                         priceR = Convert.ToString(priceRnumder);
-                       
+
                         cut = SpacesCount(cut, cutLen);
                         stellGrade = SpacesCount(stellGrade, steelGradeLen);
                         thickness = SpacesCount(thickness, thicknessLen);
                         sheetCount = SpacesCount(sheetCount, sheetCountLen);
                         weight = SpacesCount(weight, weightLen);
                         priceR = SpacesCount(priceR, priceRLen);
-                        
 
-                        richTextBox_Result.Text = richTextBox_Result.Text + "Лист " + thickness + "x" + size + "," + "\t" + "   Сталь " + stellGrade + "," + "\t"
+
+                        richTextBox_Result.Text = richTextBox_Result.Text + "Лист " + thickness + "x" + size + "," + "\t" + "   Материал: " + stellGrade + "," + "\t"
                             + "   " + sheetCount + " шт." + "\t" + "   Вес " + weight + " кг." + "\t" + "   Резка " + priceR + " ₽." + "\t" + "   резка " + cut + "\n";
                         numberUsedRows.Add(i);
                     }
                 }
             }
+
         }
 
         private void ClearTextResult()
@@ -913,51 +943,103 @@ namespace Jornal
             numberSelectedRows.Clear();
             numberUsedRows.Clear();
         }
-        
-        private void CopyComment()
+
+        //private void CopyComment(bool folder = false)
+        //{
+        //    if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
+        //    {
+
+        //        int index = Grid_Order.CurrentCell.RowIndex;
+        //        string numBLCB = (Convert.ToString(Grid_Order.Rows[index].Cells[13].Value));
+
+        //        if (Grid_Order.SelectedRows.Count == 1 || folder)
+        //        {
+        //            if (numBLCB.Length > 5)
+        //            {
+
+        //                string numSpec, manager, client, thickness;
+        //                numSpec = Convert.ToString(Grid_Order.Rows[index].Cells[3].Value);
+        //                manager = Convert.ToString(Grid_Order.Rows[index].Cells[2].Value);
+        //                client = Convert.ToString(Grid_Order.Rows[index].Cells[4].Value);
+        //                thickness = Convert.ToString(Grid_Order.Rows[index].Cells[7].Value);
+        //                numBLCB = Convert.ToString(Grid_Order.Rows[index].Cells[13].Value);
+        //                Clipboard.SetText($"({thickness} мм)  {numSpec},  {manager},  ({client}),  {numBLCB}");
+        //                statusStrip.Visible = true;
+        //                toolStripStatusLabel_Info.Text = "Комментарий скопирован";
+        //            }
+        //            else
+        //            {
+        //                MessageBox.Show("Номер реализации не добавлен", "Внимание...",
+        //               MessageBoxButtons.OK, MessageBoxIcon.Information);
+        //            }
+
+        //        }
+        //        else
+        //        {
+        //            MessageBox.Show("Нужно выбрать одну строку", "Внимание...",
+        //                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        //        }
+
+        //    }
+        //}
+        private void CopyComment(bool folder = false)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
-                
-                int index = Grid_Order.CurrentCell.RowIndex;
-                string numBLCB = (Convert.ToString(Grid_Order.Rows[index].Cells[13].Value));
-
-                if (Grid_Order.SelectedRows.Count == 1)
+                if (!folder && Grid_Order.SelectedRows.Count > 1)
                 {
-                    if (numBLCB.Length > 5)
-                    {
+                    MessageBox.Show("Нужно выбрать одну строку", "Внимание...",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
 
-                        string numSpec, manager, client, thickness;
-                        numSpec = Convert.ToString(Grid_Order.Rows[index].Cells[3].Value);
-                        manager = Convert.ToString(Grid_Order.Rows[index].Cells[2].Value);
-                        client = Convert.ToString(Grid_Order.Rows[index].Cells[4].Value);
-                        thickness = Convert.ToString(Grid_Order.Rows[index].Cells[7].Value);
-                        numBLCB = Convert.ToString(Grid_Order.Rows[index].Cells[13].Value);
-                        Clipboard.SetText($"({thickness} мм)  {numSpec},  {manager},  ({client}),  {numBLCB}");                        
+                if (folder || Grid_Order.SelectedRows.Count == 1)
+                {
+                    string result = "";
+                    foreach (DataGridViewRow row in Grid_Order.SelectedRows)
+                    {
+                        string numBLCB = Convert.ToString(row.Cells[13].Value);
+                        if (numBLCB.Length > 5)
+                        {
+                            string numSpec = Convert.ToString(row.Cells[3].Value);
+                            string manager = Convert.ToString(row.Cells[2].Value);
+                            string client = Convert.ToString(row.Cells[4].Value);
+                            string thickness = Convert.ToString(row.Cells[7].Value);
+                            result += $"({thickness} мм)  {numSpec},  {manager},  ({client}),  {numBLCB}\n";
+                        }
+                        else
+                        {
+                            MessageBox.Show($"Номер реализации не добавлен для строки {row.Index + 1}", "Внимание...",
+                                MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            return;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(result))
+                    {
+                        Clipboard.SetText(result.TrimEnd('\n'));
                         statusStrip.Visible = true;
                         toolStripStatusLabel_Info.Text = "Комментарий скопирован";
                     }
-                    else
-                    {
-                        MessageBox.Show("Номер реализации не добавлен", "Внимание...",
-                       MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-
                 }
                 else
                 {
                     MessageBox.Show("Нужно выбрать одну строку", "Внимание...",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
-
             }
         }
+
         private void CopyCommentTelegramm()
         {
+            ClearTextResult();
             string commResultLaser = "";
             string commResultPlasma = "";
             string commResultGas = "";
-            if (Grid_Order.Rows.Count != 0)
+            string commResultHansLaser = "";
+
+            richTextBox_Result.Text = "";
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 string numBLCB = (Convert.ToString(Grid_Order.CurrentRow.Cells[13].Value));
                 if (numBLCB.Length > 5)
@@ -984,21 +1066,23 @@ namespace Jornal
                         string commResultHeader;
                         if (numBLCB.Length == 5)
                         {
-                            {
-                                commResultHeader = $"{numBLCB.TrimStart('0')}  {manager} ({client})\n";
+                            commResultHeader = $"{numBLCB.TrimStart('0')}  {manager} ({client})\n";
 
-                                if (typeCut == "Лазер")
-                                {
-                                    commResultLaser += $"**{thikchess} мм {steelGreed}**  \n";
-                                }
-                                if (typeCut == "Плазма")
-                                {
-                                    commResultPlasma += $"**{thikchess} мм {steelGreed}**  \n";
-                                }
-                                if (typeCut == "Газо-кислородная")
-                                {
-                                    commResultGas += $"**{thikchess} мм {steelGreed}**  \n";
-                                }
+                            if (typeCut == "Лазер")
+                            {
+                                commResultLaser += $"**{thikchess} мм {steelGreed}**  \n";
+                            }
+                            if (typeCut == "HansLaser")
+                            {
+                                commResultHansLaser += $"**{thikchess} мм {steelGreed}**  \n";
+                            }
+                            if (typeCut == "Плазма")
+                            {
+                                commResultPlasma += $"**{thikchess} мм {steelGreed}**  \n";
+                            }
+                            if (typeCut == "Газо-кислородная")
+                            {
+                                commResultGas += $"**{thikchess} мм {steelGreed}**  \n";
                             }
                         }
                         else
@@ -1008,35 +1092,38 @@ namespace Jornal
                             return;
                         }
                         string commResult = commResultHeader;
-                        if (commResultLaser != "")
+                        if (!string.IsNullOrEmpty(commResultLaser))
                         {
                             commResult += $"{commResultLaser.TrimEnd('\n')} на Лазер\n\n";
                         }
-                        if (commResultPlasma != "")
+                        if (!string.IsNullOrEmpty(commResultHansLaser))
+                        {
+                            commResult += $"{commResultHansLaser.TrimEnd('\n')} на HansLaser\n\n";
+                        }
+                        if (!string.IsNullOrEmpty(commResultPlasma))
                         {
                             commResult += $"{commResultPlasma.TrimEnd('\n')} на Плазму\n\n";
                         }
-                        if (commResultGas != "")
+                        if (!string.IsNullOrEmpty(commResultGas))
                         {
                             commResult += $"{commResultGas.TrimEnd('\n')} на Кристалл резка газом";
                         }
-                        if (commResult != "")
+
+                        if (!string.IsNullOrEmpty(commResult))
                         {
                             Clipboard.SetText(commResult);
-                            
                             AddTextInfo(statusStrip, toolStripStatusLabel_Info, "Комментарий для Telegram скопирован");
-                            
                         }
                     }
                     numberSelectedRows.Clear();
                 }
             }
-        }        
+        }
 
         void MainFormLoad(object sender, EventArgs e)
         {
-           
-            
+
+
             Grid_Order.GetType().GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic)
                 .SetValue(Grid_Order, true, null);
             if (System.Windows.Forms.Application.OpenForms["MainForm"] != null)
@@ -1063,6 +1150,7 @@ namespace Jornal
             {
                 e.Cancel = true;
             }
+            CleanupTempFolders();
         }
 
         void Button_NewOrderClick(object sender, EventArgs e)
@@ -1102,6 +1190,7 @@ namespace Jornal
         {
             if (richTextBox_Result.Text.Length != 0)
             {
+
                 DataObject dto = new DataObject();
                 dto.SetText(richTextBox_Result.Rtf, TextDataFormat.Rtf);
                 dto.SetText(richTextBox_Result.Text, TextDataFormat.UnicodeText);
@@ -1134,7 +1223,7 @@ namespace Jornal
 
         void Button_ColorInWorkClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1147,7 +1236,7 @@ namespace Jornal
 
         void Button_ColorFinishClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1159,7 +1248,7 @@ namespace Jornal
 
         void Button_SentClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1170,12 +1259,12 @@ namespace Jornal
         }
 
         void Button_ColorDialogClick(object sender, EventArgs e)
-        {                     
-            if (Grid_Order.Rows.Count != 0 && !checkBox_checkColor.Checked)
+        {
+            if (Grid_Order.Rows.Count != 0 && !checkBox_checkColor.Checked && Grid_Order.CurrentRow != null)
             {
                 if (colorDialog.ShowDialog() == DialogResult.OK)
                 {
-                    int color = colorDialog.Color.ToArgb();                   
+                    int color = colorDialog.Color.ToArgb();
                     int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
                     ColorInDB(color);
                     button_ColorDialog.BackColor = System.Drawing.Color.FromArgb(color);
@@ -1201,7 +1290,7 @@ namespace Jornal
 
         void Button_ClearColorClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 ColorInDB(-1);
                 UpdateDataGrid();
@@ -1225,7 +1314,7 @@ namespace Jornal
 
         void ВРаботеToolStripMenuItemClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1237,7 +1326,7 @@ namespace Jornal
 
         void ГотовоToolStripMenuItemClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1249,7 +1338,7 @@ namespace Jornal
 
         void ToolStripMenuItem1Click(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 Grid_Order.CurrentRow.DefaultCellStyle.ForeColor = Color.White;
                 int key = Convert.ToInt32(Grid_Order.CurrentRow.Index);
@@ -1261,7 +1350,7 @@ namespace Jornal
 
         void ДругойЦветToolStripMenuItemClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 if (colorDialog.ShowDialog() == DialogResult.OK)
                 {
@@ -1277,7 +1366,7 @@ namespace Jornal
 
         void СнятьВыделениеToolStripMenuItemClick(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 ColorInDB(-1);
                 UpdateDataGrid();
@@ -1299,7 +1388,7 @@ namespace Jornal
 
         void ДобавитьБЛЦБToolStripMenuItem1Click(object sender, EventArgs e)
         {
-            if (Grid_Order.Rows.Count != 0)
+            if (Grid_Order.Rows.Count != 0 && Grid_Order.CurrentRow != null)
             {
                 AddBLCB_In_DB();
             }
@@ -1316,7 +1405,7 @@ namespace Jornal
         {
             CopyComment();
         }
-       
+
         void TextBox_Searh_TextChanged(object sender, EventArgs e)
         {
             if (comboBox1.Text == "Толщина")
@@ -1355,6 +1444,126 @@ namespace Jornal
             CopyCommentTelegramm();
         }
 
+        private void создатьПапкиToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // Очищаем предыдущие временные папки
+            CleanupTempFolders();
+
+            // Уточнить, нужен ли вызов CopyComment
+            CopyComment(true); // Проверить, не влияет ли на буфер обмена
+            try
+            {
+                string clipboardText = Clipboard.GetText();
+                if (string.IsNullOrWhiteSpace(clipboardText))
+                {
+                    MessageBox.Show("Буфер обмена пуст!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                string[] lines = clipboardText.Split(
+                    new[] { "\r\n", "\r", "\n" },
+                    StringSplitOptions.RemoveEmptyEntries
+                );
+
+                if (lines.Length == 0)
+                {
+                    MessageBox.Show("Нет названий папок!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                // Создаем временную папку
+                string tempRoot = Path.Combine(Path.GetTempPath(), "ClipboardFolders_" + Guid.NewGuid().ToString());
+                try
+                {
+                    Directory.CreateDirectory(tempRoot);
+                    tempRoots.Add(tempRoot); // Сохраняем путь для последующей очистки
+
+                    List<string> tempFolders = new List<string>();
+                    foreach (string line in lines)
+                    {
+                        string folderName = line.Trim();
+                        if (string.IsNullOrEmpty(folderName))
+                            continue;
+
+                        // Проверка на недопустимые символы в имени папки
+                        if (folderName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                        {
+                            MessageBox.Show($"Недопустимое имя папки: {folderName}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            continue;
+                        }
+
+                        try
+                        {
+                            string tempFolderPath = Path.Combine(tempRoot, folderName);
+                            Directory.CreateDirectory(tempFolderPath);
+                            tempFolders.Add(tempFolderPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Ошибка при создании папки '{folderName}': {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+
+                    if (tempFolders.Count == 0)
+                    {
+                        MessageBox.Show("Не удалось создать ни одной папки!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        tempRoots.Remove(tempRoot); // Удаляем из списка, если папки не созданы
+                        try { Directory.Delete(tempRoot, true); } catch { } // Удаляем пустую папку
+                        return;
+                    }
+
+                    // Копируем пути папок в буфер обмена как FileDrop
+                    try
+                    {
+                        DataObject data = new DataObject();
+                        data.SetData(DataFormats.FileDrop, tempFolders.ToArray());
+                        Clipboard.SetDataObject(data, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка при копировании в буфер обмена: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    MessageBox.Show(
+                        $"Скопировано {tempFolders.Count} 🗀 в буфер.\nВставьте их в нужное место через ПКМ → Вставить.",
+                        "Готово",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка при создании временной папки: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    tempRoots.Remove(tempRoot); // Удаляем из списка при ошибке
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при работе с буфером обмена: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Метод для очистки временных папок
+        private void CleanupTempFolders()
+        {
+            foreach (string tempRoot in tempRoots.ToList())
+            {
+                try
+                {
+                    if (Directory.Exists(tempRoot))
+                    {
+                        Directory.Delete(tempRoot, true);
+                        tempRoots.Remove(tempRoot);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Ошибка при удалении временной папки '{tempRoot}': {ex.Message}");
+                }
+            }
+        }
+
         private void Grid_Order_SelectionChanged(object sender, EventArgs e)
         {
             ColorSelectedRows(Grid_Order);
@@ -1370,6 +1579,89 @@ namespace Jornal
             statusStrip.Visible = true;
             AddTextInfo(statusStrip, toolStripStatusLabel_Info, "Синхронизировать с базой данных");
         }
+        private void button_NewOrder_DragEnter(object sender, DragEventArgs e)
+        {
 
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                var file = files.FirstOrDefault();
+                // Проверяем расширение файла
+                if (file != null)
+                {
+                    string ext = Path.GetExtension(file).ToLower();
+                    if (ext == ".pdf" || ext == ".html" || ext == ".htm")
+                    {
+                        // Визуальные эффекты при допустимом файле
+                        _buttonNewOrderStyleManager.SetActiveAppearance();
+                        e.Effect = DragDropEffects.Copy;
+                        return;
+                    }
+                }
+            }
+            // Эффект при недопустимом файле
+            _buttonNewOrderStyleManager.SetErrorAppearance();
+            e.Effect = DragDropEffects.None;
+        }
+
+        private void button_NewOrder_DragLeave(object sender, EventArgs e)
+        {
+            _buttonNewOrderStyleManager.ResetAppearance();
+        }
+
+        private void button_NewOrder_DragDrop(object sender, DragEventArgs e)
+        {
+            _buttonNewOrderStyleManager?.ResetAppearance();
+            string fileToOpen = null;
+
+            try
+            {
+                if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                {
+                    var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    var file = files?.FirstOrDefault();
+
+                    if (file != null && File.Exists(file) && IsSupportedFile(file))
+                    {
+                        e.Effect = DragDropEffects.None;
+                        fileToOpen = file;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка обработки файла: {ex.Message}");
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+
+                if (fileToOpen != null)
+                {
+                    BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            NewOrd(fileToOpen);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Ошибка открытия файла: {ex.Message}");
+                        }
+                    }));
+                }
+            }
+        }
+
+        private static bool IsSupportedFile(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return false;
+
+            string ext = Path.GetExtension(filePath).ToLower();
+            return ext == ".pdf" || ext == ".html" || ext == ".htm";
+        }
+       
     }
+
 }
