@@ -1,0 +1,160 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:svg="clr-namespace:Avalonia.Svg;assembly=Svg.Controls.Avalonia">
+  <Styles.Resources>
+    <ControlTheme x:Key="DataGridCellTextBlockTheme" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </ControlTheme>
+    <ControlTheme x:Key="JournalCalendarButton" TargetType="Button">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="Transparent">
+            <svg:Svg Path="avares://Jornal.Desktop/Assets/Icons/calendar-days.svg" Width="16" Height="16"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     CurrentColor="{ReflectionBinding Foreground.Color, RelativeSource={RelativeSource TemplatedParent}}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+    <ControlTheme x:Key="JournalColumnHeader" TargetType="DataGridColumnHeader"
+                  BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="HeaderBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}">
+            <Grid Name="PART_ColumnHeaderRoot" ColumnDefinitions="*,16" Margin="{TemplateBinding Padding}">
+              <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center" />
+              <Path Name="SortIcon" Grid.Column="1" IsVisible="False" Width="10" Height="10" Stretch="Uniform"
+                    Fill="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+  <Style Selector="Window">
+    <Setter Property="FontFamily" Value="{StaticResource JournalFont}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+    <Setter Property="Background" Value="{DynamicResource JournalBackground}" />
+  </Style>
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <Style Selector="Button.command">
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Background" Value="{DynamicResource JournalRaised}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="Button.command:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+  </Style>
+  <Style Selector="Button.command.primary">
+    <Setter Property="Background" Value="{DynamicResource JournalAccent}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalOnAccent}" />
+  </Style>
+  <Style Selector="Button.command:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}" />
+    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+  <Style Selector="Button.command.outline">
+    <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Button.command.danger">
+    <Setter Property="Foreground" Value="{DynamicResource JournalDangerForeground}" />
+  </Style>
+  <Style Selector="Button.command.work">
+    <Setter Property="Background" Value="{DynamicResource WorkBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource WorkForeground}" />
+  </Style>
+  <Style Selector="Button.command.ready">
+    <Setter Property="Background" Value="{DynamicResource ReadyBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource ReadyForeground}" />
+  </Style>
+  <Style Selector="Button.command.shipped">
+    <Setter Property="Background" Value="{DynamicResource ShippedBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShippedForeground}" />
+  </Style>
+  <Style Selector="RadioButton.filter">
+    <Setter Property="Theme" Value="{StaticResource {x:Type ToggleButton}}" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="16,0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="{DynamicResource JournalRaised}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="RadioButton.filter:checked">
+    <Setter Property="Background" Value="{DynamicResource JournalAccent}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalOnAccent}" />
+  </Style>
+  <Style Selector="RadioButton.filter:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource JournalAccent}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalOnAccent}" />
+  </Style>
+  <Style Selector="TextBox, ComboBox, CalendarDatePicker">
+    <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalBorder}" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="TextBox">
+    <Setter Property="PlaceholderForeground" Value="{DynamicResource JournalMuted}" />
+  </Style>
+  <Style Selector="CalendarDatePicker /template/ Button#PART_Button">
+    <Setter Property="Theme" Value="{StaticResource JournalCalendarButton}" />
+  </Style>
+  <Style Selector="DataGrid">
+    <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+    <Setter Property="RowBackground" Value="{DynamicResource JournalSurface}" />
+    <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource JournalBorder}" />
+  </Style>
+  <Style Selector="DataGridColumnHeader">
+    <Setter Property="Theme" Value="{StaticResource JournalColumnHeader}" />
+    <Setter Property="Background" Value="{DynamicResource JournalRaised}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="8,0" />
+  </Style>
+  <Style Selector="DataGridCell">
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="DataGridColumnHeader TextBlock">
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="DataGrid /template/ ScrollBar">
+    <Setter Property="AllowAutoHide" Value="False" />
+  </Style>
+  <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource JournalSelection}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="DataGridCell TextBlock">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+</Styles>

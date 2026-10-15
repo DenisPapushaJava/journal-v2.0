@@ -47,14 +47,6 @@
         "resolved": "11.3.2",
         "contentHash": "qHDToxto1e3hci5YqbG9n0Ty8mlp3zBUN5wT66wKqaDVzXyQ0do3EnRILd4Ke9jpvsktaPpgE0YjEk7hornryQ=="
       },
-      "Avalonia.Fonts.Inter": {
-        "type": "Transitive",
-        "resolved": "12.1.4",
-        "contentHash": "PqzIALObVJ3ZUpfYDkoNNkijaVBUGVrHqAyWPkE39aJrPukbMv49aGMhS+c5HiW1s+/iuo3fW+ISOk34GOc0iw==",
-        "dependencies": {
-          "Avalonia": "12.1.4"
-        }
-      },
       "Avalonia.FreeDesktop": {
         "type": "Transitive",
         "resolved": "12.1.4",
@@ -139,6 +131,11 @@
           "Avalonia.FreeDesktop.AtSpi": "12.1.4",
           "Avalonia.Skia": "12.1.4"
         }
+      },
+      "ExCSS": {
+        "type": "Transitive",
+        "resolved": "4.3.1",
+        "contentHash": "A8UtcghHQlWxPJhJF5bsfEYO7068JHGTuJ7tzyyMjd5fE/N/xY1cVOUhzuLLFwMOCJVnM4mqSQc93W9fGfZ1kA=="
       },
       "HarfBuzzSharp": {
         "type": "Transitive",
@@ -237,6 +234,11 @@
         "resolved": "5.0.0",
         "contentHash": "dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg=="
       },
+      "ShimSkiaSharp": {
+        "type": "Transitive",
+        "resolved": "5.2.3",
+        "contentHash": "BBmIvh70WduWEF8C9HeU12LmHkg6+h2SRwJzey/tmztRk4ttAxhyu9eAD/jlsNGlqquYpoCQyyTx+QynavyfVA=="
+      },
       "SkiaSharp": {
         "type": "Transitive",
         "resolved": "3.119.4",
@@ -265,6 +267,33 @@
         "type": "Transitive",
         "resolved": "3.119.4",
         "contentHash": "XOpbx/4CReO2wYsq2s6rbvdauc6dntG4Zv499sHGTJ87bwZaFXszFkwql3+FIZMc8kUPeaj3Mx2ezIJmo8a1Kg=="
+      },
+      "Svg.Custom": {
+        "type": "Transitive",
+        "resolved": "5.2.3",
+        "contentHash": "epicuKTb55l7Y6c3f9pdP0RkoifVieS9sWvA9HsppTfYyV7RFZg89+fUA9TTPcuccqi0GUGwiPEi+9b881zlDw==",
+        "dependencies": {
+          "ExCSS": "4.3.1"
+        }
+      },
+      "Svg.Model": {
+        "type": "Transitive",
+        "resolved": "5.2.3",
+        "contentHash": "iZInP4/48rIkpFxVJNMmxDDjIBaUcGOHrzancQ3cmneHXrtH4MYkm6bzggL9hCiS2dxfLhk3JCiERoGf8j0MlA==",
+        "dependencies": {
+          "ShimSkiaSharp": "5.2.3",
+          "Svg.Custom": "5.2.3"
+        }
+      },
+      "Svg.SceneGraph": {
+        "type": "Transitive",
+        "resolved": "5.2.3",
+        "contentHash": "t9HrB1n499YCvziq+sdapDjMvgY7iSzyldEDalWnoZCP3cncu92gEktBqzhUgo8A+r9mfow2TNf0u5jgV5FvlQ==",
+        "dependencies": {
+          "ShimSkiaSharp": "5.2.3",
+          "Svg.Custom": "5.2.3",
+          "Svg.Model": "5.2.3"
+        }
       },
       "Tmds.DBus.Protocol": {
         "type": "Transitive",
@@ -347,16 +376,18 @@
           "Avalonia": "[12.1.4, )",
           "Avalonia.Controls.DataGrid": "[12.1.2, )",
           "Avalonia.Desktop": "[12.1.4, )",
+          "Avalonia.Fonts.Inter": "[12.1.4, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
           "CommunityToolkit.Mvvm": "[8.4.2, )",
-          "Jornal.Core": "[1.0.0, )",
-          "Jornal.Infrastructure": "[1.0.0, )"
+          "Jornal.Core": "[2026.1.0-dev, )",
+          "Jornal.Infrastructure": "[2026.1.0-dev, )",
+          "Svg.Controls.Avalonia": "[12.0.0.17, )"
         }
       },
       "jornal.infrastructure": {
         "type": "Project",
         "dependencies": {
-          "Jornal.Core": "[1.0.0, )"
+          "Jornal.Core": "[2026.1.0-dev, )"
         }
       },
       "jornal.parsing": {
@@ -406,6 +437,15 @@
           "Avalonia.X11": "12.1.4"
         }
       },
+      "Avalonia.Fonts.Inter": {
+        "type": "CentralTransitive",
+        "requested": "[12.1.4, )",
+        "resolved": "12.1.4",
+        "contentHash": "PqzIALObVJ3ZUpfYDkoNNkijaVBUGVrHqAyWPkE39aJrPukbMv49aGMhS+c5HiW1s+/iuo3fW+ISOk34GOc0iw==",
+        "dependencies": {
+          "Avalonia": "12.1.4"
+        }
+      },
       "Avalonia.Themes.Fluent": {
         "type": "CentralTransitive",
         "requested": "[12.1.4, )",
@@ -426,6 +466,17 @@
         "requested": "[0.1.16, )",
         "resolved": "0.1.16",
         "contentHash": "qQcbsNMYVY+K5ELptax2S8thNMk0+rSQq3H/KdYj3LLcko8yTCz8y5KIvsKxIyAuTN0ZYNnfsZkM+0EvxTwHVA=="
+      },
+      "Svg.Controls.Avalonia": {
+        "type": "CentralTransitive",
+        "requested": "[12.0.0.17, )",
+        "resolved": "12.0.0.17",
+        "contentHash": "R23nEP6mfyEMw3nmQQ7lXzTYI7FFUohC/pz4w2hYcrcinC3u4omTbeNKEsXoi5EXl2mhcm1No0nDV+2xYzSlsw==",
+        "dependencies": {
+          "Avalonia": "12.0.0",
+          "Svg.Model": "5.2.3",
+          "Svg.SceneGraph": "5.2.3"
+        }
       }
     },
     "net10.0/linux-x64": {

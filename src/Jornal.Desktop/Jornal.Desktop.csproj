@@ -7,10 +7,16 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Svg.Controls.Avalonia" />
     <PackageReference Include="Avalonia.Controls.DataGrid" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <ProjectReference Include="../Jornal.Core/Jornal.Core.csproj" />
     <ProjectReference Include="../Jornal.Infrastructure/Jornal.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="../../docs/design/assets/lucide/*.svg" Link="Assets/Icons/%(Filename)%(Extension)" />
+    <Content Include="../../docs/design/assets/lucide/LICENSE" Link="Licenses/Lucide.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <!-- Native NuGet assets include large PDBs even when managed DebugType=None. -->
   <Target Name="ExcludePublishDebugSymbols" AfterTargets="ComputeFilesToPublish" Condition="'$(Configuration)' == 'Release'">
