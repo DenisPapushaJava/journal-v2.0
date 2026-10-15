@@ -8,40 +8,20 @@ using Xunit;
 namespace Jornal.Access.Tests;
 
 [SupportedOSPlatform("windows")]
-public sealed class NativeAccessTests(ITestOutputHelper output)
+public sealed class NativeAccessTests
 {
-    [Fact]
-    public void DiagnoseProviderInitialization()
+    [Theory]
+    [InlineData("Journal's copy & test ")]
+    [InlineData("Journal copy;Mode=Share Exclusive ")]
+    public async Task ConnectionStringTreatsPathPunctuationAsPartOfTheFileName(string directoryPrefix)
     {
-        using var database = Database.Create();
-        foreach (var directoryName in new[] { "Journal copy & test ", "Journal's copy ", "Журнал копия ", "Journal's копия & тест " })
-        {
-            var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), directoryName + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(directory);
-            var path = System.IO.Path.Combine(directory, "OrderDB.mdb");
-            File.Copy(database.Path, path);
-            try
-            {
-                foreach (var mode in new object[] { "Read", 19 })
-                foreach (var raw in new[] { false, true })
-                {
-                    var provider = OleDbOrderReader.FindProvider()!;
-                    var builder = new OleDbConnectionStringBuilder { Provider = provider, DataSource = path };
-                    builder["Mode"] = mode;
-                    builder["OLE DB Services"] = -2;
-                    var text = raw ? $"Provider={provider};Data Source={path};Mode={mode};OLE DB Services=-2" : builder.ConnectionString;
-                    try
-                    {
-                        using var connection = new OleDbConnection(text);
-                        connection.Open();
-                        using var command = connection.CreateCommand(); command.CommandText = "SELECT COUNT(*) FROM [Orders]";
-                        output.WriteLine($"PASS {text}: {command.ExecuteScalar()}");
-                    }
-                    catch (Exception exception) { output.WriteLine($"FAIL {text}: {exception.Message}"); }
-                }
-            }
-            finally { OleDbConnection.ReleaseObjectPool(); Directory.Delete(directory, recursive: true); }
-        }
+        using var database = Database.Create(directoryPrefix);
+        var before = await database.Read();
+        var editor = new OleDbOrderBatchEditor(database.Path);
+        var changed = await editor.SetColorAsync(before, OrderColors.Ready, TestContext.Current.CancellationToken);
+        changed = await editor.SetDeliveryNumberAsync(changed, "БЛЦБ-'42'", TestContext.Current.CancellationToken);
+        Assert.Equal(before.Select(row => row with { Color = OrderColors.Ready, DeliveryNumber = "БЛЦБ-'42'" }), changed);
+        Assert.Equal(changed, await database.Read());
     }
 
     [Fact]
@@ -188,22 +168,22 @@ public sealed class NativeAccessTests(ITestOutputHelper output)
         private readonly string _fixture;
         private readonly byte[] _fixtureHash;
         public string Path { get; }
-        private Database(string fixture)
+        private Database(string fixture, string directoryPrefix)
         {
             _fixture = fixture;
             _fixtureHash = SHA256.HashData(File.ReadAllBytes(fixture));
-            _directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Journal copy & test " + Guid.NewGuid().ToString("N"));
+            _directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), directoryPrefix + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_directory);
             Path = System.IO.Path.Combine(_directory, "OrderDB.mdb");
             File.Copy(fixture, Path);
         }
-        public static Database Create()
+        public static Database Create(string directoryPrefix = "Journal copy & test ")
         {
             var fixture = Environment.GetEnvironmentVariable("JOURNAL_SYNTHETIC_MDB");
             var available = OperatingSystem.IsWindows() && !string.IsNullOrWhiteSpace(fixture);
             if (Environment.GetEnvironmentVariable("JOURNAL_REQUIRE_NATIVE_TESTS") == "1") Assert.True(available, "Обязательная MDB не подготовлена.");
             Assert.SkipUnless(available, "Нативные проверки требуют Windows и искусственную MDB.");
-            return new(fixture!);
+            return new(fixture!, directoryPrefix);
         }
         public Task<IReadOnlyList<OrderSummary>> Read() => new AccessOrderReader(Path).ReadAsync(TestContext.Current.CancellationToken);
         public OleDbConnection Connection()
