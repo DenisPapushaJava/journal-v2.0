@@ -144,6 +144,13 @@ public partial class MainWindow : Window
         await dialog.ShowDialog<bool>(this);
     }
 
+    private async void OnDatabaseSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel?.CreateDatabaseSettingsForm() is not { } form) return;
+        var dialog = new DatabaseSettingsWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
+        await dialog.ShowDialog<bool>(this);
+    }
+
     private void OnSelectionRestore(object? sender, SelectionRestoreRequest request)
     {
         var ids = request.Ids.ToHashSet();

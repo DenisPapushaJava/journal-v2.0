@@ -1,0 +1,93 @@
+using System.Text.Json;
+using Jornal.Core.Orders;
+using Jornal.Infrastructure.Access;
+using Jornal.Infrastructure.Demo;
+
+namespace Jornal.Desktop.DataSources;
+
+public sealed record OrderSourceSettings(int Version = 1, string? DatabasePath = null);
+public sealed record OrderSourceSettingsLoad(OrderSourceSettings? Settings, string? Error = null);
+public interface IOrderSourceSettingsStore
+{
+    OrderSourceSettingsLoad Load();
+    void Save(OrderSourceSettings settings);
+}
+
+public sealed class JsonOrderSourceSettingsStore(string path) : IOrderSourceSettingsStore
+{
+    public static string DefaultPath => Path.Combine(Path.GetDirectoryName(Customization.JsonUiPreferencesStore.DefaultPath)!, "data-source.json");
+
+    public OrderSourceSettingsLoad Load()
+    {
+        try
+        {
+            using var stream = File.OpenRead(path);
+            if (stream.Length > 32 * 1024) return new(null, "Файл настроек базы слишком большой. Выберите источник заново.");
+            using var document = JsonDocument.Parse(stream);
+            if (document.RootElement.ValueKind != JsonValueKind.Object ||
+                !document.RootElement.TryGetProperty("Version", out var version) || version.ValueKind != JsonValueKind.Number ||
+                !version.TryGetInt32(out var number) || number != 1 ||
+                !document.RootElement.TryGetProperty("DatabasePath", out var databasePath) || databasePath.ValueKind is not (JsonValueKind.Null or JsonValueKind.String))
+                return new(null, "Настройки базы несовместимы с этой версией. Выберите источник заново.");
+            stream.Position = 0;
+            var settings = JsonSerializer.Deserialize<OrderSourceSettings>(stream);
+            if (settings is null || settings.Version != 1 || settings.DatabasePath is not null &&
+                (!Path.IsPathFullyQualified(settings.DatabasePath) || !string.Equals(Path.GetExtension(settings.DatabasePath), ".mdb", StringComparison.OrdinalIgnoreCase)))
+                return new(null, "Настройки базы несовместимы с этой версией. Выберите источник заново.");
+            if (settings.DatabasePath is not null) _ = Path.GetFullPath(settings.DatabasePath);
+            return new(settings);
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return new(new());
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        {
+            return new(null, "Не удалось прочитать настройки базы. Выберите источник заново.");
+        }
+    }
+
+    public void Save(OrderSourceSettings settings)
+    {
+        var directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        Directory.CreateDirectory(directory);
+        var temporary = Path.Combine(directory, $".data-source-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(stream, settings, new JsonSerializerOptions { WriteIndented = true });
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+}
+
+public sealed record OrderSource(string? Path, IOrderReader Reader, IManualOrderCreator? Creator = null, IOrderBatchEditor? Editor = null,
+    string? Error = null)
+{
+    public string Description => Error is not null ? "Источник не подключён" : Path is null ?
+        "Деможурнал · до закрытия программы" : $"{System.IO.Path.GetFileName(Path)} · только чтение";
+    public string Details => Error ?? Path ?? "Вымышленные заявки. Изменения хранятся в памяти текущего сеанса.";
+}
+
+public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, Func<string, IOrderReader>? readerFactory = null)
+{
+    private readonly DemoOrderStore _demo = new();
+    public OrderSource Load()
+    {
+        var loaded = settingsStore.Load();
+        return loaded.Error is not null ? new(null, new UnavailableReader(loaded.Error), Error: loaded.Error) : Create(loaded.Settings?.DatabasePath);
+    }
+    public OrderSource Create(string? path) => path is null ? new(null, _demo, _demo, _demo) :
+        new(System.IO.Path.GetFullPath(path), readerFactory?.Invoke(path) ?? new AccessOrderReader(path));
+    public void Save(OrderSource source) => settingsStore.Save(new(DatabasePath: source.Path));
+
+    private sealed class UnavailableReader(string error) : IOrderReader
+    {
+        public Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
+            Task.FromException<IReadOnlyList<OrderSummary>>(new OrderReadException(error));
+    }
+}

@@ -59,12 +59,14 @@ def create_archive(publish_dir, output_dir, version, runtime, commit):
             bundle.write(path, path.relative_to(publish_dir).as_posix())
         bundle.writestr("BUILD-INFO.json", json.dumps({
             "version": version.version, "runtime": runtime, "commit": commit,
-            "deployment": "framework-dependent", "stage": "demo",
+            "deployment": "framework-dependent", "stage": "read-only-access",
         }, indent=2) + "\n")
         bundle.writestr("README-RUN.txt", (
             f"Journal {version.version} ({runtime})\n\n"
-            "ПРЕДВАРИТЕЛЬНАЯ ДЕМОНСТРАЦИОННАЯ СБОРКА. Рабочий установщик ещё не готов.\n"
-            "Нужна .NET 10 Runtime. Данные вымышленные; подключение к Access ещё не реализовано.\n"
+            "ПРЕДВАРИТЕЛЬНАЯ СБОРКА. Рабочий установщик ещё не готов.\n"
+            "Нужна .NET 10 Runtime. В шапке «База данных» можно выбрать копию существующей MDB.\n"
+            "MDB пока доступна только для чтения; создание, статусы и БЛЦБ работают только в деможурнале.\n"
+            "Для MDB на Windows нужен ACE той же разрядности; на Linux — mdbtools (mdb-export).\n"
             "Распакуйте архив целиком, затем запустите " + launcher + ".\n"
             "На Linux при необходимости разрешите запуск: chmod +x Jornal.Desktop\n"
             "Для проверки этой сборки не заменяйте и не перемещайте существующий OrderDB.mdb.\n"

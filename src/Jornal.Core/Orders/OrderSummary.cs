@@ -3,15 +3,15 @@ namespace Jornal.Core.Orders;
 // A read model, not the complete persisted order or a recalculated quote.
 public sealed record OrderSummary(
     int Id,
-    DateOnly OrderDate,
+    DateOnly? OrderDate,
     string SpecificationNumber,
     string ManagerName,
     string CustomerName,
     string CuttingType,
     string MaterialName,
-    decimal ThicknessMillimeters,
+    decimal? ThicknessMillimeters,
     decimal? StoredCuttingPrice,
-    int Color)
+    int? Color)
 {
     public string SheetSize { get; init; } = string.Empty;
     public string SheetCount { get; init; } = string.Empty;
@@ -21,4 +21,9 @@ public sealed record OrderSummary(
     public decimal? Coefficient { get; init; }
     public string MaterialId { get; init; } = string.Empty;
     public string CuttingGas { get; init; } = string.Empty;
+    // Исходные значения нужны для диагностики и будущего редактирования без нормализации при чтении.
+    public string? StoredCoefficient { get; init; }
+    public DateTime? StoredOrderDateTime { get; init; }
+    public int? PartCount { get; init; }
+    public int? PunchCount { get; init; }
 }

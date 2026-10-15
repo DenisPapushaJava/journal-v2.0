@@ -4,7 +4,7 @@ using Avalonia.Markup.Xaml;
 using Jornal.Desktop.ViewModels;
 using Jornal.Desktop.Customization;
 using Jornal.Desktop.Views;
-using Jornal.Infrastructure.Demo;
+using Jornal.Desktop.DataSources;
 
 namespace Jornal.Desktop;
 
@@ -16,10 +16,13 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var demoStore = new DemoOrderStore();
+            var sources = new OrderSourceManager(new JsonOrderSourceSettingsStore(JsonOrderSourceSettingsStore.DefaultPath));
+            var source = sources.Load();
+            var model = new MainWindowViewModel(source.Reader, source.Creator, source.Editor, sources);
+            model.InitializeSource(source);
             desktop.MainWindow = new MainWindow(new JsonUiPreferencesStore(JsonUiPreferencesStore.DefaultPath))
             {
-                DataContext = new MainWindowViewModel(demoStore, demoStore, demoStore)
+                DataContext = model
             };
         }
 

@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
+        x:Class="Jornal.Desktop.Views.DatabaseSettingsWindow" x:DataType="vm:DatabaseSettingsViewModel"
+        Title="База данных · Journal" Width="660" Height="480" MinWidth="600" MinHeight="460"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
+            BorderThickness="0,0,0,1" Padding="24,16">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Источник заявок" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Text="Путь сохраняется только для вашего пользователя" Classes="muted" />
+      </StackPanel>
+    </Border>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="24,16" Spacing="12" IsEnabled="{Binding !ConnectCommand.IsRunning}">
+        <RadioButton x:Name="DatabaseModeButton" GroupName="Source" Content="Существующая база OrderDB.mdb"
+                     IsChecked="{Binding UseDatabase, Mode=TwoWay}" />
+        <Grid ColumnDefinitions="*,8,Auto" IsEnabled="{Binding UseDatabase}">
+          <TextBox x:Name="DatabasePathInput" Text="{Binding DatabasePath, Mode=TwoWay}" MinHeight="36"
+                   PlaceholderText="Полный путь к файлу .mdb" AutomationProperties.Name="Путь к базе данных"
+                   ToolTip.Tip="{Binding DatabasePath}" />
+          <ui:JournalButton x:Name="BrowseDatabaseButton" Grid.Column="2" Label="Обзор…" Icon="folder-plus" Click="OnBrowseClick" />
+        </Grid>
+        <TextBlock Text="Файл может находиться на этом компьютере или в общей сетевой папке." Classes="muted" TextWrapping="Wrap" />
+        <Border Classes="panel" Padding="12">
+          <TextBlock Text="На этом этапе база доступна только для чтения. Можно искать заявки, фильтровать и копировать результат. Изменение заявок подключим следующим этапом."
+                     TextWrapping="Wrap" />
+        </Border>
+        <RadioButton x:Name="DemoModeButton" GroupName="Source" Content="Демонстрационный журнал"
+                     IsChecked="{Binding UseDemo, Mode=TwoWay}" />
+      </StackPanel>
+    </ScrollViewer>
+    <Border Grid.Row="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
+            BorderThickness="0,1,0,0" Padding="24,12">
+      <StackPanel Spacing="8">
+        <TextBlock Text="При смене источника результат, выбор строк и фильтры очищаются. При ошибке прежний экран сохраняется."
+                   Classes="muted" TextWrapping="Wrap" />
+        <TextBlock x:Name="DatabaseConnectionError" Text="{Binding Error}" IsVisible="{Binding HasError}"
+                   Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+        <Grid ColumnDefinitions="*,12,Auto,8,Auto">
+        <TextBlock Text="Подключение…" IsVisible="{Binding ConnectCommand.IsRunning}" Classes="muted" VerticalAlignment="Center" />
+        <ui:JournalButton x:Name="CancelDatabaseButton" Grid.Column="2" Label="Отмена" Click="OnCancelClick" />
+        <ui:JournalButton x:Name="ConnectDatabaseButton" Grid.Column="4" Label="Подключить" Icon="check" Classes="primary"
+                          Command="{Binding ConnectCommand}" IsDefault="True" />
+        </Grid>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>
