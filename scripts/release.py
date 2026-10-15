@@ -63,11 +63,11 @@ def create_archive(publish_dir, output_dir, version, runtime, commit):
         }, indent=2) + "\n")
         bundle.writestr("README-RUN.txt", (
             f"Journal {version.version} ({runtime})\n\n"
-            "PRELIMINARY DEMO BUILD — not a production installer.\n"
-            "Requires the .NET 10 runtime. Data is fictional; Access integration is not implemented.\n"
-            "Extract the entire archive, then start " + launcher + ".\n"
-            "On Linux, restore executable permission if needed: chmod +x Jornal.Desktop\n"
-            "Do not replace or move your existing OrderDB.mdb to try this demo.\n"
+            "ПРЕДВАРИТЕЛЬНАЯ ДЕМОНСТРАЦИОННАЯ СБОРКА. Рабочий установщик ещё не готов.\n"
+            "Нужна .NET 10 Runtime. Данные вымышленные; подключение к Access ещё не реализовано.\n"
+            "Распакуйте архив целиком, затем запустите " + launcher + ".\n"
+            "На Linux при необходимости разрешите запуск: chmod +x Jornal.Desktop\n"
+            "Для проверки этой сборки не заменяйте и не перемещайте существующий OrderDB.mdb.\n"
         ))
     checksum = archive.with_suffix(archive.suffix + ".sha256")
     checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + "  " + archive.name + "\n", encoding="utf-8")

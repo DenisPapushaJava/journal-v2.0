@@ -1,8 +1,8 @@
-This is an early **Journal development/demo build**, not the production application.
+Предварительная **демонстрационная сборка Journal**. Полный перенос рабочей программы ещё не завершён.
 
-- The UI uses fictional data; Access integration and the legacy calculation/parser migration are not finished.
-- ZIP archives require a compatible .NET 10 runtime. Extract the entire archive before running the application.
-- The offline Windows installer with bundled prerequisites is still to be implemented.
-- These builds do not modify the existing `OrderDB.mdb`.
+- Интерфейс показывает вымышленные данные; подключение к Access, перенос расчётов и бизнес-парсера ещё не завершены.
+- Для запуска ZIP-сборок нужна совместимая .NET 10 Runtime. Перед запуском распакуйте архив целиком.
+- Офлайн-установщик Windows со всеми необходимыми компонентами ещё не реализован.
+- Эти сборки не изменяют существующий `OrderDB.mdb`.
 
-The release workflow creates a **draft** for review. Publishing a production release requires checking the real Windows workflow and the completed installer.
+Процесс выпуска создаёт **черновик** для проверки. Перед публикацией рабочего выпуска необходимо проверить реальные сценарии на Windows и готовый установщик.

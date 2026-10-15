@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version for packaging check, e.g. 2026.1.0-alpha.1 (no release is created)'
+        description: 'Версия для проверки упаковки, например 2026.1.0-alpha.1 (релиз не создаётся)'
         required: true
         type: string
 
