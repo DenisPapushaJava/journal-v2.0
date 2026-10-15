@@ -15,7 +15,7 @@ public static class OrderResultFormatter
         if (orders.Count == 0) return string.Empty;
         var rows = orders.Select(order => new[]
         {
-            order.ThicknessMillimeters.ToString("0.###", Culture), order.MaterialName, order.SheetCount,
+            order.ThicknessMillimeters?.ToString("0.###", Culture) ?? "—", order.MaterialName, order.SheetCount,
             order.WeightKilograms.Replace('.', ','), order.StoredCuttingPrice!.Value.ToString(Culture), order.CuttingType
         }).ToArray();
         var widths = Enumerable.Range(0, 6).Select(column => rows.Max(row => row[column].Length)).ToArray();

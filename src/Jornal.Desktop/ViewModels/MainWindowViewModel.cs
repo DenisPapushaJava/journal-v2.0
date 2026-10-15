@@ -4,13 +4,14 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Jornal.Core.Orders;
+using Jornal.Desktop.DataSources;
 
 namespace Jornal.Desktop.ViewModels;
 
 public enum OrderStatusFilter { All, Work, Ready, Shipped }
 
 public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderCreator? orderCreator = null,
-    IOrderBatchEditor? orderEditor = null) : ObservableObject
+    IOrderBatchEditor? orderEditor = null, OrderSourceManager? sourceManager = null) : ObservableObject
 {
     private IReadOnlyList<OrderSummary> _allOrders = [];
 
@@ -20,14 +21,14 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [ObservableProperty] private string _selectionText = "Выбрано: 0";
     [ObservableProperty] private string _activeOrderText = "Активная: —";
     [ObservableProperty] private string _updatedText = "F5 — обновить список";
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanSelectOrders))] private bool _hasNoOrders = true;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanSelectOrders)), NotifyPropertyChangedFor(nameof(ShowEmptyState))] private bool _hasNoOrders = true;
     [ObservableProperty] private DateTime? _filterDate;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ThemeActionLabel))]
     private bool _isDarkTheme;
 
     [ObservableProperty] private bool _isCustomizing;
     [ObservableProperty] private bool _isUpdatingOrders;
-    [ObservableProperty] private bool _isLoadingOrders;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowEmptyState))] private bool _isLoadingOrders;
 
     partial void OnIsCustomizingChanged(bool value) => NotifyJournalAvailability();
     partial void OnIsUpdatingOrdersChanged(bool value) => NotifyJournalAvailability();
@@ -37,7 +38,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     {
         foreach (var name in new[] { nameof(CanUseJournal), nameof(CanCreateOrder), nameof(CanSelectOrders),
             nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
-            nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult) })
+            nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult), nameof(CanConfigureSource) })
             OnPropertyChanged(name);
         ReloadCommand.NotifyCanExecuteChanged();
         SetOrderColorCommand.NotifyCanExecuteChanged();
@@ -56,9 +57,10 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [NotifyPropertyChangedFor(nameof(FilterShipped))]
     private OrderStatusFilter _statusFilter;
 
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _errorMessage;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(ShowEmptyState))] private string? _errorMessage;
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+    public bool ShowEmptyState => HasNoOrders && !IsLoadingOrders && !HasError;
     public string ThemeActionLabel => IsDarkTheme ? "Включить светлую тему" : "Включить тёмную тему";
     public bool FilterAll => StatusFilter == OrderStatusFilter.All;
     public bool FilterWork => StatusFilter == OrderStatusFilter.Work;
@@ -133,7 +135,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         catch (Exception exception)
         {
             Trace.TraceError("Order loading failed: {0}", exception);
-            ErrorMessage = "Не удалось загрузить заявки. Попробуйте обновить список.";
+            ErrorMessage = exception is OrderReadException ? exception.Message : "Не удалось загрузить заявки. Попробуйте обновить список.";
         }
         finally { IsLoadingOrders = false; }
     }

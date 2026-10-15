@@ -15,7 +15,7 @@ public partial class MainWindowViewModel
     [ObservableProperty] private string _resultMessage = "Для письма · текст можно поправить";
     [ObservableProperty] private bool _hasResultError;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanAddResult)), NotifyPropertyChangedFor(nameof(CanClearResult)),
-     NotifyPropertyChangedFor(nameof(CanCopyResult)), NotifyPropertyChangedFor(nameof(CanEditResult))]
+     NotifyPropertyChangedFor(nameof(CanCopyResult)), NotifyPropertyChangedFor(nameof(CanEditResult)), NotifyPropertyChangedFor(nameof(CanConfigureSource))]
     private bool _isCopyingResult;
     public bool CanAddResult => CanEditResult && _selectedCount > 0;
     public bool CanClearResult => CanEditResult && ResultText.Length > 0;

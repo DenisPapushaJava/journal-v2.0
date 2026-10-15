@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="System.Data.OleDb" />
     <ProjectReference Include="../Jornal.Core/Jornal.Core.csproj" />
   </ItemGroup>
 </Project>
