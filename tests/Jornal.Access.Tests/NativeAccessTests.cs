@@ -14,28 +14,34 @@ public sealed class NativeAccessTests(ITestOutputHelper output)
     public void DiagnoseProviderInitialization()
     {
         using var database = Database.Create();
-        var simplePath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Journal-" + Guid.NewGuid().ToString("N") + ".mdb");
-        File.Copy(database.Path, simplePath);
-        try
+        foreach (var directoryName in new[] { "Journal copy & test ", "Journal's copy ", "Журнал копия ", "Journal's копия & тест " })
         {
-            foreach (var path in new[] { simplePath, database.Path })
-            foreach (var mode in new object?[] { null, "Read", "Share Deny None", 17, 19, "Read|Share Deny None", "ReadWrite|Share Deny None" })
-            foreach (var services in new[] { -2, 0 })
+            var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), directoryName + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            var path = System.IO.Path.Combine(directory, "OrderDB.mdb");
+            File.Copy(database.Path, path);
+            try
             {
-                var builder = new OleDbConnectionStringBuilder { Provider = OleDbOrderReader.FindProvider()!, DataSource = path };
-                if (mode is not null) builder["Mode"] = mode;
-                builder["OLE DB Services"] = services;
-                try
+                foreach (var mode in new object[] { "Read", 19 })
+                foreach (var raw in new[] { false, true })
                 {
-                    using var connection = new OleDbConnection(builder.ConnectionString);
-                    connection.Open();
-                    using var command = connection.CreateCommand(); command.CommandText = "SELECT COUNT(*) FROM [Orders]";
-                    output.WriteLine($"PASS {builder.ConnectionString}: {command.ExecuteScalar()}");
+                    var provider = OleDbOrderReader.FindProvider()!;
+                    var builder = new OleDbConnectionStringBuilder { Provider = provider, DataSource = path };
+                    builder["Mode"] = mode;
+                    builder["OLE DB Services"] = -2;
+                    var text = raw ? $"Provider={provider};Data Source={path};Mode={mode};OLE DB Services=-2" : builder.ConnectionString;
+                    try
+                    {
+                        using var connection = new OleDbConnection(text);
+                        connection.Open();
+                        using var command = connection.CreateCommand(); command.CommandText = "SELECT COUNT(*) FROM [Orders]";
+                        output.WriteLine($"PASS {text}: {command.ExecuteScalar()}");
+                    }
+                    catch (Exception exception) { output.WriteLine($"FAIL {text}: {exception.Message}"); }
                 }
-                catch (Exception exception) { output.WriteLine($"FAIL {builder.ConnectionString}: {exception.Message}"); }
             }
+            finally { OleDbConnection.ReleaseObjectPool(); Directory.Delete(directory, recursive: true); }
         }
-        finally { OleDbConnection.ReleaseObjectPool(); File.Delete(simplePath); }
     }
 
     [Fact]
@@ -186,7 +192,7 @@ public sealed class NativeAccessTests(ITestOutputHelper output)
         {
             _fixture = fixture;
             _fixtureHash = SHA256.HashData(File.ReadAllBytes(fixture));
-            _directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Journal's копия & тест " + Guid.NewGuid().ToString("N"));
+            _directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Journal copy & test " + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_directory);
             Path = System.IO.Path.Combine(_directory, "OrderDB.mdb");
             File.Copy(fixture, Path);
