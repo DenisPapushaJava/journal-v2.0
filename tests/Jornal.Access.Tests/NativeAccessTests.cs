@@ -20,6 +20,7 @@ public sealed class NativeAccessTests
         var changed = await editor.SetColorAsync(before, OrderColors.Ready, TestContext.Current.CancellationToken);
         Assert.Equal(before.Select(row => row with { Color = OrderColors.Ready }), changed);
         Assert.Equal(changed, await database.Read());
+        Assert.Equal(changed, await editor.SetColorAsync(changed, OrderColors.Ready, TestContext.Current.CancellationToken));
         changed = await editor.SetColorAsync([changed[0], changed[1], changed[0]], OrderColors.None, TestContext.Current.CancellationToken);
         Assert.Equal(before.Select(row => row with { Color = OrderColors.None }), changed);
         Assert.Equal(changed, await database.Read());
@@ -41,6 +42,7 @@ public sealed class NativeAccessTests
         Assert.Equal(before.Select(row => row with { DeliveryNumber = null }), changed);
         Assert.Equal(changed, await database.Read());
         Assert.Equal(1234.5678m, changed.Single(row => row.Id == 42).StoredCuttingPrice);
+        Assert.Equal(changed, await editor.SetDeliveryNumberAsync(changed, "", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -173,7 +175,7 @@ public sealed class NativeAccessTests
         public OleDbConnection Connection()
         {
             var builder = new OleDbConnectionStringBuilder { Provider = OleDbOrderReader.FindProvider() ?? throw new InvalidOperationException("Не найден Jet/ACE."), DataSource = Path };
-            builder["Mode"] = "ReadWrite|Share Deny None"; builder["OLE DB Services"] = -2;
+            builder["Mode"] = 19; builder["OLE DB Services"] = -2;
             var connection = new OleDbConnection(builder.ConnectionString); connection.Open(); return connection;
         }
         public void Execute(string sql)
