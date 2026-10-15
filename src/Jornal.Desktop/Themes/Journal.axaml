@@ -153,6 +153,9 @@
     <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
     <Setter Property="FontSize" Value="12" />
   </Style>
+  <Style Selector="TextBlock.result-feedback.error">
+    <Setter Property="Foreground" Value="{DynamicResource JournalDangerForeground}" />
+  </Style>
   <Style Selector="Border.panel">
     <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalBorder}" />
