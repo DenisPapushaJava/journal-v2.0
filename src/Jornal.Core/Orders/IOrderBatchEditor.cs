@@ -2,13 +2,14 @@ namespace Jornal.Core.Orders;
 
 /// <summary>
 /// Обновляет только указанное поле выбранных заявок. При успехе возвращает все затронутые записи,
-/// при ошибке не изменяет ни одной. Реальный адаптер обязан обеспечить атомарность операции.
+/// Весь пакет сохраняется в одной транзакции с проверкой исходного значения изменяемого поля.
+/// При подтверждённом отказе пакет откатывается. Неопределённый исход commit обозначается явно.
 /// </summary>
 public interface IOrderBatchEditor
 {
-    Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<int> ids, int color,
+    Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<OrderSummary> expected, int color,
         CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<int> ids, string number,
+    Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<OrderSummary> expected, string number,
         CancellationToken cancellationToken = default);
 }
 

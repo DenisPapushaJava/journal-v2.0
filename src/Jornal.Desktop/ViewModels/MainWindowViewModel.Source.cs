@@ -11,6 +11,7 @@ public partial class MainWindowViewModel
     public string SourceDescription => _source?.Description ?? "Демонстрационные данные · без подключения к базе";
     public string SourceDetails => _source?.Details ?? "Демонстрационный источник";
     public string? DatabasePath => _source?.Path;
+    private string BatchStorageDescription => _source?.Path is not null ? "Статусы и БЛЦБ сохраняются в MDB" : "Деморежим · до закрытия программы";
     public bool CanConfigureSource => sourceManager is not null && CanUseJournal && !IsCopyingResult;
 
     public void InitializeSource(OrderSource source)
@@ -39,6 +40,7 @@ public partial class MainWindowViewModel
             orderEditor = candidate.Editor;
             _source = candidate;
             _allOrders = orders;
+            RequiresReload = false;
             if (changed)
             {
                 ResultText = "";

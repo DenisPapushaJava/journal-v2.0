@@ -126,6 +126,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             cancellationToken.ThrowIfCancellationRequested();
             _allOrders = orders;
             ApplySearch();
+            RequiresReload = false;
             UpdatedText = $"Обновлено в {DateTime.Now:HH:mm} · F5 — обновить";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -159,11 +160,11 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             1 => order.ManagerName, 2 => order.CustomerName, 3 => order.SpecificationNumber,
             4 => order.DeliveryNumber, 5 => order.MaterialName, _ => null
         };
-        if (text is not null) return text.Contains(query, StringComparison.OrdinalIgnoreCase);
+        if (SearchScopeIndex is >= 1 and <= 5) return text?.Contains(query, StringComparison.OrdinalIgnoreCase) == true;
         var thicknessMatches = decimal.TryParse(query.Replace(',', '.'), NumberStyles.AllowDecimalPoint,
             CultureInfo.InvariantCulture, out var thickness) && order.ThicknessMillimeters == thickness;
         return SearchScopeIndex == 6 ? thicknessMatches :
             OrderSearch.Matches(order, query) ||
-            order.DeliveryNumber.Contains(query, StringComparison.OrdinalIgnoreCase) || thicknessMatches;
+            order.DeliveryNumber?.Contains(query, StringComparison.OrdinalIgnoreCase) == true || thicknessMatches;
     }
 }

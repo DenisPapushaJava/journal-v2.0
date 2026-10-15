@@ -65,7 +65,7 @@ public sealed class DatabaseWindowTests
                 var row = model.Orders.Single(row => row.Id == order.Id);
                 Assert.Equal(order.OrderDate, row.OrderDate); Assert.Equal(order.MaterialName, row.MaterialName);
                 Assert.Equal(order.StoredCuttingPrice, row.StoredCuttingPrice); Assert.Equal(order.Color, row.Color);
-                Assert.Equal(order.DeliveryNumber, row.DeliveryNumber);
+                Assert.Equal(order.DeliveryNumber ?? "", row.DeliveryNumber);
             }
             Assert.False(model.CanCreateOrder);
             var table = window.FindControl<DataGrid>("OrdersGrid")!;

@@ -11,12 +11,18 @@ public partial class DeliveryNumberViewModel : ObservableObject
     private readonly string _initial;
     private bool _clearRequested;
     private bool _submitted;
+    private readonly Func<string?>? _saveError;
+    private readonly Func<bool>? _canRetry;
 
-    public DeliveryNumberViewModel(IReadOnlyList<OrderSummary> orders, Func<string, Task<bool>> save)
+    public DeliveryNumberViewModel(IReadOnlyList<OrderSummary> orders, Func<string, Task<bool>> save,
+        string storageDescription = "Деморежим · до закрытия программы", Func<string?>? saveError = null, Func<bool>? canRetry = null)
     {
         if (orders.Count == 0) throw new ArgumentException("Не выбраны заявки.", nameof(orders));
         _save = save;
-        var values = orders.Select(order => order.DeliveryNumber).Distinct().ToArray();
+        _saveError = saveError;
+        _canRetry = canRetry;
+        StorageDescription = storageDescription;
+        var values = orders.Select(order => order.DeliveryNumber ?? "").Distinct().ToArray();
         HasDifferentNumbers = values.Length > 1;
         _initial = values.Length == 1 ? values[0] : "";
         _number = _initial;
@@ -25,6 +31,7 @@ public partial class DeliveryNumberViewModel : ObservableObject
     }
 
     public bool HasDifferentNumbers { get; }
+    public string StorageDescription { get; }
     public string SelectionDescription { get; }
     public IReadOnlyList<string> Specifications { get; }
     [ObservableProperty] private string _number;
@@ -51,7 +58,7 @@ public partial class DeliveryNumberViewModel : ObservableObject
         SaveCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanSave() => !IsSaved && (Number != _initial || _clearRequested && Number.Length == 0);
+    private bool CanSave() => !IsSaved && _canRetry?.Invoke() != false && (Number != _initial || _clearRequested && Number.Length == 0);
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
@@ -63,7 +70,8 @@ public partial class DeliveryNumberViewModel : ObservableObject
         {
             if (!await _save(Number))
             {
-                Error = "Не удалось сохранить БЛЦБ. Номер оставлен в поле — попробуйте ещё раз.";
+                Error = _saveError?.Invoke() ?? "Не удалось сохранить БЛЦБ. Номер оставлен в поле — попробуйте ещё раз.";
+                SaveCommand.NotifyCanExecuteChanged();
                 return;
             }
         }

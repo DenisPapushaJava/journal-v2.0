@@ -224,13 +224,13 @@ public sealed class BatchWindowTests
     private sealed class DelayedEditor(DemoOrderStore store) : IOrderBatchEditor
     {
         public TaskCompletionSource Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public async Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<int> ids, int color, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<OrderSummary> expected, int color, CancellationToken cancellationToken = default)
         {
             await Completion.Task;
-            return await store.SetColorAsync(ids, color, cancellationToken);
+            return await store.SetColorAsync(expected, color, cancellationToken);
         }
-        public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<int> ids, string number, CancellationToken cancellationToken = default) =>
-            store.SetDeliveryNumberAsync(ids, number, cancellationToken);
+        public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<OrderSummary> expected, string number, CancellationToken cancellationToken = default) =>
+            store.SetDeliveryNumberAsync(expected, number, cancellationToken);
     }
     private static void Click(Window window, string name)
     {

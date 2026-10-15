@@ -49,7 +49,7 @@ public static class AccessOrderMapper
                 Number("Толщина"), Number("Стоимость"), Integer("Color"))
             {
                 SheetSize = Text("Размер_листа"), SheetCount = Text("Кол_во_листов"), CutLengthMeters = Integer("Ход"),
-                WeightKilograms = Text("Вес"), DeliveryNumber = Text("БЛЦБ"), StoredOrderDateTime = date,
+                WeightKilograms = Text("Вес"), DeliveryNumber = Get("БЛЦБ") as string, StoredOrderDateTime = date,
                 StoredCoefficient = Get("Коэффициент") as string
             };
             var parts = order.StoredCoefficient?.Split('|', StringSplitOptions.TrimEntries) ?? [];

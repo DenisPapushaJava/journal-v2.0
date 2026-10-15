@@ -10,6 +10,9 @@ public partial class DatabaseSettingsViewModel(string? currentPath, Func<string?
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _error;
     [ObservableProperty] private bool _isConnected;
     public bool HasError => !string.IsNullOrEmpty(Error);
+    public string DatabaseCapabilities => OperatingSystem.IsWindows()
+        ? "В MDB доступны поиск, фильтры, результат для письма, изменение статусов и БЛЦБ. Создание заявок в MDB и расчёты пока не подключены."
+        : "На Linux MDB доступна только для чтения: поиск, фильтры и результат для письма. Запись статусов и БЛЦБ реализована для Windows с совместимым драйвером Access.";
     public bool UseDemo { get => !UseDatabase; set => UseDatabase = !value; }
     public event EventHandler? Connected;
     partial void OnDatabasePathChanged(string value) => Error = null;

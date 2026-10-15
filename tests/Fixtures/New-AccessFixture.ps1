@@ -1,10 +1,13 @@
-param([Parameter(Mandatory = $true)][string]$Destination)
+﻿param([Parameter(Mandatory = $true)][string]$Destination, [switch]$RequireProvider)
 $ErrorActionPreference = 'Stop'
 
 # Только искусственные данные. База создаётся во временной папке runner, в Git её нет.
-$provider = @('Microsoft.ACE.OLEDB.16.0', 'Microsoft.ACE.OLEDB.12.0') |
+$candidates = @('Microsoft.ACE.OLEDB.16.0', 'Microsoft.ACE.OLEDB.12.0')
+if (-not [Environment]::Is64BitProcess) { $candidates += 'Microsoft.Jet.OLEDB.4.0' }
+$provider = $candidates |
     Where-Object { $null -ne [Type]::GetTypeFromProgID($_) } | Select-Object -First 1
 if (-not $provider) {
+    if ($RequireProvider) { throw 'Для обязательных нативных тестов не найден Jet/ACE нужной разрядности.' }
     Write-Host '::notice::Совместимый ACE x64 отсутствует. Интеграционный тест Access будет пропущен; сборка адаптера проверяется.'
     exit 0
 }
@@ -29,6 +32,8 @@ VALUES (42, #01/02/2026 08:31:42#, 'Менеджер', '0102-42', 'Пример 
  '02 / комплект', 1234.5678, 2.5, 31, '0012.350', 'БЛЦБ-000042', -16711936, ' 1,25 | 20 | 340 | 2 | N2 ')
 '@)
     $null = $connection.Execute("INSERT INTO [Orders] ([Код], [Спецификация]) VALUES (43, 'без даты')")
+    $null = $connection.Execute("CREATE TABLE [PriceP] ([1,5] LONG)")
+    $null = $connection.Execute("INSERT INTO [PriceP] ([1,5]) VALUES (87)")
     Write-Host "Создана искусственная Jet MDB через $provider."
 }
 finally {
@@ -36,7 +41,7 @@ finally {
     if ($catalog) { $null = [Runtime.InteropServices.Marshal]::FinalReleaseComObject($catalog) }
 }
 if ($env:GITHUB_ENV) {
-    "JOURNAL_SYNTHETIC_MDB=$Destination" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+    [IO.File]::AppendAllText($env:GITHUB_ENV, "JOURNAL_SYNTHETIC_MDB=$Destination`n", [Text.UTF8Encoding]::new($false))
 } else {
     Write-Host 'Для теста задайте JOURNAL_SYNTHETIC_MDB равным пути созданного файла.'
 }

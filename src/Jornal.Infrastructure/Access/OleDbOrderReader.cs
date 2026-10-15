@@ -22,18 +22,10 @@ public static class OleDbOrderReader
 
     private static IReadOnlyList<OrderSummary> Read(string path, CancellationToken cancellationToken)
     {
-        var provider = FindProvider() ?? throw new OrderReadException(
-            $"Не найден драйвер Access для приложения {(Environment.Is64BitProcess ? "x64" : "x86")}. Нужен совместимый Microsoft Access Runtime. Выбор и установку проверяем отдельно с учётом Office.");
-        var connectionString = new OleDbConnectionStringBuilder
-        {
-            Provider = provider, DataSource = Path.GetFullPath(path), PersistSecurityInfo = false
-        };
-        connectionString["Mode"] = "Read|Share Deny None";
-        connectionString["OLE DB Services"] = -2; // Не удерживаем файловое соединение в пуле после обновления.
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var connection = new OleDbConnection(connectionString.ConnectionString);
+            using var connection = OleDbAccessConnection.Create(path, writable: false);
             connection.Open();
             cancellationToken.ThrowIfCancellationRequested();
             using var command = connection.CreateCommand();

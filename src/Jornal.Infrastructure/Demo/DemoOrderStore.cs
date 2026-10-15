@@ -46,30 +46,25 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBa
         }
     }
 
-    public Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<int> ids, int color,
-        CancellationToken cancellationToken = default) => Update(ids, order => order with { Color = color }, cancellationToken);
+    public Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<OrderSummary> expected, int color,
+        CancellationToken cancellationToken = default) => Update(OrderBatchChange.ForColor(expected, color), cancellationToken);
 
-    public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<int> ids, string number,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(number);
-        if (number.Length > 255 || number.Any(char.IsControl))
-            throw new ArgumentException("БЛЦБ должен занимать одну строку до 255 символов.", nameof(number));
-        return Update(ids, order => order with { DeliveryNumber = number }, cancellationToken);
-    }
+    public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<OrderSummary> expected, string number,
+        CancellationToken cancellationToken = default) => Update(OrderBatchChange.ForDeliveryNumber(expected, number), cancellationToken);
 
-    private Task<IReadOnlyList<OrderSummary>> Update(IReadOnlyCollection<int> ids,
-        Func<OrderSummary, OrderSummary> update, CancellationToken cancellationToken)
+    private Task<IReadOnlyList<OrderSummary>> Update(OrderBatchChange change, CancellationToken cancellationToken)
     {
         lock (_gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var unique = ids.Distinct().ToHashSet();
-            if (unique.Count == 0) throw new ArgumentException("Не выбраны заявки.", nameof(ids));
+            var unique = change.Expected.Select(row => row.Id).ToHashSet();
             var matches = _orders.Select((order, index) => (order, index)).Where(pair => unique.Contains(pair.order.Id)).ToArray();
-            if (matches.Length != unique.Count) throw new InvalidOperationException("Одна из выбранных заявок не найдена.");
+            var current = matches.ToDictionary(pair => pair.order.Id, pair => pair.order);
+            if (matches.Length != unique.Count || change.Expected.Any(expected =>
+                !change.Matches(current[expected.Id], expected)))
+                throw OrderWriteException.Conflict();
             // Сначала проверяем и подготавливаем весь пакет, затем заменяем записи без промежуточных await.
-            var prepared = matches.Select(pair => (Order: update(pair.order), Index: pair.index)).ToArray();
+            var prepared = matches.Select(pair => (Order: change.Apply(pair.order), Index: pair.index)).ToArray();
             cancellationToken.ThrowIfCancellationRequested();
             foreach (var pair in prepared) _orders[pair.Index] = pair.Order;
             return Task.FromResult<IReadOnlyList<OrderSummary>>(prepared.Select(pair => pair.Order).ToArray());

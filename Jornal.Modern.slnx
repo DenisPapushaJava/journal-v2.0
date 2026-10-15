@@ -6,6 +6,7 @@
     <Project Path="src/Jornal.Parsing/Jornal.Parsing.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Jornal.Access.Tests/Jornal.Access.Tests.csproj" />
     <Project Path="tests/Jornal.Tests/Jornal.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">

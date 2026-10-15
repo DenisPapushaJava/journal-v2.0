@@ -23,7 +23,7 @@
         </Grid>
         <TextBlock Text="Файл может находиться на этом компьютере или в общей сетевой папке." Classes="muted" TextWrapping="Wrap" />
         <Border Classes="panel" Padding="12">
-          <TextBlock Text="На этом этапе база доступна только для чтения. Можно искать заявки, фильтровать и копировать результат. Изменение заявок подключим следующим этапом."
+          <TextBlock Text="{Binding DatabaseCapabilities}"
                      TextWrapping="Wrap" />
         </Border>
         <RadioButton x:Name="DemoModeButton" GroupName="Source" Content="Демонстрационный журнал"

@@ -69,11 +69,12 @@ public sealed record OrderSource(string? Path, IOrderReader Reader, IManualOrder
     string? Error = null)
 {
     public string Description => Error is not null ? "Источник не подключён" : Path is null ?
-        "Деможурнал · до закрытия программы" : $"{System.IO.Path.GetFileName(Path)} · только чтение";
+        "Деможурнал · до закрытия программы" : $"{System.IO.Path.GetFileName(Path)} · {(Editor is null ? "только чтение" : "статусы и БЛЦБ")}";
     public string Details => Error ?? Path ?? "Вымышленные заявки. Изменения хранятся в памяти текущего сеанса.";
 }
 
-public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, Func<string, IOrderReader>? readerFactory = null)
+public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, Func<string, IOrderReader>? readerFactory = null,
+    Func<string, IOrderBatchEditor?>? editorFactory = null)
 {
     private readonly DemoOrderStore _demo = new();
     public OrderSource Load()
@@ -82,7 +83,8 @@ public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, 
         return loaded.Error is not null ? new(null, new UnavailableReader(loaded.Error), Error: loaded.Error) : Create(loaded.Settings?.DatabasePath);
     }
     public OrderSource Create(string? path) => path is null ? new(null, _demo, _demo, _demo) :
-        new(System.IO.Path.GetFullPath(path), readerFactory?.Invoke(path) ?? new AccessOrderReader(path));
+        new(System.IO.Path.GetFullPath(path), readerFactory?.Invoke(path) ?? new AccessOrderReader(path),
+            Editor: editorFactory is not null ? editorFactory(path) : readerFactory is null && OperatingSystem.IsWindows() ? new OleDbOrderBatchEditor(path) : null);
     public void Save(OrderSource source) => settingsStore.Save(new(DatabasePath: source.Path));
 
     private sealed class UnavailableReader(string error) : IOrderReader
