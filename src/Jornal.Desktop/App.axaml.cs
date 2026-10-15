@@ -15,9 +15,10 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            var demoStore = new DemoOrderStore();
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel(new DemoOrderReader())
+                DataContext = new MainWindowViewModel(demoStore, demoStore)
             };
         }
 

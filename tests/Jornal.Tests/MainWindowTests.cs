@@ -14,7 +14,7 @@ public sealed class MainWindowTests
     [AvaloniaFact]
     public void SearchBindingFiltersTheDisplayedRows()
     {
-        var viewModel = new MainWindowViewModel(new DemoOrderReader());
+        var viewModel = new MainWindowViewModel(new DemoOrderStore());
         var window = new MainWindow { DataContext = viewModel };
         try
         {
@@ -61,6 +61,6 @@ public sealed class MainWindowTests
         public bool ShouldFail { get; set; }
 
         public Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
-            ShouldFail ? throw new IOException("Simulated network failure") : new DemoOrderReader().ReadAsync(cancellationToken);
+            ShouldFail ? throw new IOException("Simulated network failure") : new DemoOrderStore().ReadAsync(cancellationToken);
     }
 }

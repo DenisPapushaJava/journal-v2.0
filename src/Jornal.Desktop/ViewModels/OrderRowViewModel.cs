@@ -12,7 +12,7 @@ public sealed class OrderRowViewModel(OrderSummary order)
     public DateOnly OrderDate => order.OrderDate;
     public int Color => order.Color;
     public decimal ThicknessMillimeters => order.ThicknessMillimeters;
-    public decimal StoredCuttingPrice => order.StoredCuttingPrice;
+    public decimal? StoredCuttingPrice => order.StoredCuttingPrice;
     public int? CutLengthMeters => order.CutLengthMeters;
 
     public string DateText => order.OrderDate.ToString("dd.MM.yyyy", DisplayCulture);
@@ -22,7 +22,8 @@ public sealed class OrderRowViewModel(OrderSummary order)
     public string CuttingType => order.CuttingType;
     public string MaterialName => order.MaterialName;
     public string ThicknessText => order.ThicknessMillimeters.ToString("0.###", DisplayCulture);
-    public string StoredPriceText => order.StoredCuttingPrice.ToString("N2", DisplayCulture) + " ₽";
+    public string StoredPriceText => order.StoredCuttingPrice is { } price
+        ? price.ToString("N2", DisplayCulture) + " ₽" : "Не рассчитана";
     public string SheetSize => order.SheetSize;
     public string SheetCount => order.SheetCount;
     public string CutLengthText => order.CutLengthMeters?.ToString(DisplayCulture) ?? "—";

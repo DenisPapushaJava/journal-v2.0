@@ -1,0 +1,99 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
+        x:Class="Jornal.Desktop.Views.NewOrderWindow" x:DataType="vm:NewOrderViewModel"
+        Title="Новая заявка · Деморежим" Width="1200" Height="720" MinWidth="1060" MinHeight="600"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBox.invalid">
+      <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
+    </Style>
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+    </Style>
+    <Style Selector="TextBox.invalid:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
+    </Style>
+  </Window.Styles>
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
+            BorderThickness="0,0,0,1" Padding="24,16">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Новая заявка" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Text="Ручной ввод · Деморежим — данные доступны до закрытия программы" Classes="muted" />
+      </StackPanel>
+    </Border>
+    <Grid Grid.Row="1" Margin="24,16" ColumnDefinitions="*,24,260">
+      <Border Classes="panel">
+        <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="FormFields" Margin="24" Spacing="20" IsEnabled="{Binding !SaveCommand.IsRunning}">
+            <TextBlock Text="Заявка и заказчик" Classes="section" />
+            <Grid ColumnDefinitions="*,24,*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding OrderDate}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SpecificationNumber}" />
+              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Manager}" />
+            </Grid>
+            <ui:OrderEntryControl DataContext="{Binding Customer}" />
+            <TextBlock Text="Параметры резки" Classes="section" Margin="0,4,0,0" />
+            <Grid ColumnDefinitions="*,24,*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding CuttingType}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Material}" />
+              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Thickness}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,24,*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding SheetSize}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SheetCount}" />
+              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Weight}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,24,*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding CutLength}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Coefficient}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,24,*" IsVisible="{Binding IsHansLaser}">
+              <ui:OrderEntryControl DataContext="{Binding MaterialId}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Gas}" />
+            </Grid>
+            <TextBlock Text="* Обязательные поля. Дробные значения можно вводить через запятую или точку."
+                       Classes="muted" TextWrapping="Wrap" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+      <Border Grid.Column="2" Classes="panel" Padding="24">
+        <StackPanel Spacing="16">
+          <TextBlock Text="Стоимость" Classes="section" />
+          <TextBlock Text="Не рассчитана" FontSize="18" FontWeight="Medium" />
+          <TextBlock Text="Расчёт появится после подключения прайсов из базы." Classes="muted" TextWrapping="Wrap" />
+          <Border Height="1" Background="{DynamicResource JournalBorder}" Margin="0,8" />
+          <TextBlock Text="Из спецификации" Classes="section" />
+          <TextBlock Text="Импорт HTML, PDF и текста будет добавлен следующим этапом." Classes="muted" TextWrapping="Wrap" />
+          <ui:JournalButton Label="Выбрать спецификацию" Classes="outline" IsEnabled="False"
+                            ToolTip.Tip="Импорт пока недоступен" />
+          <ui:JournalButton Label="Вставить текст" Classes="outline" IsEnabled="False"
+                            ToolTip.Tip="Импорт пока недоступен" />
+        </StackPanel>
+      </Border>
+    </Grid>
+    <Border Grid.Row="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
+            BorderThickness="0,1,0,0" Padding="24,16">
+      <Grid ColumnDefinitions="*,24,Auto" RowDefinitions="Auto,Auto">
+        <StackPanel VerticalAlignment="Center" Spacing="4">
+          <TextBlock Text="Добавление только в деможурнал текущего сеанса" Classes="muted" />
+          <TextBlock x:Name="ValidationSummary" Text="Проверьте отмеченные поля. Ввод сохранён."
+                     IsVisible="{Binding HasValidationErrors}" Foreground="{DynamicResource JournalDangerForeground}" />
+          <TextBlock Text="{Binding SaveError}" IsVisible="{Binding HasSaveError}"
+                     Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <ui:JournalButton x:Name="CancelButton" Label="Отмена" Classes="outline" MinHeight="38"
+                            Click="OnCancelClick" IsEnabled="{Binding !SaveCommand.IsRunning}" />
+          <ui:JournalButton x:Name="SaveButton" Label="Добавить в деможурнал" Classes="primary" MinHeight="38"
+                            Command="{Binding SaveCommand}" Click="OnSaveClick" IsDefault="True" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

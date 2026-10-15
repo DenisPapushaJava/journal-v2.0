@@ -28,7 +28,7 @@ public sealed class ApplicationShellTests
     [InlineData(1600, 1000, true)]
     public void CommandsStayVisibleAndThemesRender(int width, int height, bool dark)
     {
-        var viewModel = new MainWindowViewModel(new DemoOrderReader()) { IsDarkTheme = dark };
+        var viewModel = new MainWindowViewModel(new DemoOrderStore()) { IsDarkTheme = dark };
         var window = new MainWindow { DataContext = viewModel, Width = width, Height = height };
         try
         {
@@ -77,7 +77,7 @@ public sealed class ApplicationShellTests
     [AvaloniaFact]
     public void StatusDateAndSearchComposeAndReset()
     {
-        var viewModel = new MainWindowViewModel(new DemoOrderReader());
+        var viewModel = new MainWindowViewModel(new DemoOrderStore());
         var window = new MainWindow { DataContext = viewModel };
         try
         {
@@ -112,7 +112,7 @@ public sealed class ApplicationShellTests
     [AvaloniaFact]
     public void SelectionAndColumnVisibilityFollowUserActions()
     {
-        var viewModel = new MainWindowViewModel(new DemoOrderReader());
+        var viewModel = new MainWindowViewModel(new DemoOrderStore());
         var window = new MainWindow { DataContext = viewModel };
         try
         {
@@ -139,7 +139,7 @@ public sealed class ApplicationShellTests
     [AvaloniaFact]
     public void ThemeButtonChangesWindowAndStatusColors()
     {
-        var viewModel = new MainWindowViewModel(new DemoOrderReader());
+        var viewModel = new MainWindowViewModel(new DemoOrderStore());
         var window = new MainWindow { DataContext = viewModel };
         try
         {
@@ -216,7 +216,7 @@ public sealed class ApplicationShellTests
         public async Task<IReadOnlyList<Jornal.Core.Orders.OrderSummary>> ReadAsync(CancellationToken cancellationToken = default)
         {
             ReadCount++;
-            var orders = await new DemoOrderReader().ReadAsync(cancellationToken);
+            var orders = await new DemoOrderStore().ReadAsync(cancellationToken);
             return orders.Select(order => order.Id == 3 ? order with { OrderDate = new DateOnly(2026, 9, 30) } : order).ToArray();
         }
     }
