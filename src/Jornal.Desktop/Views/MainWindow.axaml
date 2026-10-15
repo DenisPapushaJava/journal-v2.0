@@ -15,10 +15,12 @@
         <TextBlock Text="Журнал заявок" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
         <TextBlock Grid.Column="2" Text="Демонстрационные данные · без подключения к базе"
                    Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-        <ui:JournalButton Grid.Column="3" x:Name="ThemeButton" Label="{Binding ThemeLabel}" Icon="sun-moon"
-                          Command="{Binding ToggleThemeCommand}" Width="152" VerticalAlignment="Center" />
-        <ui:JournalButton Grid.Column="5" Label="Настроить экран" Icon="pencil" IsEnabled="False"
-                          ToolTip.Tip="Недоступно в демонстрационном режиме" VerticalAlignment="Center" />
+        <ToggleButton Grid.Column="3" x:Name="ThemeButton" Theme="{StaticResource JournalThemeSwitch}"
+                      IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" VerticalAlignment="Center"
+                      ToolTip.Tip="{Binding ThemeActionLabel}" AutomationProperties.Name="{Binding ThemeActionLabel}" />
+        <ui:JournalButton Grid.Column="5" x:Name="PersonalizeButton" Label="Настроить экран" Icon="monitor-cog"
+                          IconOnly="True" Width="32" Height="32" Padding="0" IsEnabled="False"
+                          ToolTip.Tip="Настроить экран — будет доступно позже" VerticalAlignment="Center" />
         <ui:JournalButton Grid.Column="7" Label="Настройки" Icon="settings-2" IsEnabled="False"
                           ToolTip.Tip="Недоступно в демонстрационном режиме" VerticalAlignment="Center" />
       </Grid>
@@ -135,28 +137,59 @@
                       SelectionMode="Extended" GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                       RowHeight="32" ColumnHeaderHeight="44" FontSize="13" BorderThickness="0"
                       CanUserResizeColumns="True" CanUserReorderColumns="True" CanUserSortColumns="True"
+                      FrozenColumnCount="1"
                       SelectionChanged="OnSelectionChanged" CurrentCellChanged="OnCurrentCellChanged"
-                      ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
               <DataGrid.Columns>
-                <DataGridTemplateColumn Header="✓" Width="32" CanUserSort="False">
+                <DataGridTemplateColumn Width="80" MinWidth="80" MaxWidth="80" CanUserSort="False"
+                                        CanUserReorder="False" CanUserResize="False">
+                  <DataGridTemplateColumn.Header>
+                    <Grid ColumnDefinitions="32,8,24" Width="64">
+                      <ui:JournalButton x:Name="ColumnsButton" Label="Столбцы" Icon="columns-3" IconOnly="True"
+                                        Width="32" Height="32" Padding="0" ToolTip.Tip="Показать или скрыть столбцы">
+                        <Button.Flyout>
+                          <Flyout>
+                            <StackPanel Spacing="12" Width="300">
+                              <TextBlock Text="Видимые столбцы" FontSize="16" FontWeight="SemiBold" />
+                              <Grid ColumnDefinitions="*,8,*">
+                                <ui:JournalButton x:Name="ShowAllColumnsButton" Label="Показать все" Click="OnShowAllColumns" />
+                                <ui:JournalButton x:Name="HideAllColumnsButton" Grid.Column="2" Label="Скрыть все" Click="OnHideAllColumns" />
+                              </Grid>
+                              <ScrollViewer MaxHeight="360"><StackPanel x:Name="ColumnChoices" Spacing="4" /></ScrollViewer>
+                            </StackPanel>
+                          </Flyout>
+                        </Button.Flyout>
+                      </ui:JournalButton>
+                      <CheckBox Grid.Column="2" x:Name="SelectAllRowsBox" MinHeight="32" HorizontalAlignment="Center"
+                                IsEnabled="{Binding !HasNoOrders}" Click="OnSelectAllRows"
+                                ToolTip.Tip="Выбрать все заявки в текущем списке / снять выбор"
+                                AutomationProperties.Name="Выбрать все заявки в текущем списке или снять выбор" />
+                    </Grid>
+                  </DataGridTemplateColumn.Header>
                   <DataGridTemplateColumn.CellTemplate>
-                    <DataTemplate><TextBlock Text="✓" IsVisible="{Binding $parent[DataGridRow].IsSelected}" HorizontalAlignment="Center" /></DataTemplate>
+                    <DataTemplate x:DataType="vm:OrderRowViewModel">
+                      <Grid ColumnDefinitions="32,8,24" Width="64">
+                        <CheckBox Grid.Column="2" Classes="row-selection" HorizontalAlignment="Center" MinHeight="32"
+                                  IsChecked="{Binding $parent[DataGridRow].IsSelected, Mode=TwoWay}"
+                                  AutomationProperties.Name="{Binding SpecificationNumber, StringFormat='Выбрать заявку {0}'}" />
+                      </Grid>
+                    </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding DateText}" SortMemberPath="OrderDate" Width="96" />
-                <DataGridTextColumn Header="Спецификация" Binding="{ReflectionBinding SpecificationNumber}" Width="120" />
-                <DataGridTextColumn Header="Менеджер" Binding="{ReflectionBinding ManagerName}" Width="130" />
+                <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding DateText}" SortMemberPath="OrderDate" Width="96" MinWidth="96" />
+                <DataGridTextColumn Header="Спецификация" Binding="{ReflectionBinding SpecificationNumber}" Width="120" MinWidth="112" />
+                <DataGridTextColumn Header="Менеджер" Binding="{ReflectionBinding ManagerName}" Width="130" MinWidth="100" />
                 <DataGridTextColumn Header="Заказчик" Binding="{ReflectionBinding CustomerName}" Width="*" MinWidth="180" />
-                <DataGridTextColumn Header="Вид резки" Binding="{ReflectionBinding CuttingType}" Width="130" />
-                <DataGridTextColumn Header="Материал" Binding="{ReflectionBinding MaterialName}" Width="94" />
-                <DataGridTextColumn Header="Толщ., мм" Binding="{ReflectionBinding ThicknessText}" SortMemberPath="ThicknessMillimeters" Width="68" />
-                <DataGridTextColumn Header="Размер листа" Binding="{ReflectionBinding SheetSize}" Width="112" />
-                <DataGridTextColumn Header="Листы" Binding="{ReflectionBinding SheetCount}" Width="60" />
-                <DataGridTextColumn Header="Рез, м" Binding="{ReflectionBinding CutLengthText}" SortMemberPath="CutLengthMeters" Width="76" />
-                <DataGridTextColumn Header="Вес, кг" Binding="{ReflectionBinding WeightText}" Width="74" />
-                <DataGridTextColumn Header="Стоимость" Binding="{ReflectionBinding StoredPriceText}" SortMemberPath="StoredCuttingPrice" Width="112" />
-                <DataGridTextColumn Header="БЛЦБ" Binding="{ReflectionBinding DeliveryNumber}" Width="144" />
-                <DataGridTemplateColumn Header="Статус" Width="128" SortMemberPath="StatusText">
+                <DataGridTextColumn Header="Вид резки" Binding="{ReflectionBinding CuttingType}" Width="130" MinWidth="106" />
+                <DataGridTextColumn Header="Материал" Binding="{ReflectionBinding MaterialName}" Width="94" MinWidth="80" />
+                <DataGridTextColumn Header="Толщ., мм" Binding="{ReflectionBinding ThicknessText}" SortMemberPath="ThicknessMillimeters" Width="68" MinWidth="68" />
+                <DataGridTextColumn Header="Размер листа" Binding="{ReflectionBinding SheetSize}" Width="112" MinWidth="106" />
+                <DataGridTextColumn Header="Листы" Binding="{ReflectionBinding SheetCount}" Width="60" MinWidth="60" />
+                <DataGridTextColumn Header="Рез, м" Binding="{ReflectionBinding CutLengthText}" SortMemberPath="CutLengthMeters" Width="76" MinWidth="64" />
+                <DataGridTextColumn Header="Вес, кг" Binding="{ReflectionBinding WeightText}" Width="74" MinWidth="68" />
+                <DataGridTextColumn Header="Стоимость" Binding="{ReflectionBinding StoredPriceText}" SortMemberPath="StoredCuttingPrice" Width="112" MinWidth="112" />
+                <DataGridTextColumn Header="БЛЦБ" Binding="{ReflectionBinding DeliveryNumber}" Width="144" MinWidth="128" />
+                <DataGridTemplateColumn Header="Статус" Width="128" MinWidth="128" SortMemberPath="StatusText">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:OrderRowViewModel">
                       <Grid ColumnDefinitions="3,*">
@@ -175,17 +208,10 @@
             </StackPanel>
           </Grid>
         </Border>
-        <Grid Grid.Row="6" ColumnDefinitions="Auto,24,Auto,24,*,Auto" VerticalAlignment="Center">
+        <Grid Grid.Row="6" ColumnDefinitions="Auto,24,Auto,24,*" VerticalAlignment="Center">
           <TextBlock Text="{Binding CountText}" Classes="muted" />
           <TextBlock Grid.Column="2" Text="{Binding ActiveOrderText}" Classes="muted" Foreground="{DynamicResource JournalAccent}" />
           <TextBlock Grid.Column="4" Text="Shift / Ctrl — выбор строк" Classes="muted" TextTrimming="CharacterEllipsis" />
-          <ui:JournalButton Grid.Column="5" x:Name="ColumnsButton" Label="Столбцы" Icon="columns-3">
-            <Button.Flyout>
-              <Flyout>
-                <ScrollViewer MaxHeight="420"><StackPanel x:Name="ColumnChoices" Spacing="4" /></ScrollViewer>
-              </Flyout>
-            </Button.Flyout>
-          </ui:JournalButton>
         </Grid>
       </Grid>
     </Grid>

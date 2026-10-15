@@ -28,7 +28,8 @@ public sealed class ApplicationShellTests
     [InlineData(1600, 1000, true)]
     public void CommandsStayVisibleAndThemesRender(int width, int height, bool dark)
     {
-        var viewModel = new MainWindowViewModel(new DemoOrderStore()) { IsDarkTheme = dark };
+        var store = new DemoOrderStore();
+        var viewModel = new MainWindowViewModel(store, store) { IsDarkTheme = dark };
         var window = new MainWindow { DataContext = viewModel, Width = width, Height = height };
         try
         {
@@ -53,6 +54,12 @@ public sealed class ApplicationShellTests
                 Assert.True(content.Bounds.Width <= button.Bounds.Width + 1, $"Обрезана команда: {button.Label}");
             }
             Assert.True(grid.Bounds.Height >= 200);
+            var bars = grid.GetVisualDescendants().OfType<ScrollBar>().ToArray();
+            if (width <= 1366)
+                Assert.True(bars.Any(bar => bar.Orientation == Avalonia.Layout.Orientation.Horizontal && bar.IsVisible && bar.Maximum > 0),
+                    "В компактном окне нужна доступная горизонтальная прокрутка.");
+            Assert.All(bars, bar => Assert.False(bar.AllowAutoHide));
+            Assert.All(grid.Columns, column => Assert.True(column.ActualWidth >= column.MinWidth));
             Assert.All(grid.GetVisualDescendants().OfType<DataGridCell>(), cell => Assert.Equal(13, cell.FontSize));
             var search = window.FindControl<Control>("SearchControls")!;
             Assert.Equal(0, Grid.GetRow(search));
@@ -151,7 +158,7 @@ public sealed class ApplicationShellTests
             Dispatcher.UIThread.RunJobs();
             var badge = window.GetVisualDescendants().OfType<StatusBadge>().First(b => b.Status == "ready");
             Assert.Equal(Avalonia.Media.Color.Parse("#E8F0EB"), Assert.IsAssignableFrom<ISolidColorBrush>(badge.Background).Color);
-            var themeButton = window.FindControl<JournalButton>("ThemeButton")!;
+            var themeButton = window.FindControl<ToggleButton>("ThemeButton")!;
             var point = themeButton.TranslatePoint(new Point(themeButton.Bounds.Width / 2, themeButton.Bounds.Height / 2), window)!.Value;
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
@@ -159,7 +166,8 @@ public sealed class ApplicationShellTests
             Assert.True(viewModel.IsDarkTheme);
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
             Assert.NotEqual(light, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
-            Assert.Equal("Тёмная тема", themeButton.Label);
+            Assert.True(themeButton.IsChecked);
+            Assert.Equal("Включить светлую тему", Avalonia.Automation.AutomationProperties.GetName(themeButton));
             Assert.Equal(Avalonia.Media.Color.Parse("#293930"), Assert.IsAssignableFrom<ISolidColorBrush>(badge.Background).Color);
         }
         finally { window.Close(); }

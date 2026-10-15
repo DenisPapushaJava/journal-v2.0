@@ -84,6 +84,27 @@ public partial class MainWindow : Window
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e) => UpdateSelection();
     private void OnCurrentCellChanged(object? sender, EventArgs e) => UpdateSelection();
-    private void UpdateSelection() => _viewModel?.UpdateSelection(
-        OrdersGrid.SelectedItems.Cast<OrderRowViewModel>(), OrdersGrid.SelectedItem as OrderRowViewModel);
+    private void UpdateSelection()
+    {
+        _viewModel?.UpdateSelection(OrdersGrid.SelectedItems.Cast<OrderRowViewModel>(),
+            OrdersGrid.SelectedItem as OrderRowViewModel);
+        var count = OrdersGrid.SelectedItems.Count;
+        SelectAllRowsBox.IsChecked = count == 0 ? false : count == _viewModel?.Orders.Count ? true : null;
+    }
+
+    private void OnSelectAllRows(object? sender, RoutedEventArgs e)
+    {
+        // Частичный выбор при следующем нажатии дополняется до полного.
+        if (OrdersGrid.SelectedItems.Count < _viewModel?.Orders.Count) OrdersGrid.SelectAll();
+        else OrdersGrid.SelectedItems.Clear();
+        UpdateSelection();
+        e.Handled = true;
+    }
+
+    private void OnShowAllColumns(object? sender, RoutedEventArgs e) => SetAllColumnsVisible(true);
+    private void OnHideAllColumns(object? sender, RoutedEventArgs e) => SetAllColumnsVisible(false);
+    private void SetAllColumnsVisible(bool visible)
+    {
+        foreach (var column in OrdersGrid.Columns.Skip(1)) column.IsVisible = visible;
+    }
 }

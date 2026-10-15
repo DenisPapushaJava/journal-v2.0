@@ -11,7 +11,13 @@
     </ResourceDictionary>
   </Application.Resources>
   <Application.Styles>
-    <FluentTheme />
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <!-- Тот же акцент, что и JournalAccent в Palette.axaml: для нативных чекбоксов и фокуса. -->
+        <ColorPaletteResources x:Key="Light" Accent="#42668F" />
+        <ColorPaletteResources x:Key="Dark" Accent="#99B5D3" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
     <StyleInclude Source="avares://Jornal.Desktop/Themes/Journal.axaml" />
   </Application.Styles>

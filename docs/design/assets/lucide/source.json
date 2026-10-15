@@ -16,6 +16,9 @@
     "hash",
     "columns-3",
     "calendar-days",
-    "x"
+    "x",
+    "sun",
+    "moon",
+    "monitor-cog"
   ]
 }

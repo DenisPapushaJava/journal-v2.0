@@ -12,6 +12,8 @@ public sealed class JournalButton : Button
         AvaloniaProperty.Register<JournalButton, string?>(nameof(Label));
     public static readonly StyledProperty<string?> IconProperty =
         AvaloniaProperty.Register<JournalButton, string?>(nameof(Icon));
+    public static readonly StyledProperty<bool> IconOnlyProperty =
+        AvaloniaProperty.Register<JournalButton, bool>(nameof(IconOnly));
 
     private readonly SvgControl _icon = new(new Uri("avares://Jornal.Desktop/"))
     {
@@ -33,10 +35,12 @@ public sealed class JournalButton : Button
     protected override Type StyleKeyOverride => typeof(Button);
     public string? Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public string? Icon { get => GetValue(IconProperty); set => SetValue(IconProperty, value); }
+    public bool IconOnly { get => GetValue(IconOnlyProperty); set => SetValue(IconOnlyProperty, value); }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == IconOnlyProperty) _label.IsVisible = !IconOnly;
         if (change.Property == LabelProperty)
         {
             _label.Text = Label;
