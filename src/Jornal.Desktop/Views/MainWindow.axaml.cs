@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Jornal.Desktop.ViewModels;
+using Jornal.Core.Orders;
 
 namespace Jornal.Desktop.Views;
 
@@ -69,6 +70,17 @@ public partial class MainWindow : Window
 
     private void UpdateTheme() => RequestedThemeVariant = _viewModel?.IsDarkTheme == true
         ? ThemeVariant.Dark : ThemeVariant.Light;
+
+    private async void OnNewOrderClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel?.CreateOrderForm() is not { } form) return;
+        var dialog = new NewOrderWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
+        var order = await dialog.ShowDialog<OrderSummary?>(this);
+        if (order is null) return;
+        _viewModel.AcceptCreatedOrder(order);
+        OrdersGrid.SelectedItem = _viewModel.Orders.First(row => row.Id == order.Id);
+        OrdersGrid.ScrollIntoView(OrdersGrid.SelectedItem, OrdersGrid.Columns[2]);
+    }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e) => UpdateSelection();
     private void OnCurrentCellChanged(object? sender, EventArgs e) => UpdateSelection();

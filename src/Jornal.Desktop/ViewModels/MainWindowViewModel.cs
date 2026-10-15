@@ -9,7 +9,7 @@ namespace Jornal.Desktop.ViewModels;
 
 public enum OrderStatusFilter { All, Work, Ready, Shipped }
 
-public partial class MainWindowViewModel(IOrderReader orderReader) : ObservableObject
+public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderCreator? orderCreator = null) : ObservableObject
 {
     private IReadOnlyList<OrderSummary> _allOrders = [];
 
@@ -39,6 +39,17 @@ public partial class MainWindowViewModel(IOrderReader orderReader) : ObservableO
     public bool FilterReady => StatusFilter == OrderStatusFilter.Ready;
     public bool FilterShipped => StatusFilter == OrderStatusFilter.Shipped;
     public ObservableCollection<OrderRowViewModel> Orders { get; } = [];
+    public bool CanCreateOrder => orderCreator is not null;
+    public NewOrderViewModel? CreateOrderForm() => orderCreator is null ? null : new NewOrderViewModel(orderCreator);
+
+    public void AcceptCreatedOrder(OrderSummary order)
+    {
+        _allOrders = new[] { order }.Concat(_allOrders.Where(row => row.Id != order.Id)).ToArray();
+        // Новую строку показываем даже при несовпадающих прежних фильтрах.
+        ResetFilters();
+        ApplySearch();
+        UpdatedText = "Демозаявка добавлена · до закрытия программы";
+    }
     public IReadOnlyList<string> SearchScopes { get; } =
         ["Все поля", "Менеджер", "Заказчик", "Спецификация", "БЛЦБ", "Материал", "Толщина"];
 

@@ -57,8 +57,9 @@
             <Grid RowDefinitions="18,8,32,8,32">
               <TextBlock Text="ЗАЯВКИ" Classes="muted" />
               <Grid Grid.Row="2" ColumnDefinitions="1.18*,8,*">
-                <ui:JournalButton Label="Новая заявка" Icon="plus" Classes="primary" IsEnabled="False"
-                                  ToolTip.Tip="Недоступно в демонстрационном режиме" />
+                <ui:JournalButton x:Name="NewOrderButton" Label="Новая заявка" Icon="plus" Classes="primary"
+                                  IsEnabled="{Binding CanCreateOrder}" Click="OnNewOrderClick"
+                                  ToolTip.Tip="Добавить заявку в деможурнал текущего сеанса" />
                 <ui:JournalButton x:Name="ReloadButton" Grid.Column="2" Label="Обновить" Icon="refresh-cw" Command="{Binding ReloadCommand}" />
               </Grid>
               <Grid Grid.Row="4" ColumnDefinitions="1.18*,8,*">
@@ -189,8 +190,8 @@
       </Grid>
     </Grid>
     <Grid Grid.Row="2" Margin="24,0" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-      <TextBlock Text="{Binding UpdatedText}" Classes="muted" />
-      <TextBlock Grid.Column="1" Text="Демонстрационный режим · данные не сохраняются" Classes="muted" />
+      <TextBlock Text="{Binding UpdatedText}" Classes="muted" TextTrimming="CharacterEllipsis" />
+      <TextBlock Grid.Column="1" Text="Деморежим · данные до закрытия программы" Classes="muted" />
     </Grid>
   </Grid>
 </Window>
