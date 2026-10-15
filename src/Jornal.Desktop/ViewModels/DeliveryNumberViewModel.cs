@@ -43,7 +43,8 @@ public partial class DeliveryNumberViewModel : ObservableObject
 
     partial void OnNumberChanged(string value)
     {
-        if (_submitted) Validate();
+        if (!CanRetry) Error = _saveError?.Invoke() ?? Error;
+        else if (_submitted) Validate();
         else Error = null;
         SaveCommand.NotifyCanExecuteChanged();
     }
@@ -54,16 +55,17 @@ public partial class DeliveryNumberViewModel : ObservableObject
         if (SaveCommand.IsRunning) return;
         _clearRequested = true;
         Number = "";
-        Error = null;
+        if (CanRetry) Error = null;
         SaveCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanSave() => !IsSaved && _canRetry?.Invoke() != false && (Number != _initial || _clearRequested && Number.Length == 0);
+    private bool CanRetry => _canRetry?.Invoke() != false;
+    private bool CanSave() => !IsSaved && CanRetry && (Number != _initial || _clearRequested && Number.Length == 0);
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
-        if (IsSaved) return;
+        if (IsSaved || !CanRetry) return;
         _submitted = true;
         if (!Validate()) return;
         try

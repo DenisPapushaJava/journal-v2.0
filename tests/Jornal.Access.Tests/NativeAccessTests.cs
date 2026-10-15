@@ -8,8 +8,36 @@ using Xunit;
 namespace Jornal.Access.Tests;
 
 [SupportedOSPlatform("windows")]
-public sealed class NativeAccessTests
+public sealed class NativeAccessTests(ITestOutputHelper output)
 {
+    [Fact]
+    public void DiagnoseProviderInitialization()
+    {
+        using var database = Database.Create();
+        var simplePath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Journal-" + Guid.NewGuid().ToString("N") + ".mdb");
+        File.Copy(database.Path, simplePath);
+        try
+        {
+            foreach (var path in new[] { simplePath, database.Path })
+            foreach (var mode in new object?[] { null, "Read", "Share Deny None", 17, 19, "Read|Share Deny None", "ReadWrite|Share Deny None" })
+            foreach (var services in new[] { -2, 0 })
+            {
+                var builder = new OleDbConnectionStringBuilder { Provider = OleDbOrderReader.FindProvider()!, DataSource = path };
+                if (mode is not null) builder["Mode"] = mode;
+                builder["OLE DB Services"] = services;
+                try
+                {
+                    using var connection = new OleDbConnection(builder.ConnectionString);
+                    connection.Open();
+                    using var command = connection.CreateCommand(); command.CommandText = "SELECT COUNT(*) FROM [Orders]";
+                    output.WriteLine($"PASS {builder.ConnectionString}: {command.ExecuteScalar()}");
+                }
+                catch (Exception exception) { output.WriteLine($"FAIL {builder.ConnectionString}: {exception.Message}"); }
+            }
+        }
+        finally { OleDbConnection.ReleaseObjectPool(); File.Delete(simplePath); }
+    }
+
     [Fact]
     public async Task ColorsPersistAcrossConnectionsWithoutChangingAnyOtherFieldOrSchema()
     {

@@ -48,6 +48,11 @@ public sealed class BatchConcurrencyTests
         Assert.False(form.SaveCommand.CanExecute(null)); Assert.False(model.SetOrderColorCommand.CanExecute(OrderColors.Ready));
         Assert.False(form.IsSaved); Assert.Equal("Новый номер", form.Number); Assert.Equal(model.ErrorMessage, form.Error);
         Assert.Equal(rows, model.Orders); Assert.Equal(result, model.ResultText); Assert.Equal("Выбрано: 3", model.SelectionText);
+        var message = form.Error;
+        form.Number = "Правка ввода";
+        Assert.Equal(message, form.Error);
+        form.ClearNumberCommand.Execute(null);
+        Assert.Equal(message, form.Error); Assert.False(form.SaveCommand.CanExecute(null));
         Assert.True(model.ReloadCommand.CanExecute(null));
         await model.ReloadCommand.ExecuteAsync(null);
         Assert.False(model.RequiresReload); Assert.False(model.HasError); Assert.Equal(result, model.ResultText);
