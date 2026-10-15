@@ -8,6 +8,7 @@ public sealed class OrderRowViewModel(OrderSummary order)
 {
     private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("ru-RU");
 
+    internal OrderSummary Source => order;
     public int Id => order.Id;
     public DateOnly OrderDate => order.OrderDate;
     public int Color => order.Color;

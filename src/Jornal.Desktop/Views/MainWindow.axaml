@@ -52,13 +52,19 @@
                 <TextBlock Text="Результат" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" IsVisible="{Binding !IsCustomizing}" />
                 <ui:LayoutHandle x:Name="ResultMoveHandle" AutomationProperties.Name="Переместить панель: Результат" Title="Результат" PanelId="result" IsVisible="{Binding IsCustomizing}"
                                  ToolTip.Tip="Перетащите выше или ниже команд · ↑ ↓ с клавиатуры" />
-                <TextBlock Grid.Column="2" Text="Для письма" Classes="muted" VerticalAlignment="Center" />
+                <TextBlock x:Name="ResultFeedback" Grid.Column="2" Text="{Binding ResultMessage}" Classes="muted result-feedback"
+                           Classes.error="{Binding HasResultError}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding ResultMessage}" AutomationProperties.LiveSetting="Polite" />
                 <ui:JournalButton x:Name="AddResultButton" Grid.Column="3" Label="Добавить выбранные" Icon="list-plus"
-                                  Classes="outline" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
-                <ui:JournalButton Grid.Column="5" Label="Очистить" IsEnabled="False" />
-                <ui:JournalButton Grid.Column="7" Label="Копировать" Icon="clipboard-copy" Classes="primary" IsEnabled="False" />
+                                  Classes="outline" IsEnabled="{Binding CanAddResult}" Click="OnAddResultClick"
+                                  ToolTip.Tip="Добавить выбранные заявки без повторов" />
+                <ui:JournalButton x:Name="ClearResultButton" Grid.Column="5" Label="Очистить" Command="{Binding ClearResultCommand}"
+                                  IsEnabled="{Binding CanClearResult}" ToolTip.Tip="Очистить результат, сохранив выбор заявок" />
+                <ui:JournalButton x:Name="CopyResultButton" Grid.Column="7" Label="Копировать" Icon="clipboard-copy" Classes="primary"
+                                  IsEnabled="{Binding CanCopyResult}" Click="OnCopyResultClick"
+                                  ToolTip.Tip="Скопировать для письма: HTML, RTF и обычный текст" />
               </Grid>
-              <TextBox x:Name="ResultTextBox" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True"
+              <TextBox x:Name="ResultTextBox" Grid.Row="2" Text="{Binding ResultText, Mode=TwoWay}" IsReadOnly="{Binding !CanEditResult}" AcceptsReturn="True"
                        TextWrapping="NoWrap" FontSize="14" Padding="16,10"
                        Background="{DynamicResource JournalRaised}" Foreground="{DynamicResource JournalText}"
                        BorderBrush="{DynamicResource JournalBorder}" CornerRadius="6"

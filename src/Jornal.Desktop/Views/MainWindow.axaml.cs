@@ -9,6 +9,7 @@ using Avalonia.Styling;
 using Jornal.Desktop.ViewModels;
 using Jornal.Core.Orders;
 using Jornal.Desktop.Customization;
+using Jornal.Desktop.Clipboard;
 
 namespace Jornal.Desktop.Views;
 
@@ -119,6 +120,16 @@ public partial class MainWindow : Window
         else OrdersGrid.SelectedItems.Clear();
         UpdateSelection();
         e.Handled = true;
+    }
+
+    private void OnAddResultClick(object? sender, RoutedEventArgs e)
+    {
+        var selected = OrdersGrid.SelectedItems.Cast<OrderRowViewModel>().ToHashSet();
+        _viewModel?.AddOrdersToResult(OrdersGrid.CollectionView.Cast<OrderRowViewModel>().Where(selected.Contains));
+    }
+    private async void OnCopyResultClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is { } model) await model.CopyResultAsync(new ResultClipboard(() => Clipboard));
     }
 
     private void OnCustomizeClick(object? sender, RoutedEventArgs e)

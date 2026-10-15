@@ -25,7 +25,9 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     private bool _isDarkTheme;
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanUseJournal)), NotifyPropertyChangedFor(nameof(CanCreateOrder)),
-     NotifyPropertyChangedFor(nameof(CanSelectOrders)), NotifyCanExecuteChangedFor(nameof(ReloadCommand))]
+     NotifyPropertyChangedFor(nameof(CanSelectOrders)), NotifyCanExecuteChangedFor(nameof(ReloadCommand)),
+     NotifyPropertyChangedFor(nameof(CanAddResult)), NotifyPropertyChangedFor(nameof(CanClearResult)),
+     NotifyPropertyChangedFor(nameof(CanCopyResult)), NotifyPropertyChangedFor(nameof(CanEditResult))]
     private bool _isCustomizing;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPreferencesError))] private string? _preferencesError;
     public bool HasPreferencesError => !string.IsNullOrEmpty(PreferencesError);
@@ -69,7 +71,10 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
 
     public void UpdateSelection(IEnumerable<OrderRowViewModel> selected, OrderRowViewModel? active)
     {
-        var count = selected.Count(row => Orders.Contains(row));
+        var visibleIds = Orders.Select(row => row.Id).ToHashSet();
+        var count = selected.Select(row => row.Id).Distinct().Count(visibleIds.Contains);
+        _selectedCount = count;
+        OnPropertyChanged(nameof(CanAddResult));
         SelectionText = $"Выбрано: {count}";
         ActiveOrderText = count > 1 ? "Выбрано несколько заявок" : active is not null && Orders.Contains(active)
             ? $"Активная: {active.SpecificationNumber}" : "Активная: —";
