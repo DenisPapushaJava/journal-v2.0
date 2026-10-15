@@ -19,10 +19,18 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [ObservableProperty] private string _selectionText = "Выбрано: 0";
     [ObservableProperty] private string _activeOrderText = "Активная: —";
     [ObservableProperty] private string _updatedText = "F5 — обновить список";
-    [ObservableProperty] private bool _hasNoOrders = true;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanSelectOrders))] private bool _hasNoOrders = true;
     [ObservableProperty] private DateTime? _filterDate;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ThemeActionLabel))]
     private bool _isDarkTheme;
+
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanUseJournal)), NotifyPropertyChangedFor(nameof(CanCreateOrder)),
+     NotifyPropertyChangedFor(nameof(CanSelectOrders)), NotifyCanExecuteChangedFor(nameof(ReloadCommand))]
+    private bool _isCustomizing;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPreferencesError))] private string? _preferencesError;
+    public bool HasPreferencesError => !string.IsNullOrEmpty(PreferencesError);
+    public bool CanUseJournal => !IsCustomizing;
+    public bool CanSelectOrders => !HasNoOrders && !IsCustomizing;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FilterAll))]
@@ -40,8 +48,8 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public bool FilterReady => StatusFilter == OrderStatusFilter.Ready;
     public bool FilterShipped => StatusFilter == OrderStatusFilter.Shipped;
     public ObservableCollection<OrderRowViewModel> Orders { get; } = [];
-    public bool CanCreateOrder => orderCreator is not null;
-    public NewOrderViewModel? CreateOrderForm() => orderCreator is null ? null : new NewOrderViewModel(orderCreator);
+    public bool CanCreateOrder => orderCreator is not null && !IsCustomizing;
+    public NewOrderViewModel? CreateOrderForm() => CanCreateOrder ? new NewOrderViewModel(orderCreator!) : null;
 
     public void AcceptCreatedOrder(OrderSummary order)
     {
@@ -80,7 +88,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         FilterDate = null;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanUseJournal))]
     private async Task ReloadAsync(CancellationToken cancellationToken)
     {
         ErrorMessage = null;

@@ -8,7 +8,7 @@
   <Window.KeyBindings>
     <KeyBinding Gesture="F5" Command="{Binding ReloadCommand}" />
   </Window.KeyBindings>
-  <Grid RowDefinitions="52,*,32">
+  <Grid RowDefinitions="52,Auto,Auto,*,32">
     <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
             BorderThickness="0,0,0,1" Padding="24,0">
       <Grid ColumnDefinitions="Auto,24,*,Auto,8,Auto,8,Auto">
@@ -18,46 +18,66 @@
         <ToggleButton Grid.Column="3" x:Name="ThemeButton" Theme="{StaticResource JournalThemeSwitch}"
                       IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" VerticalAlignment="Center"
                       ToolTip.Tip="{Binding ThemeActionLabel}" AutomationProperties.Name="{Binding ThemeActionLabel}" />
-        <ui:JournalButton Grid.Column="5" x:Name="PersonalizeButton" Label="Настроить экран" Icon="monitor-cog"
-                          IconOnly="True" Width="32" Height="32" Padding="0" IsEnabled="False"
-                          ToolTip.Tip="Настроить экран — будет доступно позже" VerticalAlignment="Center" />
+        <ui:JournalButton Grid.Column="5" x:Name="PersonalizeButton" Label="Настроить экран" Icon="panels-top-left"
+                          IconOnly="True" Width="32" Height="32" Padding="0" Click="OnCustomizeClick" IsEnabled="{Binding !IsCustomizing}"
+                          ToolTip.Tip="Настроить расположение панелей и столбцы" VerticalAlignment="Center" />
         <ui:JournalButton Grid.Column="7" Label="Настройки" Icon="settings-2" IsEnabled="False"
                           ToolTip.Tip="Недоступно в демонстрационном режиме" VerticalAlignment="Center" />
       </Grid>
     </Border>
-    <Grid Grid.Row="1" Margin="24,12,24,0">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="152" MinHeight="120" MaxHeight="280" />
-        <RowDefinition Height="12" />
-        <RowDefinition Height="*" MinHeight="300" />
-      </Grid.RowDefinitions>
-      <Border x:Name="ResultPanel" Classes="panel" Padding="16,12,16,16">
-        <Grid RowDefinitions="32,12,*">
-          <Grid ColumnDefinitions="Auto,16,*,Auto,8,Auto,8,Auto">
-            <TextBlock Text="Результат" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="2" Text="Для письма" Classes="muted" VerticalAlignment="Center" />
-            <ui:JournalButton x:Name="AddResultButton" Grid.Column="3" Label="Добавить выбранные" Icon="list-plus"
-                              Classes="outline" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
-            <ui:JournalButton Grid.Column="5" Label="Очистить" IsEnabled="False" />
-            <ui:JournalButton Grid.Column="7" Label="Копировать" Icon="clipboard-copy" Classes="primary" IsEnabled="False" />
-          </Grid>
-          <TextBox x:Name="ResultTextBox" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True"
-                   TextWrapping="NoWrap" FontSize="14" Padding="16,10"
-                   Background="{DynamicResource JournalRaised}" Foreground="{DynamicResource JournalText}"
-                   BorderBrush="{DynamicResource JournalBorder}" CornerRadius="6"
-                   PlaceholderText="Здесь будет текст результата для копирования в письмо"
-                   ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                   AutomationProperties.Name="Результат для письма" />
+    <Border Grid.Row="1" IsVisible="{Binding IsCustomizing}" Background="{DynamicResource JournalAccentSoft}" Padding="24,6">
+      <Grid ColumnDefinitions="*,12,Auto,8,Auto,8,Auto">
+        <TextBlock Text="Перетащите блоки за захват · размеры — за разделители" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <ui:JournalButton x:Name="ResetLayoutButton" Grid.Column="2" Label="Сбросить к макету" Icon="rotate-ccw"
+                          Click="OnResetLayoutClick" ToolTip.Tip="Показать стандартный экран. Отмена вернёт прежний" />
+        <ui:JournalButton x:Name="CancelLayoutButton" Grid.Column="4" Label="Отмена" Icon="x"
+                          Click="OnCancelLayoutClick" ToolTip.Tip="Вернуть прежнюю компоновку · Esc" />
+        <ui:JournalButton x:Name="SaveLayoutButton" Grid.Column="6" Label="Готово" Icon="check" Classes="primary"
+                          Click="OnSaveLayoutClick" ToolTip.Tip="Сохранить компоновку · Ctrl+Enter" />
+      </Grid>
+    </Border>
+    <Border Grid.Row="2" IsVisible="{Binding HasPreferencesError}" Background="{DynamicResource JournalDangerBackground}" Padding="24,6">
+      <Grid ColumnDefinitions="*,8,Auto">
+        <TextBlock Text="{Binding PreferencesError}" Foreground="{DynamicResource JournalDangerForeground}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <ui:JournalButton Grid.Column="2" Label="Закрыть сообщение" Icon="x" IconOnly="True" Width="32" Padding="0"
+                          Click="OnDismissPreferencesError" ToolTip.Tip="Закрыть сообщение" />
+      </Grid>
+    </Border>
+    <Grid x:Name="BodyGrid" Grid.Row="3" Margin="24,12,24,0" RowDefinitions="Auto,12,*">
+      <Grid x:Name="TopArea" RowDefinitions="152,12,120">
+        <Grid x:Name="ResultSlot">
+          <Border x:Name="ResultPanel" Classes="panel" Padding="16,12,16,16">
+            <Grid RowDefinitions="32,12,*">
+              <Grid ColumnDefinitions="Auto,16,*,Auto,8,Auto,8,Auto">
+                <TextBlock Text="Результат" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" IsVisible="{Binding !IsCustomizing}" />
+                <ui:LayoutHandle x:Name="ResultMoveHandle" AutomationProperties.Name="Переместить панель: Результат" Title="Результат" PanelId="result" IsVisible="{Binding IsCustomizing}"
+                                 ToolTip.Tip="Перетащите выше или ниже команд · ↑ ↓ с клавиатуры" />
+                <TextBlock Grid.Column="2" Text="Для письма" Classes="muted" VerticalAlignment="Center" />
+                <ui:JournalButton x:Name="AddResultButton" Grid.Column="3" Label="Добавить выбранные" Icon="list-plus"
+                                  Classes="outline" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
+                <ui:JournalButton Grid.Column="5" Label="Очистить" IsEnabled="False" />
+                <ui:JournalButton Grid.Column="7" Label="Копировать" Icon="clipboard-copy" Classes="primary" IsEnabled="False" />
+              </Grid>
+              <TextBox x:Name="ResultTextBox" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True"
+                       TextWrapping="NoWrap" FontSize="14" Padding="16,10"
+                       Background="{DynamicResource JournalRaised}" Foreground="{DynamicResource JournalText}"
+                       BorderBrush="{DynamicResource JournalBorder}" CornerRadius="6"
+                       PlaceholderText="Здесь будет текст результата для копирования в письмо"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       AutomationProperties.Name="Результат для письма" />
+            </Grid>
+          </Border>
+          <ui:LayoutHandle x:Name="ResultResizeHandle" PanelId="result-size" Classes="result-resizer" Height="8"
+                           VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Focusable="True"
+                           ToolTip.Tip="Изменить высоту результата · ↑ ↓ с клавиатуры"
+                           AutomationProperties.Name="Изменить высоту результата" />
         </Grid>
-      </Border>
-      <GridSplitter Grid.Row="1" Height="8" HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                    ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent"
-                    AutomationProperties.Name="Изменить высоту результата" />
-      <Grid x:Name="Workspace" Grid.Row="2" RowDefinitions="120,12,Auto,12,Auto,*,36">
-        <Grid x:Name="CommandGroups" ColumnDefinitions="380*,16,548*,16,592*">
+        <Grid x:Name="CommandGroups" Grid.Row="2" ColumnDefinitions="380*,16,548*,16,592*">
           <Border x:Name="OrdersCommands" Classes="panel" Padding="16,10,16,12">
             <Grid RowDefinitions="18,8,32,8,32">
-              <TextBlock Text="ЗАЯВКИ" Classes="muted" />
+              <TextBlock Text="ЗАЯВКИ" Classes="muted" IsVisible="{Binding !IsCustomizing}" />
+              <ui:LayoutHandle x:Name="OrdersMoveHandle" AutomationProperties.Name="Переместить панель: Заявки" Title="ЗАЯВКИ" PanelId="orders" IsVisible="{Binding IsCustomizing}"
+                               ToolTip.Tip="Перетащите на другую группу · ← → с клавиатуры" />
               <Grid Grid.Row="2" ColumnDefinitions="1.18*,8,*">
                 <ui:JournalButton x:Name="NewOrderButton" Label="Новая заявка" Icon="plus" Classes="primary"
                                   IsEnabled="{Binding CanCreateOrder}" Click="OnNewOrderClick"
@@ -72,10 +92,12 @@
           </Border>
           <Border Grid.Column="2" x:Name="ClipboardCommands" Classes="panel" Padding="16,10,16,12">
             <Grid RowDefinitions="18,8,32,8,32">
-              <Grid ColumnDefinitions="*,Auto">
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !IsCustomizing}">
                 <TextBlock Text="БУФЕР ОБМЕНА И БЛЦБ" Classes="muted" />
                 <TextBlock Grid.Column="1" Text="{Binding SelectionText}" Classes="muted" Foreground="{DynamicResource JournalAccent}" />
               </Grid>
+              <ui:LayoutHandle x:Name="ClipboardMoveHandle" AutomationProperties.Name="Переместить панель: Буфер обмена и БЛЦБ" Title="БУФЕР ОБМЕНА И БЛЦБ" PanelId="clipboard" IsVisible="{Binding IsCustomizing}"
+                               ToolTip.Tip="Перетащите на другую группу · ← → с клавиатуры" />
               <Grid Grid.Row="2" ColumnDefinitions="*,8,1.18*">
                 <ui:JournalButton Label="Добавить БЛЦБ" Icon="hash" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
                 <ui:JournalButton Grid.Column="2" Label="Создать папки" Icon="folder-plus" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
@@ -88,7 +110,9 @@
           </Border>
           <Border Grid.Column="4" x:Name="StatusCommands" Classes="panel" Padding="16,10,16,12">
             <Grid RowDefinitions="18,8,32,8,32">
-              <TextBlock Text="ПРИСВОИТЬ СТАТУС" Classes="muted" />
+              <TextBlock Text="ПРИСВОИТЬ СТАТУС" Classes="muted" IsVisible="{Binding !IsCustomizing}" />
+              <ui:LayoutHandle x:Name="StatusMoveHandle" AutomationProperties.Name="Переместить панель: Присвоить статус" Title="ПРИСВОИТЬ СТАТУС" PanelId="status" IsVisible="{Binding IsCustomizing}"
+                               ToolTip.Tip="Перетащите на другую группу · ← → с клавиатуры" />
               <Grid Grid.Row="2" ColumnDefinitions="*,8,*,8,*">
                 <ui:JournalButton Label="В работе" Classes="work" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
                 <ui:JournalButton Grid.Column="2" Label="Готово" Classes="ready" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
@@ -101,8 +125,18 @@
               </Grid>
             </Grid>
           </Border>
+          <GridSplitter x:Name="FirstPanelSplitter" Grid.Column="1" Width="6" HorizontalAlignment="Center"
+                        ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" IsVisible="{Binding IsCustomizing}"
+                        Background="{DynamicResource JournalBorder}" KeyboardIncrement="8"
+                        ToolTip.Tip="Изменить ширину панелей · ← → с клавиатуры" AutomationProperties.Name="Ширина левой панели" />
+          <GridSplitter x:Name="SecondPanelSplitter" Grid.Column="3" Width="6" HorizontalAlignment="Center"
+                        ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" IsVisible="{Binding IsCustomizing}"
+                        Background="{DynamicResource JournalBorder}" KeyboardIncrement="8"
+                        ToolTip.Tip="Изменить ширину панелей · ← → с клавиатуры" AutomationProperties.Name="Ширина правой панели" />
         </Grid>
-        <Grid x:Name="FiltersPanel" Grid.Row="2" ColumnDefinitions="Auto,12,*">
+      </Grid>
+      <Grid x:Name="Workspace" Grid.Row="2" RowDefinitions="Auto,12,Auto,*,36">
+        <Grid x:Name="FiltersPanel" Grid.Row="0" IsEnabled="{Binding CanUseJournal}" ColumnDefinitions="Auto,12,*">
           <StackPanel x:Name="StatusFilters" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <TextBlock Text="Показать" Classes="muted" VerticalAlignment="Center" Margin="0,0,8,0" />
             <RadioButton Classes="filter" GroupName="Status" Content="Все" IsChecked="{Binding FilterAll, Mode=OneWay}"
@@ -128,15 +162,15 @@
             <ui:JournalButton Grid.Column="4" Label="Сбросить" Icon="x" Command="{Binding ResetFiltersCommand}" />
           </Grid>
         </Grid>
-        <Border Grid.Row="4" IsVisible="{Binding HasError}" Background="{DynamicResource JournalDangerBackground}" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+        <Border x:Name="LoadErrorPanel" Grid.Row="2" IsVisible="{Binding HasError}" Background="{DynamicResource JournalDangerBackground}" CornerRadius="6" Padding="12" Margin="0,0,0,12">
           <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
         </Border>
-        <Border x:Name="TablePanel" Grid.Row="5" Classes="panel" ClipToBounds="True">
+        <Border x:Name="TablePanel" Grid.Row="3" Classes="panel" ClipToBounds="True">
           <Grid>
             <DataGrid x:Name="OrdersGrid" ItemsSource="{Binding Orders}" AutoGenerateColumns="False" IsReadOnly="True"
                       SelectionMode="Extended" GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                       RowHeight="32" ColumnHeaderHeight="44" FontSize="13" BorderThickness="0"
-                      CanUserResizeColumns="True" CanUserReorderColumns="True" CanUserSortColumns="True"
+                      CanUserResizeColumns="True" CanUserReorderColumns="True" CanUserSortColumns="{Binding CanUseJournal}"
                       FrozenColumnCount="1"
                       SelectionChanged="OnSelectionChanged" CurrentCellChanged="OnCurrentCellChanged"
                       HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
@@ -161,7 +195,7 @@
                         </Button.Flyout>
                       </ui:JournalButton>
                       <CheckBox Grid.Column="2" x:Name="SelectAllRowsBox" MinHeight="32" HorizontalAlignment="Center"
-                                IsEnabled="{Binding !HasNoOrders}" Click="OnSelectAllRows"
+                                IsEnabled="{Binding CanSelectOrders}" Click="OnSelectAllRows"
                                 ToolTip.Tip="Выбрать все заявки в текущем списке / снять выбор"
                                 AutomationProperties.Name="Выбрать все заявки в текущем списке или снять выбор" />
                     </Grid>
@@ -169,7 +203,7 @@
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:OrderRowViewModel">
                       <Grid ColumnDefinitions="32,8,24" Width="64">
-                        <CheckBox Grid.Column="2" Classes="row-selection" HorizontalAlignment="Center" MinHeight="32"
+                        <CheckBox Grid.Column="2" IsEnabled="{ReflectionBinding DataContext.CanUseJournal, RelativeSource={RelativeSource AncestorType=Window}}" Classes="row-selection" HorizontalAlignment="Center" MinHeight="32"
                                   IsChecked="{Binding $parent[DataGridRow].IsSelected, Mode=TwoWay}"
                                   AutomationProperties.Name="{Binding SpecificationNumber, StringFormat='Выбрать заявку {0}'}" />
                       </Grid>
@@ -201,23 +235,30 @@
                 </DataGridTemplateColumn>
               </DataGrid.Columns>
             </DataGrid>
-            <StackPanel x:Name="EmptyState" IsVisible="{Binding HasNoOrders}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+            <StackPanel x:Name="EmptyState" IsEnabled="{Binding CanUseJournal}" IsVisible="{Binding HasNoOrders}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
               <TextBlock Text="Заявки не найдены" HorizontalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
               <TextBlock Text="Измените поиск или сбросьте фильтры" Classes="muted" />
               <ui:JournalButton Label="Сбросить фильтры" Command="{Binding ResetFiltersCommand}" HorizontalAlignment="Center" />
             </StackPanel>
           </Grid>
         </Border>
-        <Grid Grid.Row="6" ColumnDefinitions="Auto,24,Auto,24,*" VerticalAlignment="Center">
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,24,Auto,24,*" VerticalAlignment="Center">
           <TextBlock Text="{Binding CountText}" Classes="muted" />
           <TextBlock Grid.Column="2" Text="{Binding ActiveOrderText}" Classes="muted" Foreground="{DynamicResource JournalAccent}" />
           <TextBlock Grid.Column="4" Text="Shift / Ctrl — выбор строк" Classes="muted" TextTrimming="CharacterEllipsis" />
         </Grid>
       </Grid>
     </Grid>
-    <Grid Grid.Row="2" Margin="24,0" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+    <Grid Grid.Row="4" Margin="24,0" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
       <TextBlock Text="{Binding UpdatedText}" Classes="muted" TextTrimming="CharacterEllipsis" />
       <TextBlock Grid.Column="1" Text="Деморежим · данные до закрытия программы" Classes="muted" />
     </Grid>
+    <Canvas x:Name="LayoutOverlay" Grid.RowSpan="5" IsHitTestVisible="False" ClipToBounds="True">
+      <Border x:Name="DropGuide" IsVisible="False" Height="3" CornerRadius="2" Background="{DynamicResource JournalAccent}" />
+      <Border x:Name="DragPreview" IsVisible="False" Padding="12,8" CornerRadius="6"
+              Background="{DynamicResource JournalAccent}" Opacity="0.94">
+        <TextBlock x:Name="DragPreviewText" Foreground="{DynamicResource JournalOnAccent}" />
+      </Border>
+    </Canvas>
   </Grid>
 </Window>

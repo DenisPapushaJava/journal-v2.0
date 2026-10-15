@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:svg="clr-namespace:Avalonia.Svg;assembly=Svg.Controls.Avalonia">
+        xmlns:svg="clr-namespace:Avalonia.Svg;assembly=Svg.Controls.Avalonia"
+        xmlns:ui="using:Jornal.Desktop.Controls">
   <Styles.Resources>
     <ControlTheme x:Key="JournalCommandButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Template">
@@ -93,7 +94,55 @@
         </ControlTemplate>
       </Setter>
     </ControlTheme>
+    <ControlTheme x:Key="{x:Type ui:LayoutHandle}" TargetType="ui:LayoutHandle">
+      <Setter Property="Focusable" Value="True" />
+      <Setter Property="Cursor" Value="SizeAll" />
+      <Setter Property="Foreground" Value="{DynamicResource JournalAccent}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="HandleBorder" Background="{DynamicResource JournalAccentSoft}" CornerRadius="4" Padding="4,0" BorderThickness="1" BorderBrush="Transparent">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsHitTestVisible="False">
+              <svg:Svg Path="avares://Jornal.Desktop/Assets/Icons/grip-vertical.svg" Width="14" Height="14"
+                       CurrentColor="{ReflectionBinding Foreground.Color, RelativeSource={RelativeSource TemplatedParent}}" />
+              <TextBlock Text="{TemplateBinding Title}" FontSize="12" Foreground="{TemplateBinding Foreground}" />
+            </StackPanel>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:focus-visible /template/ Border#HandleBorder">
+        <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+      </Style>
+      <Style Selector="^:pointerover /template/ Border#HandleBorder">
+        <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+      </Style>
+    </ControlTheme>
+    <ControlTheme x:Key="JournalResultResizer" TargetType="ui:LayoutHandle">
+      <Setter Property="Cursor" Value="SizeNorthSouth" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="Transparent">
+            <Border Name="ResizeTrack" Width="44" Height="3" CornerRadius="2" Background="{DynamicResource JournalBorder}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border#ResizeTrack">
+        <Setter Property="Background" Value="{DynamicResource JournalAccent}" />
+      </Style>
+      <Style Selector="^:focus-visible /template/ Border#ResizeTrack">
+        <Setter Property="Background" Value="{DynamicResource JournalAccent}" />
+      </Style>
+    </ControlTheme>
   </Styles.Resources>
+  <Style Selector="ui|LayoutHandle.result-resizer">
+    <Setter Property="Theme" Value="{StaticResource JournalResultResizer}" />
+  </Style>
+  <Style Selector="ui|LayoutHandle:focus-visible">
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+  </Style>
+  <Style Selector="Window.customizing DataGridRow">
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Focusable" Value="False" />
+  </Style>
   <Style Selector="Window">
     <Setter Property="FontFamily" Value="{StaticResource JournalFont}" />
     <Setter Property="FontSize" Value="13" />
@@ -109,6 +158,13 @@
     <Setter Property="BorderBrush" Value="{DynamicResource JournalBorder}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <Style Selector="Window.customizing Border.panel">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="Window.customizing Border.drop-target">
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
+    <Setter Property="BorderThickness" Value="2" />
   </Style>
   <Style Selector="Button.command">
     <Setter Property="Theme" Value="{StaticResource JournalCommandButton}" />

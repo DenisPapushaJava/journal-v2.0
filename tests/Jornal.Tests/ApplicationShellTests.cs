@@ -47,7 +47,7 @@ public sealed class ApplicationShellTests
                 var bounds = new Rect(control.Bounds.Size).TransformToAABB(control.TransformToVisual(window)!.Value);
                 Assert.True(bounds.Left >= 0 && bounds.Top >= 0 && bounds.Right <= width + 1 && bounds.Bottom <= height + 1, $"{name}: {bounds}");
             }
-            foreach (var button in window.GetVisualDescendants().OfType<JournalButton>())
+            foreach (var button in window.GetVisualDescendants().OfType<JournalButton>().Where(button => button.IsEffectivelyVisible))
             {
                 Assert.True(button.IsVisible);
                 var content = (Control)button.Content!;
@@ -66,7 +66,7 @@ public sealed class ApplicationShellTests
             Assert.Equal(2, Grid.GetColumn(search));
             Assert.True(window.FindControl<TextBox>("SearchBox")!.Bounds.Width >= 160);
             Assert.False(window.FindControl<JournalButton>("AddResultButton")!.IsEnabled);
-            Assert.All(window.GetVisualDescendants().OfType<Avalonia.Svg.Svg>().Where(icon => icon.IsVisible), icon => Assert.NotNull(icon.Model));
+            Assert.All(window.GetVisualDescendants().OfType<Avalonia.Svg.Svg>().Where(icon => icon.IsEffectivelyVisible), icon => Assert.NotNull(icon.Model));
             Assert.Contains(window.GetVisualDescendants().OfType<Avalonia.Svg.Svg>(), icon => icon.Path?.EndsWith("/calendar-days.svg", StringComparison.Ordinal) == true);
 
             var directory = Environment.GetEnvironmentVariable("JOURNAL_SCREENSHOT_DIR");

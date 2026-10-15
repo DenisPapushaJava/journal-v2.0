@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Jornal.Desktop.ViewModels;
 using Jornal.Core.Orders;
+using Jornal.Desktop.Customization;
 
 namespace Jornal.Desktop.Views;
 
@@ -15,9 +16,14 @@ public partial class MainWindow : Window
 {
     private MainWindowViewModel? _viewModel;
 
-    public MainWindow()
+    private readonly MainWindowCustomization _customization;
+
+    public MainWindow() : this(new MemoryUiPreferencesStore()) { }
+
+    public MainWindow(IUiPreferencesStore preferencesStore)
     {
         InitializeComponent();
+        _customization = new MainWindowCustomization(this, preferencesStore);
         DataContextChanged += (_, _) => ConnectViewModel();
         foreach (var column in OrdersGrid.Columns.Skip(1))
         {
@@ -31,11 +37,13 @@ public partial class MainWindow : Window
     protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        _customization.Initialize();
         if (_viewModel is not null) await _viewModel.ReloadCommand.ExecuteAsync(null);
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        _customization.Close();
         if (_viewModel is not null)
         {
             _viewModel.ReloadCommand.Cancel();
@@ -46,8 +54,19 @@ public partial class MainWindow : Window
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (_viewModel?.IsCustomizing == true)
+        {
+            if (e.Key == Key.Escape)
+            {
+                if (!_customization.CancelDrag()) _customization.Cancel();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.Control)
+            { _customization.Save(); e.Handled = true; return; }
+        }
         base.OnKeyDown(e);
-        if (e.Key == Key.F && e.KeyModifiers == KeyModifiers.Control)
+        if (_viewModel?.CanUseJournal == true && e.Key == Key.F && e.KeyModifiers == KeyModifiers.Control)
         {
             SearchBox.Focus();
             SearchBox.SelectAll();
@@ -65,7 +84,8 @@ public partial class MainWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme)) UpdateTheme();
+        if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme))
+        { UpdateTheme(); _customization.ThemeChanged(); }
     }
 
     private void UpdateTheme() => RequestedThemeVariant = _viewModel?.IsDarkTheme == true
@@ -100,6 +120,17 @@ public partial class MainWindow : Window
         UpdateSelection();
         e.Handled = true;
     }
+
+    private void OnCustomizeClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel?.IsCustomizing == true) _customization.Cancel();
+        else _customization.Begin();
+    }
+    private void OnSaveLayoutClick(object? sender, RoutedEventArgs e) => _customization.Save();
+    private void OnCancelLayoutClick(object? sender, RoutedEventArgs e) => _customization.Cancel();
+    private void OnResetLayoutClick(object? sender, RoutedEventArgs e) => _customization.Reset();
+    private void OnDismissPreferencesError(object? sender, RoutedEventArgs e)
+    { if (_viewModel is not null) _viewModel.PreferencesError = null; }
 
     private void OnShowAllColumns(object? sender, RoutedEventArgs e) => SetAllColumnsVisible(true);
     private void OnHideAllColumns(object? sender, RoutedEventArgs e) => SetAllColumnsVisible(false);
