@@ -100,7 +100,7 @@ jobs:
             python3 -c 'import json; assert json.load(open("/tmp/release-state.json"))["isDraft"], "Published releases are not overwritten"'
             gh release upload "$RELEASE_TAG" artifacts/release/* --clobber
           else
-            options=(--draft --verify-tag --title "Journal $RELEASE_VERSION" --generate-notes --notes-file docs/release-notes.md)
+            options=(--draft --verify-tag --title "Journal $RELEASE_VERSION" --notes-file docs/release-notes.md)
             if [[ "$IS_PRERELEASE" == true ]]; then options+=(--prerelease); fi
             gh release create "$RELEASE_TAG" artifacts/release/* "${options[@]}"
           fi
