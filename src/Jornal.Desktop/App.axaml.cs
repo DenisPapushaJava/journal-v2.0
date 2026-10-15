@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Jornal.Desktop.ViewModels;
+using Jornal.Desktop.Customization;
 using Jornal.Desktop.Views;
 using Jornal.Infrastructure.Demo;
 
@@ -16,7 +17,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var demoStore = new DemoOrderStore();
-            desktop.MainWindow = new MainWindow
+            desktop.MainWindow = new MainWindow(new JsonUiPreferencesStore(JsonUiPreferencesStore.DefaultPath))
             {
                 DataContext = new MainWindowViewModel(demoStore, demoStore)
             };
