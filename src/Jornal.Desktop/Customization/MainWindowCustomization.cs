@@ -88,7 +88,7 @@ public sealed class MainWindowCustomization
 
     public void Begin()
     {
-        if (Model is not { IsCustomizing: false } model) return;
+        if (Model is not { IsCustomizing: false, CanUseJournal: true } model) return;
         Flush();
         _beforeEdit = Capture();
         model.IsCustomizing = true;

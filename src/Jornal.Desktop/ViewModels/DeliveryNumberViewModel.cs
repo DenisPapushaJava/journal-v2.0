@@ -1,0 +1,87 @@
+using System.Diagnostics;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Jornal.Core.Orders;
+
+namespace Jornal.Desktop.ViewModels;
+
+public partial class DeliveryNumberViewModel : ObservableObject
+{
+    private readonly Func<string, Task<bool>> _save;
+    private readonly string _initial;
+    private bool _clearRequested;
+    private bool _submitted;
+
+    public DeliveryNumberViewModel(IReadOnlyList<OrderSummary> orders, Func<string, Task<bool>> save)
+    {
+        if (orders.Count == 0) throw new ArgumentException("Не выбраны заявки.", nameof(orders));
+        _save = save;
+        var values = orders.Select(order => order.DeliveryNumber).Distinct().ToArray();
+        HasDifferentNumbers = values.Length > 1;
+        _initial = values.Length == 1 ? values[0] : "";
+        _number = _initial;
+        SelectionDescription = $"Выбрано заявок: {orders.Count}";
+        Specifications = orders.Select(order => $"{order.SpecificationNumber} · {order.CustomerName}").ToArray();
+    }
+
+    public bool HasDifferentNumbers { get; }
+    public string SelectionDescription { get; }
+    public IReadOnlyList<string> Specifications { get; }
+    [ObservableProperty] private string _number;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(FeedbackText))] private string? _error;
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(SaveCommand))] private bool _isSaved;
+    public bool HasError => Error is not null;
+    public string FeedbackText => Error ?? "Очистка применяется только после нажатия «Сохранить».";
+    public event EventHandler? Saved;
+
+    partial void OnNumberChanged(string value)
+    {
+        if (_submitted) Validate();
+        else Error = null;
+        SaveCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand]
+    private void ClearNumber()
+    {
+        if (SaveCommand.IsRunning) return;
+        _clearRequested = true;
+        Number = "";
+        Error = null;
+        SaveCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanSave() => !IsSaved && (Number != _initial || _clearRequested && Number.Length == 0);
+
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private async Task SaveAsync()
+    {
+        if (IsSaved) return;
+        _submitted = true;
+        if (!Validate()) return;
+        try
+        {
+            if (!await _save(Number))
+            {
+                Error = "Не удалось сохранить БЛЦБ. Номер оставлен в поле — попробуйте ещё раз.";
+                return;
+            }
+        }
+        catch (Exception exception)
+        {
+            Trace.TraceError("Delivery number update failed: {0}", exception);
+            Error = "Не удалось сохранить БЛЦБ. Номер оставлен в поле — попробуйте ещё раз.";
+            return;
+        }
+        IsSaved = true;
+        Saved?.Invoke(this, EventArgs.Empty);
+    }
+
+    private bool Validate()
+    {
+        Error = Number.Length > 255 ? "Номер не должен превышать 255 символов." :
+            Number.Any(char.IsControl) ? "Номер должен занимать одну строку." :
+            Number.Length > 0 && string.IsNullOrWhiteSpace(Number) ? "Введите номер или нажмите «Очистить номер»." : null;
+        return !HasError;
+    }
+}

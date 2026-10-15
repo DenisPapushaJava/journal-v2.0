@@ -20,7 +20,7 @@ public partial class MainWindowViewModel
     public bool CanAddResult => CanEditResult && _selectedCount > 0;
     public bool CanClearResult => CanEditResult && ResultText.Length > 0;
     public bool CanCopyResult => CanEditResult && !string.IsNullOrWhiteSpace(ResultText);
-    public bool CanEditResult => !IsCustomizing && !IsCopyingResult;
+    public bool CanEditResult => CanUseJournal && !IsCopyingResult;
 
     partial void OnResultTextChanged(string value)
     {

@@ -2,8 +2,9 @@ using Jornal.Core.Orders;
 
 namespace Jornal.Infrastructure.Demo;
 
-public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator
+public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor
 {
+    private readonly object _gate = new();
     // Только память текущего сеанса. Рабочая MDB здесь никогда не открывается.
     private readonly List<OrderSummary> _orders =
         [
@@ -20,22 +21,58 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator
 
     public Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult<IReadOnlyList<OrderSummary>>(_orders.ToArray());
+        lock (_gate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult<IReadOnlyList<OrderSummary>>(_orders.ToArray());
+        }
     }
 
     public Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var order = new OrderSummary(_orders.Max(row => row.Id) + 1, draft.OrderDate,
-            draft.SpecificationNumber, draft.ManagerName, draft.CustomerName, draft.CuttingType,
-            draft.MaterialName, draft.ThicknessMillimeters, null, -1)
+        lock (_gate)
         {
-            SheetSize = draft.SheetSize, SheetCount = draft.SheetCount,
-            CutLengthMeters = draft.CutLengthMeters, WeightKilograms = draft.WeightKilograms,
-            Coefficient = draft.Coefficient, MaterialId = draft.MaterialId, CuttingGas = draft.CuttingGas
-        };
-        _orders.Insert(0, order);
-        return Task.FromResult(order);
+            cancellationToken.ThrowIfCancellationRequested();
+            var order = new OrderSummary(_orders.Max(row => row.Id) + 1, draft.OrderDate,
+                draft.SpecificationNumber, draft.ManagerName, draft.CustomerName, draft.CuttingType,
+                draft.MaterialName, draft.ThicknessMillimeters, null, -1)
+            {
+                SheetSize = draft.SheetSize, SheetCount = draft.SheetCount,
+                CutLengthMeters = draft.CutLengthMeters, WeightKilograms = draft.WeightKilograms,
+                Coefficient = draft.Coefficient, MaterialId = draft.MaterialId, CuttingGas = draft.CuttingGas
+            };
+            _orders.Insert(0, order);
+            return Task.FromResult(order);
+        }
+    }
+
+    public Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<int> ids, int color,
+        CancellationToken cancellationToken = default) => Update(ids, order => order with { Color = color }, cancellationToken);
+
+    public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<int> ids, string number,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(number);
+        if (number.Length > 255 || number.Any(char.IsControl))
+            throw new ArgumentException("БЛЦБ должен занимать одну строку до 255 символов.", nameof(number));
+        return Update(ids, order => order with { DeliveryNumber = number }, cancellationToken);
+    }
+
+    private Task<IReadOnlyList<OrderSummary>> Update(IReadOnlyCollection<int> ids,
+        Func<OrderSummary, OrderSummary> update, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var unique = ids.Distinct().ToHashSet();
+            if (unique.Count == 0) throw new ArgumentException("Не выбраны заявки.", nameof(ids));
+            var matches = _orders.Select((order, index) => (order, index)).Where(pair => unique.Contains(pair.order.Id)).ToArray();
+            if (matches.Length != unique.Count) throw new InvalidOperationException("Одна из выбранных заявок не найдена.");
+            // Сначала проверяем и подготавливаем весь пакет, затем заменяем записи без промежуточных await.
+            var prepared = matches.Select(pair => (Order: update(pair.order), Index: pair.index)).ToArray();
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var pair in prepared) _orders[pair.Index] = pair.Order;
+            return Task.FromResult<IReadOnlyList<OrderSummary>>(prepared.Select(pair => pair.Order).ToArray());
+        }
     }
 }

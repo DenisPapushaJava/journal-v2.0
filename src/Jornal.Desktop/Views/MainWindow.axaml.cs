@@ -42,6 +42,12 @@ public partial class MainWindow : Window
         if (_viewModel is not null) await _viewModel.ReloadCommand.ExecuteAsync(null);
     }
 
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        if (_viewModel?.IsUpdatingOrders == true) e.Cancel = true;
+        base.OnClosing(e);
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         _customization.Close();
@@ -49,6 +55,7 @@ public partial class MainWindow : Window
         {
             _viewModel.ReloadCommand.Cancel();
             _viewModel.PropertyChanged -= OnViewModelChanged;
+            _viewModel.SelectionRestoreRequested -= OnSelectionRestore;
         }
         base.OnClosed(e);
     }
@@ -77,9 +84,17 @@ public partial class MainWindow : Window
 
     private void ConnectViewModel()
     {
-        if (_viewModel is not null) _viewModel.PropertyChanged -= OnViewModelChanged;
+        if (_viewModel is not null)
+        {
+            _viewModel.PropertyChanged -= OnViewModelChanged;
+            _viewModel.SelectionRestoreRequested -= OnSelectionRestore;
+        }
         _viewModel = DataContext as MainWindowViewModel;
-        if (_viewModel is not null) _viewModel.PropertyChanged += OnViewModelChanged;
+        if (_viewModel is not null)
+        {
+            _viewModel.PropertyChanged += OnViewModelChanged;
+            _viewModel.SelectionRestoreRequested += OnSelectionRestore;
+        }
         UpdateTheme();
     }
 
@@ -120,6 +135,25 @@ public partial class MainWindow : Window
         else OrdersGrid.SelectedItems.Clear();
         UpdateSelection();
         e.Handled = true;
+    }
+
+    private async void OnDeliveryNumberClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel?.CreateDeliveryNumberForm() is not { } form) return;
+        var dialog = new DeliveryNumberWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
+        await dialog.ShowDialog<bool>(this);
+    }
+
+    private void OnSelectionRestore(object? sender, SelectionRestoreRequest request)
+    {
+        var ids = request.Ids.ToHashSet();
+        OrdersGrid.CollectionView.Refresh();
+        var rows = _viewModel!.Orders.Where(row => ids.Contains(row.Id)).ToArray();
+        OrdersGrid.SelectedItems.Clear();
+        OrdersGrid.SelectedItem = rows.FirstOrDefault(row => row.Id == request.ActiveId) ?? rows.FirstOrDefault();
+        foreach (var row in rows)
+            if (!OrdersGrid.SelectedItems.Contains(row)) OrdersGrid.SelectedItems.Add(row);
+        UpdateSelection();
     }
 
     private void OnAddResultClick(object? sender, RoutedEventArgs e)

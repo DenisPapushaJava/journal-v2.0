@@ -9,7 +9,8 @@ namespace Jornal.Desktop.ViewModels;
 
 public enum OrderStatusFilter { All, Work, Ready, Shipped }
 
-public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderCreator? orderCreator = null) : ObservableObject
+public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderCreator? orderCreator = null,
+    IOrderBatchEditor? orderEditor = null) : ObservableObject
 {
     private IReadOnlyList<OrderSummary> _allOrders = [];
 
@@ -24,15 +25,29 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ThemeActionLabel))]
     private bool _isDarkTheme;
 
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanUseJournal)), NotifyPropertyChangedFor(nameof(CanCreateOrder)),
-     NotifyPropertyChangedFor(nameof(CanSelectOrders)), NotifyCanExecuteChangedFor(nameof(ReloadCommand)),
-     NotifyPropertyChangedFor(nameof(CanAddResult)), NotifyPropertyChangedFor(nameof(CanClearResult)),
-     NotifyPropertyChangedFor(nameof(CanCopyResult)), NotifyPropertyChangedFor(nameof(CanEditResult))]
-    private bool _isCustomizing;
+    [ObservableProperty] private bool _isCustomizing;
+    [ObservableProperty] private bool _isUpdatingOrders;
+    [ObservableProperty] private bool _isLoadingOrders;
+
+    partial void OnIsCustomizingChanged(bool value) => NotifyJournalAvailability();
+    partial void OnIsUpdatingOrdersChanged(bool value) => NotifyJournalAvailability();
+    partial void OnIsLoadingOrdersChanged(bool value) => NotifyJournalAvailability();
+
+    private void NotifyJournalAvailability()
+    {
+        foreach (var name in new[] { nameof(CanUseJournal), nameof(CanCreateOrder), nameof(CanSelectOrders),
+            nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
+            nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult) })
+            OnPropertyChanged(name);
+        ReloadCommand.NotifyCanExecuteChanged();
+        SetOrderColorCommand.NotifyCanExecuteChanged();
+    }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPreferencesError))] private string? _preferencesError;
     public bool HasPreferencesError => !string.IsNullOrEmpty(PreferencesError);
-    public bool CanUseJournal => !IsCustomizing;
-    public bool CanSelectOrders => !HasNoOrders && !IsCustomizing;
+    public bool CanUseJournal => !IsCustomizing && !IsUpdatingOrders && !IsLoadingOrders;
+    public bool CanConfigureScreen => CanUseJournal;
+    public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders;
+    public bool CanSelectOrders => !HasNoOrders && CanUseJournal;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FilterAll))]
@@ -50,7 +65,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public bool FilterReady => StatusFilter == OrderStatusFilter.Ready;
     public bool FilterShipped => StatusFilter == OrderStatusFilter.Shipped;
     public ObservableCollection<OrderRowViewModel> Orders { get; } = [];
-    public bool CanCreateOrder => orderCreator is not null && !IsCustomizing;
+    public bool CanCreateOrder => orderCreator is not null && CanUseJournal;
     public NewOrderViewModel? CreateOrderForm() => CanCreateOrder ? new NewOrderViewModel(orderCreator!) : null;
 
     public void AcceptCreatedOrder(OrderSummary order)
@@ -72,9 +87,13 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public void UpdateSelection(IEnumerable<OrderRowViewModel> selected, OrderRowViewModel? active)
     {
         var visibleIds = Orders.Select(row => row.Id).ToHashSet();
-        var count = selected.Select(row => row.Id).Distinct().Count(visibleIds.Contains);
+        _selectedOrderIds = selected.Select(row => row.Id).Where(visibleIds.Contains).ToHashSet();
+        var count = _selectedOrderIds.Count;
         _selectedCount = count;
+        _activeOrderId = active is not null && visibleIds.Contains(active.Id) ? active.Id : null;
         OnPropertyChanged(nameof(CanAddResult));
+        OnPropertyChanged(nameof(CanUpdateSelectedOrders));
+        SetOrderColorCommand.NotifyCanExecuteChanged();
         SelectionText = $"Выбрано: {count}";
         ActiveOrderText = count > 1 ? "Выбрано несколько заявок" : active is not null && Orders.Contains(active)
             ? $"Активная: {active.SpecificationNumber}" : "Активная: —";
@@ -96,7 +115,9 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [RelayCommand(CanExecute = nameof(CanUseJournal))]
     private async Task ReloadAsync(CancellationToken cancellationToken)
     {
+        if (!CanUseJournal) return;
         ErrorMessage = null;
+        IsLoadingOrders = true;
         try
         {
             var orders = await orderReader.ReadAsync(cancellationToken);
@@ -114,23 +135,12 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             Trace.TraceError("Order loading failed: {0}", exception);
             ErrorMessage = "Не удалось загрузить заявки. Попробуйте обновить список.";
         }
+        finally { IsLoadingOrders = false; }
     }
 
     private void ApplySearch()
     {
-        var query = SearchText.Trim();
-        var filtered = _allOrders.Where(order => MatchesSearch(order, query));
-        var color = StatusFilter switch
-        {
-            OrderStatusFilter.Work => -882036, OrderStatusFilter.Ready => -10238087,
-            OrderStatusFilter.Shipped => -8154114, _ => (int?)null
-        };
-        if (color.HasValue) filtered = filtered.Where(order => order.Color == color.Value);
-        if (FilterDate.HasValue)
-        {
-            var date = DateOnly.FromDateTime(FilterDate.Value);
-            filtered = filtered.Where(order => order.OrderDate == date);
-        }
+        var filtered = _allOrders.Where(MatchesCurrentFilters);
 
         Orders.Clear();
         foreach (var order in filtered) Orders.Add(new OrderRowViewModel(order));
