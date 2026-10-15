@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <ProjectReference Include="../Jornal.Core/Jornal.Core.csproj" />
+    <ProjectReference Include="../Jornal.Infrastructure/Jornal.Infrastructure.csproj" />
+  </ItemGroup>
+  <!-- Native NuGet assets include large PDBs even when managed DebugType=None. -->
+  <Target Name="ExcludePublishDebugSymbols" AfterTargets="ComputeFilesToPublish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+</Project>

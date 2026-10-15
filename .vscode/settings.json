@@ -1,0 +1,42 @@
+{
+  "dotnet.defaultSolution": "Jornal.Modern.slnx",
+  "dotnet.preferCSharpExtension": false,
+  "dotnet.server.useOmnisharp": false,
+  "avalonia.solutionPath": "Jornal.Modern.slnx",
+  "avalonia.preview.autoOpen": false,
+  "avalonia.preview.defaultZoomLevel": "Fit All",
+  "avalonia.preview.fpsLimit": 15,
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "*.axaml": "${capture}.axaml.cs"
+  },
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  },
+  "search.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "artifacts": true,
+    ".local": true
+  },
+  "files.watcherExclude": {
+    "**/bin/**": true,
+    "**/obj/**": true,
+    "**/artifacts/**": true,
+    "**/.local/**": true
+  },
+  "[csharp]": {
+    "editor.defaultFormatter": "ms-dotnettools.csharp",
+    "editor.formatOnSave": true
+  },
+  "[axaml]": {
+    "editor.defaultFormatter": "AvaloniaTeam.vscode-avalonia",
+    "editor.formatOnSave": true
+  },
+  "[json][jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.tabSize": 2
+  }
+}

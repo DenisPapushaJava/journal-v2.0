@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Check (${{ matrix.os }})
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: python3
+          - os: windows-latest
+            python: python
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Check release tooling
+        run: ${{ matrix.python }} -m unittest discover -s tests/release -v
+      - run: dotnet restore Jornal.Modern.slnx --locked-mode
+      - run: dotnet build Jornal.Modern.slnx -c Release --no-restore
+      - run: dotnet test tests/Jornal.Tests/Jornal.Tests.csproj -c Release --no-build --no-restore --logger "trx;LogFileName=tests.trx" --results-directory artifacts/test-results
+      - name: Test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tests-${{ matrix.os }}
+          path: artifacts/test-results/*.trx
+          if-no-files-found: ignore
+          retention-days: 7

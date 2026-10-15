@@ -1,0 +1,410 @@
+{
+  "version": 2,
+  "date": "2026-10-15",
+  "integration": "Figwright 0.6.0",
+  "fileName": "Untitled",
+  "fileKey": null,
+  "pages": {
+    "screens": {
+      "id": "0:1",
+      "name": "Jornal · UX и макеты"
+    },
+    "components": {
+      "id": "103:8",
+      "name": "Jornal · Компоненты"
+    }
+  },
+  "screens": [
+    {
+      "key": "journal-v2-light",
+      "nodeId": "104:2735",
+      "name": "01 · Журнал v2 · Светлая",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 255,
+        "TEXT": 254,
+        "INSTANCE": 42,
+        "VECTOR": 60
+      },
+      "fonts": {
+        "Inter": 254
+      },
+      "rows": 13,
+      "rowHeights": [
+        32
+      ],
+      "overflows": [],
+      "intentionalHorizontalScroll": false
+    },
+    {
+      "key": "journal-v2-dark",
+      "nodeId": "104:2736",
+      "name": "01 · Журнал v2 · Тёмная",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 255,
+        "TEXT": 254,
+        "INSTANCE": 42,
+        "VECTOR": 60
+      },
+      "fonts": {
+        "Inter": 254
+      },
+      "rows": 13,
+      "rowHeights": [
+        32
+      ],
+      "overflows": [],
+      "intentionalHorizontalScroll": false
+    },
+    {
+      "key": "journal-v2-compact-light",
+      "nodeId": "104:2737",
+      "name": "01 · Журнал v2 · 1366×768 · Светлая",
+      "width": 1366,
+      "height": 768,
+      "counts": {
+        "FRAME": 145,
+        "TEXT": 149,
+        "INSTANCE": 35,
+        "VECTOR": 60
+      },
+      "fonts": {
+        "Inter": 149
+      },
+      "rows": 6,
+      "rowHeights": [
+        32
+      ],
+      "overflows": [],
+      "intentionalHorizontalScroll": true
+    },
+    {
+      "key": "journal-v2-empty-light",
+      "nodeId": "104:2738",
+      "name": "01 · Журнал v2 · Нет выбранных строк · Светлая",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 254,
+        "TEXT": 253,
+        "INSTANCE": 42,
+        "VECTOR": 60
+      },
+      "fonts": {
+        "Inter": 253
+      },
+      "rows": 13,
+      "rowHeights": [
+        32
+      ],
+      "overflows": [],
+      "intentionalHorizontalScroll": false
+    }
+  ],
+  "existingButtonComponentsReused": 18,
+  "newIconCommandComponents": {
+    "light/New": {
+      "theme": "light",
+      "role": "New",
+      "icon": "plus",
+      "base": "buttonPrimary",
+      "id": "104:2524",
+      "iconId": "104:2584",
+      "property": "Label#104:0"
+    },
+    "light/Refresh": {
+      "theme": "light",
+      "role": "Refresh",
+      "icon": "refresh-cw",
+      "base": "buttonGhost",
+      "id": "104:2526",
+      "iconId": "104:2587",
+      "property": "Label#104:2"
+    },
+    "light/Edit": {
+      "theme": "light",
+      "role": "Edit",
+      "icon": "pencil",
+      "base": "buttonGhost",
+      "id": "104:2528",
+      "iconId": "104:2592",
+      "property": "Label#104:2"
+    },
+    "light/Delete": {
+      "theme": "light",
+      "role": "Delete",
+      "icon": "trash",
+      "base": "buttonGhost",
+      "id": "104:2530",
+      "iconId": "104:2595",
+      "property": "Label#104:2"
+    },
+    "light/AddResult": {
+      "theme": "light",
+      "role": "AddResult",
+      "icon": "list-plus",
+      "base": "buttonSecondary",
+      "id": "104:2532",
+      "iconId": "104:2601",
+      "property": "Label#104:1"
+    },
+    "light/Copy": {
+      "theme": "light",
+      "role": "Copy",
+      "icon": "clipboard-copy",
+      "base": "buttonPrimary",
+      "id": "104:2534",
+      "iconId": "104:2607",
+      "property": "Label#104:0"
+    },
+    "light/Folders": {
+      "theme": "light",
+      "role": "Folders",
+      "icon": "folder-plus",
+      "base": "buttonGhost",
+      "id": "104:2536",
+      "iconId": "104:2613",
+      "property": "Label#104:2"
+    },
+    "light/Color": {
+      "theme": "light",
+      "role": "Color",
+      "icon": "palette",
+      "base": "buttonSecondary",
+      "id": "104:2538",
+      "iconId": "104:2617",
+      "property": "Label#104:1"
+    },
+    "light/Theme": {
+      "theme": "light",
+      "role": "Theme",
+      "icon": "sun-moon",
+      "base": "buttonGhost",
+      "id": "104:2540",
+      "iconId": "104:2623",
+      "property": "Label#104:2"
+    },
+    "light/Settings": {
+      "theme": "light",
+      "role": "Settings",
+      "icon": "settings-2",
+      "base": "buttonGhost",
+      "id": "104:2542",
+      "iconId": "104:2629",
+      "property": "Label#104:2"
+    },
+    "light/Comment": {
+      "theme": "light",
+      "role": "Comment",
+      "icon": "message-square",
+      "base": "buttonGhost",
+      "id": "104:2544",
+      "iconId": "104:2634",
+      "property": "Label#104:2"
+    },
+    "light/Blcb": {
+      "theme": "light",
+      "role": "Blcb",
+      "icon": "hash",
+      "base": "buttonGhost",
+      "id": "104:2546",
+      "iconId": "104:2636",
+      "property": "Label#104:2"
+    },
+    "light/Columns": {
+      "theme": "light",
+      "role": "Columns",
+      "icon": "columns-3",
+      "base": "buttonGhost",
+      "id": "104:2548",
+      "iconId": "104:2641",
+      "property": "Label#104:2"
+    },
+    "light/Date": {
+      "theme": "light",
+      "role": "Date",
+      "icon": "calendar-days",
+      "base": "buttonSecondary",
+      "id": "104:2550",
+      "iconId": "104:2645",
+      "property": "Label#104:1"
+    },
+    "light/Reset": {
+      "theme": "light",
+      "role": "Reset",
+      "icon": "x",
+      "base": "buttonGhost",
+      "id": "104:2552",
+      "iconId": "104:2656",
+      "property": "Label#104:2"
+    },
+    "dark/New": {
+      "theme": "dark",
+      "role": "New",
+      "icon": "plus",
+      "base": "buttonPrimary",
+      "id": "104:2554",
+      "iconId": "104:2659",
+      "property": "Label#104:9"
+    },
+    "dark/Refresh": {
+      "theme": "dark",
+      "role": "Refresh",
+      "icon": "refresh-cw",
+      "base": "buttonGhost",
+      "id": "104:2556",
+      "iconId": "104:2662",
+      "property": "Label#104:11"
+    },
+    "dark/Edit": {
+      "theme": "dark",
+      "role": "Edit",
+      "icon": "pencil",
+      "base": "buttonGhost",
+      "id": "104:2558",
+      "iconId": "104:2667",
+      "property": "Label#104:11"
+    },
+    "dark/Delete": {
+      "theme": "dark",
+      "role": "Delete",
+      "icon": "trash",
+      "base": "buttonGhost",
+      "id": "104:2560",
+      "iconId": "104:2670",
+      "property": "Label#104:11"
+    },
+    "dark/AddResult": {
+      "theme": "dark",
+      "role": "AddResult",
+      "icon": "list-plus",
+      "base": "buttonSecondary",
+      "id": "104:2562",
+      "iconId": "104:2676",
+      "property": "Label#104:10"
+    },
+    "dark/Copy": {
+      "theme": "dark",
+      "role": "Copy",
+      "icon": "clipboard-copy",
+      "base": "buttonPrimary",
+      "id": "104:2564",
+      "iconId": "104:2682",
+      "property": "Label#104:9"
+    },
+    "dark/Folders": {
+      "theme": "dark",
+      "role": "Folders",
+      "icon": "folder-plus",
+      "base": "buttonGhost",
+      "id": "104:2566",
+      "iconId": "104:2688",
+      "property": "Label#104:11"
+    },
+    "dark/Color": {
+      "theme": "dark",
+      "role": "Color",
+      "icon": "palette",
+      "base": "buttonSecondary",
+      "id": "104:2568",
+      "iconId": "104:2692",
+      "property": "Label#104:10"
+    },
+    "dark/Theme": {
+      "theme": "dark",
+      "role": "Theme",
+      "icon": "sun-moon",
+      "base": "buttonGhost",
+      "id": "104:2570",
+      "iconId": "104:2698",
+      "property": "Label#104:11"
+    },
+    "dark/Settings": {
+      "theme": "dark",
+      "role": "Settings",
+      "icon": "settings-2",
+      "base": "buttonGhost",
+      "id": "104:2572",
+      "iconId": "104:2704",
+      "property": "Label#104:11"
+    },
+    "dark/Comment": {
+      "theme": "dark",
+      "role": "Comment",
+      "icon": "message-square",
+      "base": "buttonGhost",
+      "id": "104:2574",
+      "iconId": "104:2709",
+      "property": "Label#104:11"
+    },
+    "dark/Blcb": {
+      "theme": "dark",
+      "role": "Blcb",
+      "icon": "hash",
+      "base": "buttonGhost",
+      "id": "104:2576",
+      "iconId": "104:2711",
+      "property": "Label#104:11"
+    },
+    "dark/Columns": {
+      "theme": "dark",
+      "role": "Columns",
+      "icon": "columns-3",
+      "base": "buttonGhost",
+      "id": "104:2578",
+      "iconId": "104:2716",
+      "property": "Label#104:11"
+    },
+    "dark/Date": {
+      "theme": "dark",
+      "role": "Date",
+      "icon": "calendar-days",
+      "base": "buttonSecondary",
+      "id": "104:2580",
+      "iconId": "104:2720",
+      "property": "Label#104:10"
+    },
+    "dark/Reset": {
+      "theme": "dark",
+      "role": "Reset",
+      "icon": "x",
+      "base": "buttonGhost",
+      "id": "104:2582",
+      "iconId": "104:2731",
+      "property": "Label#104:11"
+    }
+  },
+  "audit": {
+    "nativeNodes": 2220,
+    "instances": 161,
+    "nativeVectors": 240,
+    "imageFills": 0,
+    "fonts": {
+      "Inter": 910
+    },
+    "unintentionalOverflows": [],
+    "checkedScreens": 4,
+    "rowHeight": 32,
+    "tableFontSize": 13,
+    "tableLineHeight": 20,
+    "bodyCellsWithVerified13pxText": 630,
+    "verification": "Figma structure and exported screenshots; not a running Avalonia UI test"
+  },
+  "localReviewPdf": ".local/design/jornal-ux-v2.pdf",
+  "previousRevision": "figma-manifest.json",
+  "density": {
+    "rowHeight": 32,
+    "tableFontSize": 13,
+    "tableLineHeight": 20,
+    "badgeHeight": 24,
+    "counts": {
+      "regular": 13,
+      "compact": 6
+    },
+    "confirmedByUser": true
+  },
+  "revision": "2.1 — compact rows"
+}

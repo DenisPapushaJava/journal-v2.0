@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Jornal Desktop",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Jornal: build",
+      "program": "${workspaceFolder}/src/Jornal.Desktop/bin/Debug/net10.0/Jornal.Desktop.dll",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "justMyCode": true
+    }
+  ]
+}

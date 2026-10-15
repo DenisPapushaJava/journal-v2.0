@@ -1,0 +1,3 @@
+interface:
+  display_name: "Модернизация Jornal"
+  short_description: "Совместимость парсера, Access и функций журнала"

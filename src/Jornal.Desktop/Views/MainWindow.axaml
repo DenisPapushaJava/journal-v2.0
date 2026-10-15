@@ -1,0 +1,60 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Jornal.Desktop.ViewModels"
+        x:Class="Jornal.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Журнал заявок"
+        Width="1280" Height="760" MinWidth="900" MinHeight="520"
+        Background="#F2F5F9" WindowStartupLocation="CenterScreen">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Background="#18283D" Padding="28,22">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="5">
+          <TextBlock Text="Журнал заявок" FontSize="25" FontWeight="SemiBold" Foreground="White" />
+          <TextBlock Text="Резка металла" FontSize="14" Foreground="#BDCADA" />
+        </StackPanel>
+        <Border Grid.Column="1" Background="#2A3E56" CornerRadius="7" Padding="14,8" VerticalAlignment="Center">
+          <TextBlock Text="Демонстрационные данные" Foreground="#E2EAF3" />
+        </Border>
+      </Grid>
+    </Border>
+    <Border Grid.Row="1" Margin="24" Background="White" CornerRadius="10" BorderBrush="#DFE5ED" BorderThickness="1">
+      <Grid RowDefinitions="Auto,Auto,*">
+        <Grid Margin="22,20" ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Заявки" FontSize="20" FontWeight="SemiBold" Foreground="#18283D" />
+            <TextBlock Text="{Binding CountText}" Foreground="#66778A" />
+          </StackPanel>
+          <Button Grid.Column="1" Content="Обновить" Command="{Binding ReloadCommand}" VerticalAlignment="Center" Padding="18,9" />
+        </Grid>
+        <StackPanel Grid.Row="1" Margin="22,0,22,18" Spacing="12">
+          <TextBox x:Name="SearchBox" Text="{Binding SearchText}" MinHeight="40"
+                   PlaceholderText="Поиск по номеру, менеджеру, заказчику или материалу"
+                   AutomationProperties.Name="Поиск заявок" />
+          <Border IsVisible="{Binding HasError}" Background="#FFF0ED" CornerRadius="6" Padding="12">
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="#9D3023" TextWrapping="Wrap" />
+          </Border>
+        </StackPanel>
+        <DataGrid x:Name="OrdersGrid" Grid.Row="2" ItemsSource="{Binding Orders}"
+                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended"
+                  GridLinesVisibility="Horizontal" RowHeight="46" BorderThickness="0"
+                  CanUserResizeColumns="True" CanUserSortColumns="True" FontSize="13">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding DateText}" Width="105" />
+            <DataGridTextColumn Header="Спецификация" Binding="{ReflectionBinding SpecificationNumber}" Width="130" />
+            <DataGridTextColumn Header="Менеджер" Binding="{ReflectionBinding ManagerName}" Width="140" />
+            <DataGridTextColumn Header="Заказчик" Binding="{ReflectionBinding CustomerName}" Width="*" />
+            <DataGridTextColumn Header="Резка" Binding="{ReflectionBinding CuttingType}" Width="115" />
+            <DataGridTextColumn Header="Материал" Binding="{ReflectionBinding MaterialName}" Width="115" />
+            <DataGridTextColumn Header="мм" Binding="{ReflectionBinding ThicknessText}" Width="65" />
+            <DataGridTextColumn Header="Стоимость" Binding="{ReflectionBinding StoredPriceText}" Width="125" />
+            <DataGridTextColumn Header="Статус" Binding="{ReflectionBinding StatusText}" Width="115" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Grid>
+    </Border>
+    <Border Grid.Row="2" Padding="26,0,26,18">
+      <TextBlock Text="Демонстрационный режим · данные не сохраняются" Foreground="#66778A" FontSize="12" />
+    </Border>
+  </Grid>
+</Window>

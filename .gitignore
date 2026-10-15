@@ -361,3 +361,18 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Modern development: private fixtures, databases and local output
+.local/
+__pycache__/
+*.pyc
+artifacts/
+TestResults/
+*.mdb
+*.ldb
+*.accdb
+*.laccdb
+
+# Release tooling tests are source files, not build output.
+!/tests/release/
+!/tests/release/*.py

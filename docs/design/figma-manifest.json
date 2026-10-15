@@ -1,0 +1,345 @@
+{
+  "version": 1,
+  "date": "2026-10-15",
+  "integration": "Figwright 0.6.0",
+  "fileName": "Untitled",
+  "fileKey": null,
+  "pages": {
+    "screens": {
+      "id": "0:1",
+      "name": "Jornal · UX и макеты"
+    },
+    "components": {
+      "id": "103:8",
+      "name": "Jornal · Компоненты"
+    }
+  },
+  "screens": [
+    {
+      "key": "journal-light",
+      "nodeId": "104:135",
+      "name": "01 · Журнал заявок / light",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 155,
+        "TEXT": 175,
+        "INSTANCE": 35
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "journal-dark",
+      "nodeId": "104:136",
+      "name": "01 · Журнал заявок / dark",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 155,
+        "TEXT": 175,
+        "INSTANCE": 35
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "new-light",
+      "nodeId": "104:2161",
+      "name": "02 · Новая заявка вручную / light",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 21,
+        "TEXT": 49,
+        "INSTANCE": 22
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "new-dark",
+      "nodeId": "104:2162",
+      "name": "02 · Новая заявка вручную / dark",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 21,
+        "TEXT": 49,
+        "INSTANCE": 22
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "import-light",
+      "nodeId": "104:859",
+      "name": "03 · Новая заявка и проверка импорта / light",
+      "width": 1600,
+      "height": 1120,
+      "counts": {
+        "FRAME": 28,
+        "TEXT": 67,
+        "INSTANCE": 27
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "import-dark",
+      "nodeId": "104:860",
+      "name": "03 · Новая заявка и проверка импорта / dark",
+      "width": 1600,
+      "height": 1120,
+      "counts": {
+        "FRAME": 28,
+        "TEXT": 67,
+        "INSTANCE": 27
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "edit-light",
+      "nodeId": "104:1645",
+      "name": "04 · Редактирование заявки / light",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 23,
+        "TEXT": 54,
+        "INSTANCE": 20
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "edit-dark",
+      "nodeId": "104:1648",
+      "name": "04 · Редактирование заявки / dark",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 23,
+        "TEXT": 54,
+        "INSTANCE": 20
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "result-light",
+      "nodeId": "104:861",
+      "name": "05 · Выбор и результат / light",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 108,
+        "TEXT": 134,
+        "INSTANCE": 35
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "result-dark",
+      "nodeId": "104:862",
+      "name": "05 · Выбор и результат / dark",
+      "width": 1600,
+      "height": 1000,
+      "counts": {
+        "FRAME": 108,
+        "TEXT": 134,
+        "INSTANCE": 35
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "settings-light",
+      "nodeId": "104:1646",
+      "name": "06 · Настройки и темы / light",
+      "width": 1600,
+      "height": 1020,
+      "counts": {
+        "FRAME": 19,
+        "TEXT": 50,
+        "INSTANCE": 27
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "settings-dark",
+      "nodeId": "104:1649",
+      "name": "06 · Настройки и темы / dark",
+      "width": 1600,
+      "height": 1020,
+      "counts": {
+        "FRAME": 19,
+        "TEXT": 50,
+        "INSTANCE": 27
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "states-light",
+      "nodeId": "104:1647",
+      "name": "07 · Диалоги и ошибки / light",
+      "width": 1600,
+      "height": 1140,
+      "counts": {
+        "FRAME": 17,
+        "TEXT": 47,
+        "INSTANCE": 18
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    },
+    {
+      "key": "states-dark",
+      "nodeId": "104:1650",
+      "name": "07 · Диалоги и ошибки / dark",
+      "width": 1600,
+      "height": 1140,
+      "counts": {
+        "FRAME": 17,
+        "TEXT": 47,
+        "INSTANCE": 18
+      },
+      "fonts": [
+        "Inter"
+      ],
+      "imageFills": 0,
+      "overflows": []
+    }
+  ],
+  "components": {
+    "light/buttonPrimary": {
+      "nodeId": "104:99",
+      "labelProperty": "Label#104:0"
+    },
+    "light/buttonSecondary": {
+      "nodeId": "104:100",
+      "labelProperty": "Label#104:1"
+    },
+    "light/buttonGhost": {
+      "nodeId": "104:101",
+      "labelProperty": "Label#104:2"
+    },
+    "light/buttonDanger": {
+      "nodeId": "104:102",
+      "labelProperty": "Label#104:3"
+    },
+    "light/input": {
+      "nodeId": "104:103",
+      "labelProperty": "Value#104:4"
+    },
+    "light/badgeWork": {
+      "nodeId": "104:104",
+      "labelProperty": "Label#104:5"
+    },
+    "light/badgeReady": {
+      "nodeId": "104:105",
+      "labelProperty": "Label#104:6"
+    },
+    "light/badgeShipped": {
+      "nodeId": "104:106",
+      "labelProperty": "Label#104:7"
+    },
+    "light/badgeNeutral": {
+      "nodeId": "104:107",
+      "labelProperty": "Label#104:8"
+    },
+    "dark/buttonPrimary": {
+      "nodeId": "104:108",
+      "labelProperty": "Label#104:9"
+    },
+    "dark/buttonSecondary": {
+      "nodeId": "104:109",
+      "labelProperty": "Label#104:10"
+    },
+    "dark/buttonGhost": {
+      "nodeId": "104:110",
+      "labelProperty": "Label#104:11"
+    },
+    "dark/buttonDanger": {
+      "nodeId": "104:111",
+      "labelProperty": "Label#104:12"
+    },
+    "dark/input": {
+      "nodeId": "104:112",
+      "labelProperty": "Value#104:13"
+    },
+    "dark/badgeWork": {
+      "nodeId": "104:113",
+      "labelProperty": "Label#104:14"
+    },
+    "dark/badgeReady": {
+      "nodeId": "104:114",
+      "labelProperty": "Label#104:15"
+    },
+    "dark/badgeShipped": {
+      "nodeId": "104:115",
+      "labelProperty": "Label#104:16"
+    },
+    "dark/badgeNeutral": {
+      "nodeId": "104:116",
+      "labelProperty": "Label#104:17"
+    }
+  },
+  "prototypeLinks": 80,
+  "audit": {
+    "nativeNodes": 2262,
+    "instances": 368,
+    "imageFillCount": 0,
+    "fonts": [
+      "Inter"
+    ],
+    "variableCount": 84,
+    "aliasCount": 38,
+    "overflowCount": 0,
+    "minimumTextContrast": 5
+  },
+  "localReviewPdf": ".local/design/jornal-ux-concept.pdf"
+}

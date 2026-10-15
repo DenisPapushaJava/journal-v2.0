@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Jornal: build",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/dotnet.sh",
+      "args": ["build", "Jornal.Modern.slnx", "--configuration", "Debug", "-p:RestoreLockedMode=true"],
+      "windows": { "command": "dotnet" },
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Jornal: run",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/dotnet.sh",
+      "args": ["run", "--project", "src/Jornal.Desktop/Jornal.Desktop.csproj", "--configuration", "Debug", "-p:RestoreLockedMode=true"],
+      "windows": { "command": "dotnet" },
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Jornal: test",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/dotnet.sh",
+      "args": ["test", "tests/Jornal.Tests/Jornal.Tests.csproj", "--configuration", "Debug", "-p:RestoreLockedMode=true"],
+      "windows": { "command": "dotnet" },
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Jornal: publish Windows",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/dotnet.sh",
+      "args": [
+        "publish", "src/Jornal.Desktop/Jornal.Desktop.csproj",
+        "--configuration", "Release", "--runtime", "win-x64", "--self-contained", "false",
+        "-p:RestoreLockedMode=true", "-p:DebugType=None", "-p:DebugSymbols=false", "--output", "artifacts/win-x64"
+      ],
+      "windows": { "command": "dotnet" },
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

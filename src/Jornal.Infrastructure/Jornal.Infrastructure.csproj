@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Jornal.Core/Jornal.Core.csproj" />
+  </ItemGroup>
+</Project>

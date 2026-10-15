@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version for packaging check, e.g. 2026.1.0-alpha.1 (no release is created)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package (${{ matrix.runtime }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            runtime: linux-x64
+            python: python3
+          - os: windows-latest
+            runtime: win-x64
+            python: python
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version || github.ref_name }}
+        run: ${{ matrix.python }} scripts/release.py validate --version "$REQUESTED_VERSION" --github-output "$GITHUB_OUTPUT"
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: ${{ matrix.python }} -m unittest discover -s tests/release -v
+      - run: dotnet restore Jornal.Modern.slnx --locked-mode
+      - name: Build
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: dotnet build Jornal.Modern.slnx -c Release --no-restore -p:Version="$RELEASE_VERSION" -p:ContinuousIntegrationBuild=true
+      - run: dotnet test tests/Jornal.Tests/Jornal.Tests.csproj -c Release --no-build --no-restore
+      - name: Package
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: ${{ matrix.python }} scripts/release.py package --version "$RELEASE_VERSION" --runtime "${{ matrix.runtime }}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-${{ matrix.runtime }}
+          path: |
+            artifacts/release/*.zip
+            artifacts/release/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  draft:
+    name: Draft release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ github.ref_name }}
+        run: python3 scripts/release.py validate --version "$REQUESTED_VERSION" --github-output "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: package-*
+          merge-multiple: true
+          path: artifacts/release
+      - name: Create or update draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          IS_PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --json isDraft > /tmp/release-state.json 2>/dev/null; then
+            python3 -c 'import json; assert json.load(open("/tmp/release-state.json"))["isDraft"], "Published releases are not overwritten"'
+            gh release upload "$RELEASE_TAG" artifacts/release/* --clobber
+          else
+            options=(--draft --verify-tag --title "Journal $RELEASE_VERSION" --generate-notes --notes-file docs/release-notes.md)
+            if [[ "$IS_PRERELEASE" == true ]]; then options+=(--prerelease); fi
+            gh release create "$RELEASE_TAG" artifacts/release/* "${options[@]}"
+          fi

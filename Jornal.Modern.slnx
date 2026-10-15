@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Jornal.Core/Jornal.Core.csproj" />
+    <Project Path="src/Jornal.Desktop/Jornal.Desktop.csproj" />
+    <Project Path="src/Jornal.Infrastructure/Jornal.Infrastructure.csproj" />
+    <Project Path="src/Jornal.Parsing/Jornal.Parsing.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Jornal.Tests/Jornal.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Jornal.Inspect/Jornal.Inspect.csproj" />
+  </Folder>
+</Solution>
