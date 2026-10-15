@@ -19,7 +19,7 @@ public partial class App : Application
             var demoStore = new DemoOrderStore();
             desktop.MainWindow = new MainWindow(new JsonUiPreferencesStore(JsonUiPreferencesStore.DefaultPath))
             {
-                DataContext = new MainWindowViewModel(demoStore, demoStore)
+                DataContext = new MainWindowViewModel(demoStore, demoStore, demoStore)
             };
         }
 

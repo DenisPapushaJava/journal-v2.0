@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Jornal.Desktop.ViewModels"
+        xmlns:orders="using:Jornal.Core.Orders"
         xmlns:ui="using:Jornal.Desktop.Controls"
         x:Class="Jornal.Desktop.Views.MainWindow" x:DataType="vm:MainWindowViewModel"
         Title="Journal · Журнал заявок" Width="1366" Height="800" MinWidth="1280" MinHeight="680"
@@ -19,7 +20,7 @@
                       IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" VerticalAlignment="Center"
                       ToolTip.Tip="{Binding ThemeActionLabel}" AutomationProperties.Name="{Binding ThemeActionLabel}" />
         <ui:JournalButton Grid.Column="5" x:Name="PersonalizeButton" Label="Настроить экран" Icon="panels-top-left"
-                          IconOnly="True" Width="32" Height="32" Padding="0" Click="OnCustomizeClick" IsEnabled="{Binding !IsCustomizing}"
+                          IconOnly="True" Width="32" Height="32" Padding="0" Click="OnCustomizeClick" IsEnabled="{Binding CanConfigureScreen}"
                           ToolTip.Tip="Настроить расположение панелей и столбцы" VerticalAlignment="Center" />
         <ui:JournalButton Grid.Column="7" Label="Настройки" Icon="settings-2" IsEnabled="False"
                           ToolTip.Tip="Недоступно в демонстрационном режиме" VerticalAlignment="Center" />
@@ -105,7 +106,8 @@
               <ui:LayoutHandle x:Name="ClipboardMoveHandle" AutomationProperties.Name="Переместить панель: Буфер обмена и БЛЦБ" Title="БУФЕР ОБМЕНА И БЛЦБ" PanelId="clipboard" IsVisible="{Binding IsCustomizing}"
                                ToolTip.Tip="Перетащите на другую группу · ← → с клавиатуры" />
               <Grid Grid.Row="2" ColumnDefinitions="*,8,1.18*">
-                <ui:JournalButton Label="Добавить БЛЦБ" Icon="hash" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
+                <ui:JournalButton x:Name="DeliveryNumberButton" Label="Добавить БЛЦБ" Icon="hash" IsEnabled="{Binding CanUpdateSelectedOrders}"
+                                  Click="OnDeliveryNumberClick" ToolTip.Tip="Изменить номер БЛЦБ у выбранных заявок" />
                 <ui:JournalButton Grid.Column="2" Label="Создать папки" Icon="folder-plus" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
               </Grid>
               <Grid Grid.Row="4" ColumnDefinitions="*,8,1.18*">
@@ -120,13 +122,20 @@
               <ui:LayoutHandle x:Name="StatusMoveHandle" AutomationProperties.Name="Переместить панель: Присвоить статус" Title="ПРИСВОИТЬ СТАТУС" PanelId="status" IsVisible="{Binding IsCustomizing}"
                                ToolTip.Tip="Перетащите на другую группу · ← → с клавиатуры" />
               <Grid Grid.Row="2" ColumnDefinitions="*,8,*,8,*">
-                <ui:JournalButton Label="В работе" Classes="work" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
-                <ui:JournalButton Grid.Column="2" Label="Готово" Classes="ready" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
-                <ui:JournalButton Grid.Column="4" Label="Отгружено" Classes="shipped" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
+                <ui:JournalButton x:Name="SetWorkButton" Grid.Column="0" Label="В работе" Classes="work"
+                                  Command="{Binding SetOrderColorCommand}" CommandParameter="{x:Static orders:OrderColors.Work}"
+                                  ToolTip.Tip="Присвоить статус выбранным заявкам" />
+                <ui:JournalButton x:Name="SetReadyButton" Grid.Column="2" Label="Готово" Classes="ready"
+                                  Command="{Binding SetOrderColorCommand}" CommandParameter="{x:Static orders:OrderColors.Ready}"
+                                  ToolTip.Tip="Присвоить статус выбранным заявкам" />
+                <ui:JournalButton x:Name="SetShippedButton" Grid.Column="4" Label="Отгружено" Classes="shipped"
+                                  Command="{Binding SetOrderColorCommand}" CommandParameter="{x:Static orders:OrderColors.Shipped}"
+                                  ToolTip.Tip="Присвоить статус выбранным заявкам" />
               </Grid>
               <Grid Grid.Row="4" ColumnDefinitions="1.4*,8,*,8,*">
                 <ui:JournalButton Label="Другой цвет…" Icon="palette" Classes="outline" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
-                <ui:JournalButton Grid.Column="2" Label="Снять цвет" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
+                <ui:JournalButton x:Name="ClearColorButton" Grid.Column="2" Label="Снять цвет" Command="{Binding SetOrderColorCommand}"
+                                  CommandParameter="{x:Static orders:OrderColors.None}" ToolTip.Tip="Убрать цветовую отметку у выбранных заявок" />
                 <ui:JournalButton Grid.Column="4" Label="Код цвета" IsEnabled="False" ToolTip.Tip="Недоступно в демонстрационном режиме" />
               </Grid>
             </Grid>
@@ -173,7 +182,7 @@
         </Border>
         <Border x:Name="TablePanel" Grid.Row="3" Classes="panel" ClipToBounds="True">
           <Grid>
-            <DataGrid x:Name="OrdersGrid" ItemsSource="{Binding Orders}" AutoGenerateColumns="False" IsReadOnly="True"
+            <DataGrid x:Name="OrdersGrid" IsEnabled="{Binding CanInteractWithTable}" ItemsSource="{Binding Orders}" AutoGenerateColumns="False" IsReadOnly="True"
                       SelectionMode="Extended" GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                       RowHeight="32" ColumnHeaderHeight="44" FontSize="13" BorderThickness="0"
                       CanUserResizeColumns="True" CanUserReorderColumns="True" CanUserSortColumns="{Binding CanUseJournal}"

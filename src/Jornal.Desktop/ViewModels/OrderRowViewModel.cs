@@ -1,54 +1,63 @@
 using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Avalonia.Media;
 using Jornal.Core.Orders;
 
 namespace Jornal.Desktop.ViewModels;
 
-public sealed class OrderRowViewModel(OrderSummary order)
+public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
 {
+    private OrderSummary _order = order;
+    internal void Update(OrderSummary replacement)
+    {
+        if (replacement.Id != Id) throw new ArgumentException("Нельзя заменить идентификатор строки.", nameof(replacement));
+        _order = replacement;
+        OnPropertyChanged(string.Empty);
+    }
+
     private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("ru-RU");
 
-    internal OrderSummary Source => order;
-    public int Id => order.Id;
-    public DateOnly OrderDate => order.OrderDate;
-    public int Color => order.Color;
-    public decimal ThicknessMillimeters => order.ThicknessMillimeters;
-    public decimal? StoredCuttingPrice => order.StoredCuttingPrice;
-    public int? CutLengthMeters => order.CutLengthMeters;
+    internal OrderSummary Source => _order;
+    public int Id => _order.Id;
+    public DateOnly OrderDate => _order.OrderDate;
+    public int Color => _order.Color;
+    public decimal ThicknessMillimeters => _order.ThicknessMillimeters;
+    public decimal? StoredCuttingPrice => _order.StoredCuttingPrice;
+    public int? CutLengthMeters => _order.CutLengthMeters;
 
-    public string DateText => order.OrderDate.ToString("dd.MM.yyyy", DisplayCulture);
-    public string SpecificationNumber => order.SpecificationNumber;
-    public string ManagerName => order.ManagerName;
-    public string CustomerName => order.CustomerName;
-    public string CuttingType => order.CuttingType;
-    public string MaterialName => order.MaterialName;
-    public string ThicknessText => order.ThicknessMillimeters.ToString("0.###", DisplayCulture);
-    public string StoredPriceText => order.StoredCuttingPrice is { } price
+    public string DateText => _order.OrderDate.ToString("dd.MM.yyyy", DisplayCulture);
+    public string SpecificationNumber => _order.SpecificationNumber;
+    public string ManagerName => _order.ManagerName;
+    public string CustomerName => _order.CustomerName;
+    public string CuttingType => _order.CuttingType;
+    public string MaterialName => _order.MaterialName;
+    public string ThicknessText => _order.ThicknessMillimeters.ToString("0.###", DisplayCulture);
+    public string StoredPriceText => _order.StoredCuttingPrice is { } price
         ? price.ToString("N2", DisplayCulture) + " ₽" : "Не рассчитана";
-    public string SheetSize => order.SheetSize;
-    public string SheetCount => order.SheetCount;
-    public string CutLengthText => order.CutLengthMeters?.ToString(DisplayCulture) ?? "—";
-    public string WeightText => order.WeightKilograms.Replace('.', ',');
-    public string DeliveryNumber => order.DeliveryNumber;
+    public string SheetSize => _order.SheetSize;
+    public string SheetCount => _order.SheetCount;
+    public string CutLengthText => _order.CutLengthMeters?.ToString(DisplayCulture) ?? "—";
+    public string WeightText => _order.WeightKilograms.Replace('.', ',');
+    public string DeliveryNumber => _order.DeliveryNumber;
 
-    public string StatusKey => order.Color switch
+    public string StatusKey => _order.Color switch
     {
-        -882036 => "work",
-        -10238087 => "ready",
-        -8154114 => "shipped",
+        OrderColors.Work => "work",
+        OrderColors.Ready => "ready",
+        OrderColors.Shipped => "shipped",
         _ => "neutral"
     };
 
-    public IBrush ColorMark => order.Color == -1
+    public IBrush ColorMark => _order.Color == -1
         ? Brushes.Transparent
-        : new SolidColorBrush(Avalonia.Media.Color.FromUInt32(unchecked((uint)order.Color)));
+        : new SolidColorBrush(Avalonia.Media.Color.FromUInt32(unchecked((uint)_order.Color)));
 
-    public string StatusText => order.Color switch
+    public string StatusText => _order.Color switch
     {
-        -882036 => "В работе",
-        -10238087 => "Готово",
-        -8154114 => "Отгружено",
-        -1 => "Без отметки",
+        OrderColors.Work => "В работе",
+        OrderColors.Ready => "Готово",
+        OrderColors.Shipped => "Отгружено",
+        OrderColors.None => "Без отметки",
         _ => "Своя отметка"
     };
 }
