@@ -33,6 +33,7 @@ public sealed class MainWindowCustomization
     private LayoutHandle? _drag;
     private string? _dropTarget;
     private double _resizeStart;
+    private double _resizeOriginal;
     private MainWindowViewModel? Model => _window.DataContext as MainWindowViewModel;
     private T Find<T>(string name) where T : Control => _window.FindControl<T>(name)!;
 
@@ -246,6 +247,7 @@ public sealed class MainWindowCustomization
         if (sender is not LayoutHandle handle || handle.PanelId != "result-size" && _beforeEdit is null) return;
         _drag = handle;
         _resizeStart = Find<Grid>("ResultSlot").Bounds.Height;
+        _resizeOriginal = _layout.ResultHeight;
     }
 
     private void MoveDrag(object? sender, Point point)
@@ -311,7 +313,7 @@ public sealed class MainWindowCustomization
     {
         if (_drag is not { } handle) return false;
         if (handle.PanelId == "result-size")
-        { _layout = _layout with { ResultHeight = _resizeStart }; UpdateResultSize(); }
+        { _layout = _layout with { ResultHeight = _resizeOriginal }; UpdateResultSize(); }
         handle.CancelMove();
         ClearDrag();
         return true;

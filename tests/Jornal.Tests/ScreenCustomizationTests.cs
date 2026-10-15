@@ -178,6 +178,17 @@ public sealed class ScreenCustomizationTests
             Pump();
             Assert.True(Find<DataGrid>(window, "OrdersGrid").Bounds.Height >= 128);
             Assert.True(Find<Border>(window, "ClipboardCommands").Bounds.Width >= 430);
+            Click(window, "PersonalizeButton");
+            point = Center(window, sizeHandle);
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseMove(new Point(point.X, point.Y + 8), RawInputModifiers.LeftMouseButton);
+            Pump();
+            PressKey(window, Key.Escape);
+            window.MouseUp(point, MouseButton.Left);
+            Pump();
+            Click(window, "SaveLayoutButton");
+            // В маленьком окне отмена захвата не заменяет желаемую высоту временно уменьшенной.
+            Assert.Equal(222, store.Value.Layout.ResultHeight);
         }
         finally { window.Close(); }
     }
