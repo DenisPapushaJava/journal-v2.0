@@ -408,7 +408,8 @@
           "CommunityToolkit.Mvvm": "[8.4.2, )",
           "Jornal.Core": "[2026.1.0-dev, )",
           "Jornal.Infrastructure": "[2026.1.0-dev, )",
-          "Svg.Controls.Avalonia": "[12.0.0.17, )"
+          "Svg.Controls.Avalonia": "[12.0.0.17, )",
+          "Velopack": "[1.2.0, )"
         }
       },
       "jornal.infrastructure": {
@@ -515,6 +516,12 @@
           "System.Configuration.ConfigurationManager": "10.0.13",
           "System.Diagnostics.PerformanceCounter": "10.0.13"
         }
+      },
+      "Velopack": {
+        "type": "CentralTransitive",
+        "requested": "[1.2.0, )",
+        "resolved": "1.2.0",
+        "contentHash": "Rz67gJL619fSBS6omaSINUxyDuwhIxkm5mmubf7uLd5Qgi6LLKaKCha+QFP6n+Bw/UjA0vutnH4JQfYzn6ANtw=="
       }
     },
     "net10.0/linux-x64": {

@@ -9,6 +9,10 @@
     <Project Path="tests/Jornal.Access.Tests/Jornal.Access.Tests.csproj" />
     <Project Path="tests/Jornal.Tests/Jornal.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Fixtures/" />
+  <Folder Name="/tests/Fixtures/UpdateProbe/">
+    <Project Path="tests/Fixtures/UpdateProbe/Jornal.UpdateProbe.csproj" />
+  </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Jornal.Inspect/Jornal.Inspect.csproj" />
   </Folder>

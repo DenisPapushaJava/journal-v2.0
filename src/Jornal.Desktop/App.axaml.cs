@@ -5,6 +5,7 @@ using Jornal.Desktop.ViewModels;
 using Jornal.Desktop.Customization;
 using Jornal.Desktop.Views;
 using Jornal.Desktop.DataSources;
+using Jornal.Desktop.Updates;
 
 namespace Jornal.Desktop;
 
@@ -18,9 +19,12 @@ public partial class App : Application
         {
             var sources = new OrderSourceManager(new JsonOrderSourceSettingsStore(JsonOrderSourceSettingsStore.DefaultPath));
             var source = sources.Load();
-            var model = new MainWindowViewModel(source.Reader, source.Creator, source.Editor, sources);
+            var updates = new AppUpdatesViewModel(new VelopackAppUpdater()) { CheckOnStartup = true };
+            var model = new MainWindowViewModel(source.Reader, source.Creator, source.Editor, sources, updates);
             model.InitializeSource(source);
-            desktop.MainWindow = new MainWindow(new JsonUiPreferencesStore(JsonUiPreferencesStore.DefaultPath))
+            var restartStore = new JsonUpdateRestartStore(JsonUpdateRestartStore.DefaultPath);
+            model.RestoreUpdateDraft(restartStore);
+            desktop.MainWindow = new MainWindow(new JsonUiPreferencesStore(JsonUiPreferencesStore.DefaultPath), restartStore)
             {
                 DataContext = model
             };

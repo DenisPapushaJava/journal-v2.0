@@ -10,20 +10,23 @@ using Jornal.Desktop.ViewModels;
 using Jornal.Core.Orders;
 using Jornal.Desktop.Customization;
 using Jornal.Desktop.Clipboard;
+using Jornal.Desktop.Updates;
 
 namespace Jornal.Desktop.Views;
 
 public partial class MainWindow : Window
 {
     private MainWindowViewModel? _viewModel;
+    private readonly IUpdateRestartStore? _restartStore;
 
     private readonly MainWindowCustomization _customization;
 
     public MainWindow() : this(new MemoryUiPreferencesStore()) { }
 
-    public MainWindow(IUiPreferencesStore preferencesStore)
+    public MainWindow(IUiPreferencesStore preferencesStore, IUpdateRestartStore? restartStore = null)
     {
         InitializeComponent();
+        _restartStore = restartStore;
         _customization = new MainWindowCustomization(this, preferencesStore);
         DataContextChanged += (_, _) => ConnectViewModel();
         foreach (var column in OrdersGrid.Columns.Skip(1))
@@ -39,12 +42,16 @@ public partial class MainWindow : Window
     {
         base.OnOpened(e);
         _customization.Initialize();
-        if (_viewModel is not null) await _viewModel.ReloadCommand.ExecuteAsync(null);
+        if (_viewModel is not null)
+        {
+            await _viewModel.ReloadCommand.ExecuteAsync(null);
+            if (IsVisible) await _viewModel.Updates.CheckAtStartupAsync();
+        }
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (_viewModel?.IsUpdatingOrders == true) e.Cancel = true;
+        if (_viewModel?.IsUpdatingOrders == true || _viewModel?.Updates is { IsApplying: true, RestartScheduled: false }) e.Cancel = true;
         base.OnClosing(e);
     }
 
@@ -54,6 +61,8 @@ public partial class MainWindow : Window
         if (_viewModel is not null)
         {
             _viewModel.ReloadCommand.Cancel();
+            _viewModel.Updates.CheckCommand.Cancel();
+            _viewModel.Updates.DownloadCommand.Cancel();
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _viewModel.SelectionRestoreRequested -= OnSelectionRestore;
         }
@@ -94,6 +103,16 @@ public partial class MainWindow : Window
         {
             _viewModel.PropertyChanged += OnViewModelChanged;
             _viewModel.SelectionRestoreRequested += OnSelectionRestore;
+            _viewModel.Updates.ConfigureRestart(
+                () => _viewModel.CanCheckUpdates && !OwnedWindows.Any(window => window is not AppUpdatesWindow),
+                () =>
+                {
+                    AppUpdateSafety.EnsureExternalDatabase(_viewModel.CaptureUpdateDraft().DatabasePath, AppContext.BaseDirectory);
+                    if (!_customization.Flush()) throw new IOException("Не удалось сохранить настройки экрана.");
+                    if (_restartStore is null) throw new IOException("Хранилище результата недоступно.");
+                    _restartStore.Save(_viewModel.CaptureUpdateDraft());
+                },
+                () => { foreach (var window in OwnedWindows.ToArray()) window.Close(); Close(); });
         }
         UpdateTheme();
     }
@@ -149,6 +168,13 @@ public partial class MainWindow : Window
         if (_viewModel?.CreateDatabaseSettingsForm() is not { } form) return;
         var dialog = new DatabaseSettingsWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
         await dialog.ShowDialog<bool>(this);
+    }
+
+    private async void OnUpdatesClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel?.CanCheckUpdates != true || OwnedWindows.Count > 0) return;
+        var dialog = new AppUpdatesWindow { DataContext = _viewModel.Updates, RequestedThemeVariant = ActualThemeVariant };
+        await dialog.ShowDialog(this);
     }
 
     private void OnSelectionRestore(object? sender, SelectionRestoreRequest request)

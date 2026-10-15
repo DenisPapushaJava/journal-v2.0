@@ -55,13 +55,12 @@ jobs:
       - name: Package
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
-        run: ${{ matrix.python }} scripts/release.py package --version "$RELEASE_VERSION" --runtime "${{ matrix.runtime }}"
+        run: ${{ matrix.python }} scripts/release.py package --version "$RELEASE_VERSION" --runtime "${{ matrix.runtime }}" --updates
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package-${{ matrix.runtime }}
           path: |
-            artifacts/release/*.zip
-            artifacts/release/*.sha256
+            artifacts/release/*
           if-no-files-found: error
           retention-days: 14
           compression-level: 0

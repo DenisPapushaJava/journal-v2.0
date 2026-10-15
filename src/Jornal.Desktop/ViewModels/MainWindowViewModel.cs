@@ -11,7 +11,7 @@ namespace Jornal.Desktop.ViewModels;
 public enum OrderStatusFilter { All, Work, Ready, Shipped }
 
 public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderCreator? orderCreator = null,
-    IOrderBatchEditor? orderEditor = null, OrderSourceManager? sourceManager = null) : ObservableObject
+    IOrderBatchEditor? orderEditor = null, OrderSourceManager? sourceManager = null, AppUpdatesViewModel? appUpdates = null) : ObservableObject
 {
     private IReadOnlyList<OrderSummary> _allOrders = [];
 
@@ -37,7 +37,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     private void NotifyJournalAvailability()
     {
         foreach (var name in new[] { nameof(CanUseJournal), nameof(CanCreateOrder), nameof(CanSelectOrders),
-            nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
+            nameof(CanCheckUpdates), nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
             nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult), nameof(CanConfigureSource) })
             OnPropertyChanged(name);
         ReloadCommand.NotifyCanExecuteChanged();
