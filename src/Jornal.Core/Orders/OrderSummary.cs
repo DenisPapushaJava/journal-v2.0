@@ -11,4 +11,11 @@ public sealed record OrderSummary(
     string MaterialName,
     decimal ThicknessMillimeters,
     decimal StoredCuttingPrice,
-    int Color);
+    int Color)
+{
+    public string SheetSize { get; init; } = string.Empty;
+    public string SheetCount { get; init; } = string.Empty;
+    public int? CutLengthMeters { get; init; }
+    public string WeightKilograms { get; init; } = string.Empty;
+    public string DeliveryNumber { get; init; } = string.Empty;
+}
