@@ -17,7 +17,7 @@ public sealed record OrderSummary(
     public string SheetCount { get; init; } = string.Empty;
     public int? CutLengthMeters { get; init; }
     public string WeightKilograms { get; init; } = string.Empty;
-    public string DeliveryNumber { get; init; } = string.Empty;
+    public string? DeliveryNumber { get; init; }
     public decimal? Coefficient { get; init; }
     public string MaterialId { get; init; } = string.Empty;
     public string CuttingGas { get; init; } = string.Empty;

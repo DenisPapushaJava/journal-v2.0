@@ -17,7 +17,7 @@ public sealed class BatchOrderTests
     {
         var store = new DemoOrderStore();
         var original = await store.ReadAsync(TestContext.Current.CancellationToken);
-        var changed = await store.SetColorAsync([1, 3, 1], color, TestContext.Current.CancellationToken);
+        var changed = await store.SetColorAsync([original[0], original[2], original[0]], color, TestContext.Current.CancellationToken);
         Assert.Equal(2, changed.Count);
         var reloaded = await store.ReadAsync(TestContext.Current.CancellationToken);
         Assert.Equal(original.Select(order => order.Id is 1 or 3 ? order with { Color = color } : order), reloaded);
@@ -29,10 +29,10 @@ public sealed class BatchOrderTests
         var store = new DemoOrderStore();
         var before = await store.ReadAsync(TestContext.Current.CancellationToken);
         const string number = "БЛЦБ-'Б'-00012345";
-        await store.SetDeliveryNumberAsync([1, 2], number, TestContext.Current.CancellationToken);
+        await store.SetDeliveryNumberAsync([before[0], before[1]], number, TestContext.Current.CancellationToken);
         Assert.Equal(before.Select(order => order.Id is 1 or 2 ? order with { DeliveryNumber = number } : order), await store.ReadAsync(TestContext.Current.CancellationToken));
-        await store.SetDeliveryNumberAsync([1, 2], "", TestContext.Current.CancellationToken);
-        Assert.All((await store.ReadAsync(TestContext.Current.CancellationToken)).Where(order => order.Id is 1 or 2), order => Assert.Equal("", order.DeliveryNumber));
+        await store.SetDeliveryNumberAsync((await store.ReadAsync(TestContext.Current.CancellationToken)).Where(row => row.Id is 1 or 2).ToArray(), "", TestContext.Current.CancellationToken);
+        Assert.All((await store.ReadAsync(TestContext.Current.CancellationToken)).Where(order => order.Id is 1 or 2), order => Assert.Null(order.DeliveryNumber));
     }
 
     [Fact]
@@ -40,14 +40,14 @@ public sealed class BatchOrderTests
     {
         var store = new DemoOrderStore();
         var before = await store.ReadAsync(TestContext.Current.CancellationToken);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => store.SetColorAsync([1, 999], OrderColors.Ready, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => store.SetDeliveryNumberAsync([1, 999], "123", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<OrderWriteException>(() => store.SetColorAsync([before[0], before[0] with { Id = 999 }], OrderColors.Ready, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<OrderWriteException>(() => store.SetDeliveryNumberAsync([before[0], before[0] with { Id = 999 }], "123", TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentException>(() => store.SetColorAsync([], OrderColors.None, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<ArgumentException>(() => store.SetDeliveryNumberAsync([1], new string('1', 256), TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<ArgumentException>(() => store.SetDeliveryNumberAsync([1], "123\n456", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => store.SetDeliveryNumberAsync([before[0]], new string('1', 256), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => store.SetDeliveryNumberAsync([before[0]], "123\n456", TestContext.Current.CancellationToken));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.SetColorAsync([1, 2], 0, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.SetColorAsync([before[0], before[1]], 0, cancellation.Token));
         Assert.Equal(before, await store.ReadAsync(TestContext.Current.CancellationToken));
     }
 
@@ -142,7 +142,7 @@ public sealed class BatchOrderTests
         form.ClearNumberCommand.Execute(null);
         Assert.True(form.SaveCommand.CanExecute(null));
         await form.SaveCommand.ExecuteAsync(null);
-        Assert.All(await store.ReadAsync(TestContext.Current.CancellationToken), order => Assert.Equal("", order.DeliveryNumber));
+        Assert.All(await store.ReadAsync(TestContext.Current.CancellationToken), order => Assert.Null(order.DeliveryNumber));
     }
 
     [Fact]
@@ -173,9 +173,9 @@ public sealed class BatchOrderTests
     private sealed class FailingEditor(DemoOrderStore store) : IOrderBatchEditor
     {
         public bool Fail { get; set; } = true;
-        public Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<int> ids, int color, CancellationToken cancellationToken = default) =>
-            Fail ? throw new IOException("Проверка отказа записи") : store.SetColorAsync(ids, color, cancellationToken);
-        public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<int> ids, string number, CancellationToken cancellationToken = default) =>
-            Fail ? throw new IOException("Проверка отказа записи") : store.SetDeliveryNumberAsync(ids, number, cancellationToken);
+        public Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<OrderSummary> expected, int color, CancellationToken cancellationToken = default) =>
+            Fail ? throw new IOException("Проверка отказа записи") : store.SetColorAsync(expected, color, cancellationToken);
+        public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<OrderSummary> expected, string number, CancellationToken cancellationToken = default) =>
+            Fail ? throw new IOException("Проверка отказа записи") : store.SetDeliveryNumberAsync(expected, number, cancellationToken);
     }
 }

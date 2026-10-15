@@ -38,7 +38,7 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
     public string SheetCount => _order.SheetCount;
     public string CutLengthText => _order.CutLengthMeters?.ToString(DisplayCulture) ?? "—";
     public string WeightText => _order.WeightKilograms.Replace('.', ',');
-    public string DeliveryNumber => _order.DeliveryNumber;
+    public string DeliveryNumber => _order.DeliveryNumber ?? "";
 
     public string StatusKey => _order.Color switch
     {

@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
         x:Class="Jornal.Desktop.Views.DeliveryNumberWindow" x:DataType="vm:DeliveryNumberViewModel"
-        Title="БЛЦБ · Деморежим" Width="560" Height="480" MinWidth="520" MinHeight="420"
+        Title="Номер БЛЦБ · Journal" Width="560" Height="480" MinWidth="520" MinHeight="420"
         WindowStartupLocation="CenterOwner">
   <Window.Styles>
     <Style Selector="TextBox.invalid">
@@ -45,7 +45,7 @@
     <Border Grid.Row="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
             BorderThickness="0,1,0,0" Padding="24,12">
       <Grid ColumnDefinitions="*,12,Auto,8,Auto">
-        <TextBlock Text="Деморежим · до закрытия программы" Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding StorageDescription}" Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center" />
         <ui:JournalButton x:Name="CancelDeliveryButton" Grid.Column="2" Label="Отмена" Click="OnCancelClick" IsEnabled="{Binding !SaveCommand.IsRunning}" />
         <ui:JournalButton x:Name="SaveDeliveryButton" Grid.Column="4" Label="Сохранить" Icon="check" Classes="primary"
                           Command="{Binding SaveCommand}" IsDefault="True" />
