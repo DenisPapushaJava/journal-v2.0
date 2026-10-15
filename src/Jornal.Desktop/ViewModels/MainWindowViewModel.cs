@@ -21,7 +21,8 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [ObservableProperty] private string _updatedText = "F5 — обновить список";
     [ObservableProperty] private bool _hasNoOrders = true;
     [ObservableProperty] private DateTime? _filterDate;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(ThemeLabel))] private bool _isDarkTheme;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ThemeActionLabel))]
+    private bool _isDarkTheme;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FilterAll))]
@@ -33,7 +34,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _errorMessage;
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
-    public string ThemeLabel => IsDarkTheme ? "Тёмная тема" : "Светлая тема";
+    public string ThemeActionLabel => IsDarkTheme ? "Включить светлую тему" : "Включить тёмную тему";
     public bool FilterAll => StatusFilter == OrderStatusFilter.All;
     public bool FilterWork => StatusFilter == OrderStatusFilter.Work;
     public bool FilterReady => StatusFilter == OrderStatusFilter.Ready;
@@ -66,7 +67,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             ? $"Активная: {active.SpecificationNumber}" : "Активная: —";
     }
 
-    [RelayCommand] private void ToggleTheme() => IsDarkTheme = !IsDarkTheme;
     [RelayCommand] private void SetStatusFilter(OrderStatusFilter filter) => StatusFilter = filter;
     [RelayCommand] private void Today() => FilterDate = FilterDate?.Date == DateTime.Today ? null : DateTime.Today;
     [RelayCommand] private void ClearSearch() => SearchText = string.Empty;
