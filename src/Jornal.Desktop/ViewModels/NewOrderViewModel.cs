@@ -71,7 +71,7 @@ public partial class NewOrderViewModel : ObservableObject
     public OrderEntryField Material { get; } = new("Материал *", "Любая марка без пробелов");
     public OrderEntryField Thickness { get; } = new("Толщина, мм *", "Например, 2,5");
     public OrderEntryField SheetSize { get; } = new("Размер листа, мм *", "Например, 1500x3000");
-    public OrderEntryField SheetCount { get; } = new("Количество листов *", "Например, 2");
+    public OrderEntryField SheetCount { get; } = new("Количество листов *", "Например, 2 или 1,3");
     public OrderEntryField Weight { get; } = new("Вес, кг *", "Например, 38,5");
     public OrderEntryField CutLength { get; } = new("Длина реза, м *", "Целое число метров");
     public OrderEntryField Coefficient { get; } = new("Коэффициент *", value: "1");
@@ -110,6 +110,8 @@ public partial class NewOrderViewModel : ObservableObject
         _quote = null;
         PriceText = "Не рассчитана";
         PriceBreakdown = "";
+        if (RequiresImportedHansFields && MaterialId.Value.Trim() is not ("-1" or "0" or "1" or "2"))
+        { PriceError = "Проверьте ID материала HansLaser: без него нельзя выбрать прайс."; return; }
         if (!TryDecimal(Thickness.Value, out var thickness) || !TryDecimal(Coefficient.Value, out var coefficient) ||
             !int.TryParse(CutLength.Value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var length))
         { PriceError = "Укажите толщину, целую длину в метрах и коэффициент."; return; }
@@ -196,6 +198,8 @@ public partial class NewOrderViewModel : ObservableObject
             CuttingType.Error = "Выберите вид резки.";
         if (Material.Error is null && Material.Value.Trim().Any(char.IsWhiteSpace))
             Material.Error = "Название материала должно быть без пробелов.";
+        if (SheetCount.Error is null && !OrderSheetCount.IsValid(SheetCount.Value.Trim()))
+            SheetCount.Error = OrderSheetCount.ValidationMessage;
         if (Thickness.Error is null)
         {
             if (!TryDecimal(Thickness.Value, out var thickness) || thickness <= 0)
@@ -214,10 +218,18 @@ public partial class NewOrderViewModel : ObservableObject
             CutLength.Error = "Целое число от 0 до 2147483647 м, как в журнале.";
         if (Coefficient.Error is null && (!TryDecimal(Coefficient.Value, out var coefficient) || coefficient <= 0))
             Coefficient.Error = "Коэффициент должен быть положительным числом.";
+        if (RequiresImportedHansFields)
+        {
+            if (MaterialId.Value.Trim() is not ("-1" or "0" or "1" or "2"))
+                MaterialId.Error = "Проверьте ID: 0 — сталь, 1 — нержавеющая, 2 — цветной, -1 — стандартный прайс.";
+            if (string.IsNullOrWhiteSpace(Gas.Value)) Gas.Error = "Проверьте газ по спецификации.";
+        }
         HasValidationErrors = Fields.Any(field => field.HasError);
         return !HasValidationErrors;
     }
 
     private static bool TryDecimal(string value, out decimal number) => decimal.TryParse(value.Trim().Replace(',', '.'),
         NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out number);
+
+    private bool RequiresImportedHansFields => IsHansLaser && ImportPreview?.Report.Profile == Jornal.Parsing.Specifications.HansPdfSpecificationParser.Profile;
 }

@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Jornal.Desktop.Controls;
 using Jornal.Desktop.Import;
 using Jornal.Desktop.ViewModels;
@@ -20,23 +21,27 @@ namespace Jornal.Tests;
 public sealed class SpecificationDropWindowTests
 {
     [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RoutedDragDropShowsOverlayThenPopulatesFormWithoutSaving(bool dark)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task RoutedDragDropShowsOverlayThenPopulatesFormWithoutSaving(bool dark, bool hans)
     {
         using var sample = new SpecificationImportTests.Sample();
-        var preview = await new SpecificationImportService().ReadAsync(sample.Path, TestContext.Current.CancellationToken);
+        using var pdf = hans ? new HansPdfFile() : null;
+        var path = pdf?.Path ?? sample.Path;
+        var preview = await new SpecificationImportService().ReadAsync(path, TestContext.Current.CancellationToken);
         var store = new DemoOrderStore(); var model = new MainWindowViewModel(store, store) { IsDarkTheme = dark, ResultText = "Письмо" };
         var reader = new SpecificationImportTests.BlockingReader();
         var window = new MainWindow { DataContext = model, SpecificationImporter = reader, Width = 1366, Height = 768 };
         try
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
-            using var transfer = await Transfer(window, sample.Path);
+            using var transfer = await Transfer(window, path);
             var enter = Drag(window, DragDrop.DragEnterEvent, transfer);
             Assert.Equal(DragDropEffects.Copy, enter.DragEffects); Assert.True(model.IsDraggingSpecification);
             var overlay = window.FindControl<Border>("SpecificationOverlay")!;
-            Assert.True(overlay.IsVisible); Screenshot(window, "drop-hover", dark);
+            Assert.True(overlay.IsVisible); Screenshot(window, hans ? "hans-drop-hover" : "drop-hover", dark);
             window.RaiseEvent(new DragEventArgs(DragDrop.DragLeaveEvent, transfer, window, new Point(50, 50), KeyModifiers.None));
             overlay.RaiseEvent(new DragEventArgs(DragDrop.DragEnterEvent, transfer, overlay, new Point(50, 50), KeyModifiers.None));
             Dispatcher.UIThread.RunJobs(); Assert.True(overlay.IsVisible);
@@ -47,7 +52,7 @@ public sealed class SpecificationDropWindowTests
             Drag(window, DragDrop.DropEvent, transfer, overlay);
             Assert.True(model.IsImportingSpecification); Assert.False(model.CanCreateOrder); Assert.Empty(window.OwnedWindows);
             Assert.True(window.FindControl<JournalButton>("CancelSpecificationImportButton")!.IsFocused);
-            Screenshot(window, "drop-reading", dark);
+            Screenshot(window, hans ? "hans-drop-reading" : "drop-reading", dark);
             // A repeated drop cannot start another read or create another dialog.
             Drag(window, DragDrop.DropEvent, transfer); Assert.Equal(1, reader.Calls);
             reader.Result.SetResult(preview);
@@ -56,11 +61,17 @@ public sealed class SpecificationDropWindowTests
             var form = (NewOrderViewModel)dialog.DataContext!;
             Assert.False(overlay.IsVisible); Assert.Equal("0514-0078", form.SpecificationNumber.Value);
             Assert.Equal("1500x4000, 1000x3000", form.SheetSize.Value); Assert.Equal("1.1", form.Coefficient.Value);
+            if (hans)
+            { Assert.Equal("HansLaser", form.CuttingType.Value); Assert.Equal("2", form.MaterialId.Value); Assert.Equal("N2", form.Gas.Value); }
             Assert.Equal(dark ? ThemeVariant.Dark : ThemeVariant.Light, dialog.ActualThemeVariant);
             Assert.Equal("Письмо", model.ResultText);
             Assert.Equal(3, (await store.ReadAsync(TestContext.Current.CancellationToken)).Count);
             AssertVisibleActions(dialog);
-            Screenshot(dialog, "import-form", dark);
+            var fields = dialog.FindControl<ScrollViewer>("FormScroll")!;
+            Assert.True(fields.Extent.Height <= fields.Viewport.Height + 1);
+            var sidebar = dialog.FindControl<TextBlock>("ImportFileName")!.GetVisualAncestors().OfType<ScrollViewer>().First();
+            Assert.True(sidebar.Extent.Height <= sidebar.Viewport.Height + 1);
+            Screenshot(dialog, hans ? "hans-import-form" : "import-form", dark);
             dialog.Close(); Dispatcher.UIThread.RunJobs();
             Assert.Equal(3, (await store.ReadAsync(TestContext.Current.CancellationToken)).Count);
         }
@@ -107,11 +118,11 @@ public sealed class SpecificationDropWindowTests
             Assert.Equal(DragDropEffects.None, Drag(window, DragDrop.DragOverEvent, files).DragEffects);
             Assert.Contains("одну", model.SpecificationOverlayDescription);
             Drag(window, DragDrop.DropEvent, files); Assert.Contains("одну", model.ErrorMessage);
-            var pdfPath = Path.ChangeExtension(sample.Path, ".pdf"); File.WriteAllText(pdfPath, "Not a real PDF");
-            using var pdf = await Transfer(window, pdfPath);
-            Assert.Equal(DragDropEffects.None, Drag(window, DragDrop.DragOverEvent, pdf).DragEffects);
+            var unsupportedPath = Path.ChangeExtension(sample.Path, ".txt"); File.WriteAllText(unsupportedPath, "Not a specification");
+            using var unsupported = await Transfer(window, unsupportedPath);
+            Assert.Equal(DragDropEffects.None, Drag(window, DragDrop.DragOverEvent, unsupported).DragEffects);
             Assert.Contains("PDF", model.SpecificationOverlayDescription);
-            Drag(window, DragDrop.DropEvent, pdf); Assert.Equal(0, reader.Calls);
+            Drag(window, DragDrop.DropEvent, unsupported); Assert.Equal(0, reader.Calls);
             using var text = new DataTransfer(); text.Add(DataTransferItem.CreateText("Текст"));
             Assert.False(Drag(window, DragDrop.DropEvent, text).Handled);
             Assert.Equal("Письмо", model.ResultText); Assert.Empty(window.OwnedWindows);
@@ -133,7 +144,8 @@ public sealed class SpecificationDropWindowTests
             window.Show(); Dispatcher.UIThread.RunJobs();
             Assert.Empty(form.Weight.Value); Assert.True(form.HasImportDiagnostics); AssertVisibleActions(window);
             var name = window.FindControl<TextBlock>("ImportFileName")!;
-            Assert.True(name.Bounds.Width <= 212);
+            var sidebar = name.GetVisualAncestors().OfType<ScrollViewer>().First();
+            Assert.True(name.Bounds.Width <= sidebar.Viewport.Width + 1);
             Screenshot(window, "import-partial-compact", dark);
         }
         finally { window.Close(); }

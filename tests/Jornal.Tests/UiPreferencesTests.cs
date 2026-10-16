@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Jornal.Desktop.Customization;
+using Jornal.Core.Results;
 using Xunit;
 
 namespace Jornal.Tests;
@@ -13,7 +14,8 @@ public sealed class UiPreferencesTests
         {
             var store = new JsonUiPreferencesStore(Path.Combine(directory, "profile", "ui-settings.json"));
             Assert.Null(store.Load().Preferences);
-            store.Save(new UiPreferences { Layout = new ScreenLayout { ResultHeight = 216,
+            store.Save(new UiPreferences { ResultFormatting = new ResultTextStyle { FontSizePoints = 12m, ColorHex = "#2F5496" },
+                Layout = new ScreenLayout { ResultHeight = 216,
                 PanelOrder = ["status", "orders", "clipboard"],
                 Columns = [new("customer", 1, false, false, 250)] } });
             store.Save(store.Load().Preferences! with { DarkTheme = true });
@@ -22,8 +24,27 @@ public sealed class UiPreferencesTests
             Assert.True(loaded.Preferences!.DarkTheme);
             Assert.Equal(216, loaded.Preferences.Layout.ResultHeight);
             Assert.Equal("status", loaded.Preferences.Layout.PanelOrder[0]);
+            Assert.Equal(new ResultTextStyle { FontSizePoints = 12m, ColorHex = "#2F5496" }, loaded.Preferences.ResultFormatting);
             Assert.Equal(new ColumnPreference("customer", 1, false, false, 250), Assert.Single(loaded.Preferences.Layout.Columns));
             Assert.Single(Directory.GetFiles(directory, "*", SearchOption.AllDirectories));
+        });
+    }
+
+    [Theory]
+    [InlineData("", "10")]
+    [InlineData(",\"ResultFormatting\":null", "10")]
+    [InlineData(",\"ResultFormatting\":{\"FontSizePoints\":999,\"ColorHex\":\"bad\"}", "10")]
+    public void ExistingOrInvalidFormattingKeepsTheRestOfTheProfile(string formatting, string size)
+    {
+        InTemporaryFolder(directory =>
+        {
+            var path = Path.Combine(directory, "ui-settings.json");
+            File.WriteAllText(path, "{\"Version\":1,\"DarkTheme\":true,\"Layout\":{\"ResultHeight\":216}" + formatting + "}");
+            var loaded = new JsonUiPreferencesStore(path).Load();
+            Assert.Null(loaded.Error); Assert.True(loaded.Preferences!.DarkTheme);
+            Assert.Equal(216, loaded.Preferences.Layout.ResultHeight);
+            Assert.Equal(decimal.Parse(size, System.Globalization.CultureInfo.InvariantCulture), loaded.Preferences.ResultFormatting.FontSizePoints);
+            Assert.Equal(ResultTextStyle.DefaultColor, loaded.Preferences.ResultFormatting.ColorHex);
         });
     }
 
@@ -56,7 +77,7 @@ public sealed class UiPreferencesTests
             Columns = [new("date", 1, true, false, 120), new("date", 2, false, false, 200),
                 new("bad", 0, true, false, 100), new("nan", 2, true, false, double.NaN)]
         }.Normalize();
-        Assert.Equal(152, layout.ResultHeight);
+        Assert.Equal(106, layout.ResultHeight);
         Assert.Equal(new[] { "status", "orders", "clipboard" }, layout.PanelOrder);
         Assert.Equal(380, layout.PanelWidths["orders"]);
         Assert.Equal(600, layout.PanelWidths["clipboard"]);

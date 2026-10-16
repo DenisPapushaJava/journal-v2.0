@@ -36,6 +36,7 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBa
         lock (_gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            draft.Validate();
             var order = draft.ToOrder(++_lastIssuedId, null);
             _orders.Insert(0, order);
             return Task.FromResult(order);

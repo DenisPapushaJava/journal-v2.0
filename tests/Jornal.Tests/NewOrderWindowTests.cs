@@ -20,8 +20,8 @@ public sealed class NewOrderWindowTests
     [AvaloniaTheory]
     [InlineData(1060, 600, false)]
     [InlineData(1060, 600, true)]
-    [InlineData(1200, 720, false)]
-    [InlineData(1200, 720, true)]
+    [InlineData(1240, 760, false)]
+    [InlineData(1240, 760, true)]
     public async Task FormUsesBothThemesAndKeepsActionsVisible(int width, int height, bool dark)
     {
         var form = ManualOrderTests.ValidForm(new DemoOrderStore());
@@ -41,7 +41,8 @@ public sealed class NewOrderWindowTests
             Assert.Equal(dark ? ThemeVariant.Dark : ThemeVariant.Light, window.ActualThemeVariant);
             var scroll = window.FindControl<ScrollViewer>("FormScroll")!;
             Assert.True(scroll.Viewport.Height > 200);
-            Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
+            Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 1,
+                $"All HansLaser fields should fit: extent {scroll.Extent}, viewport {scroll.Viewport}");
             Assert.All(window.GetVisualDescendants().OfType<OrderEntryControl>(), field => Assert.True(field.Bounds.Width >= 200));
             var directory = Environment.GetEnvironmentVariable("JOURNAL_SCREENSHOT_DIR");
             if (directory is not null)
@@ -66,6 +67,36 @@ public sealed class NewOrderWindowTests
                 bitmap.Save(Path.Combine(directory, $"new-order-{width}-{(dark ? "dark" : "light")}-errors.png"),
                     new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
             }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void InitialSizeStaysInsideTheScreenAndOverflowFieldsRemainReachable()
+    {
+        var form = ManualOrderTests.ValidForm(new DemoOrderStore());
+        var window = new NewOrderWindow { DataContext = form, Width = 4000, Height = 3000 };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var screen = window.Screens.ScreenFromWindow(window)!;
+            var frame = new PixelRect(window.Position, PixelSize.FromSize(window.FrameSize ?? window.ClientSize, screen.Scaling));
+            Assert.True(screen.WorkingArea.Contains(frame), $"Window {frame}, working area {screen.WorkingArea}");
+
+            window.Width = 1060; window.Height = 600;
+            foreach (var field in form.Fields) field.Error = "Проверьте значение и исправьте его перед сохранением.";
+            Dispatcher.UIThread.RunJobs();
+            var scroll = window.FindControl<ScrollViewer>("FormScroll")!;
+            Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
+            var last = window.GetVisualDescendants().OfType<OrderEntryControl>().Single(field => field.DataContext == form.Gas);
+            last.FocusInput();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(scroll.Offset.Y > 0);
+            var input = last.FindControl<TextBox>("Input")!;
+            Assert.True(input.IsFocused);
+            var bottom = input.TranslatePoint(new Point(0, input.Bounds.Height), scroll)!.Value.Y;
+            Assert.True(bottom <= scroll.Bounds.Height + 1);
         }
         finally { window.Close(); }
     }

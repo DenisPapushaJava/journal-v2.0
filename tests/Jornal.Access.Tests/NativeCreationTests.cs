@@ -36,6 +36,20 @@ public sealed partial class NativeAccessTests
     }
 
     [Fact]
+    public async Task ManualFractionalSheetCountRoundTripsAsTextWithoutChangingHistoryOrSchema()
+    {
+        using var database = Database.Create();
+        var original = await database.Read(); var schema = database.Schema();
+        var draft = CreationDraft() with { SheetCount = "1,3" };
+        var saved = await new OleDbManualOrderCreator(database.Path).CreateAsync(draft, TestContext.Current.CancellationToken);
+        Assert.Equal("1,3", saved.SheetCount);
+        var reopened = await database.Read();
+        Assert.Equal(saved, reopened.Single(row => row.Id == saved.Id));
+        Assert.Equal(original, reopened.Where(row => row.Id != saved.Id));
+        Assert.Equal(schema, database.Schema());
+    }
+
+    [Fact]
     public async Task PriceChangeDoesNotInsertUntilTheNewQuoteIsReviewed()
     {
         using var database = Database.Create(); var before = await database.Read();
@@ -88,6 +102,8 @@ public sealed partial class NativeAccessTests
         var creator = new OleDbManualOrderCreator(database.Path);
         foreach (var draft in new[] { CreationDraft() with { CustomerName = new string('А', 256) },
                      CreationDraft() with { SheetSize = new string('1', 256) },
+                     CreationDraft() with { SheetCount = "2+1" }, CreationDraft() with { SheetCount = "1,2,3" },
+                     CreationDraft() with { SheetCount = "2 / комплект" }, CreationDraft() with { SheetCount = "2e3" },
                      CreationDraft() with { PartCount = 0 }, CreationDraft() with { PunchCount = -2 },
                      CreationDraft() with { OrderDate = new(1, 1, 1) }, CreationDraft() with { MaterialId = "x|2" } })
             await Assert.ThrowsAsync<OrderWriteException>(() => creator.CreateAsync(draft, TestContext.Current.CancellationToken));
@@ -115,5 +131,5 @@ public sealed partial class NativeAccessTests
     }
 
     private static ManualOrderDraft CreationDraft() => new(new(2026, 1, 2), "0102--44'; не SQL", "Менеджер 'А'", "Клиент [] %_*?",
-        "Лазер", "5083H111", 2.5m, "1500x6000", "02 / комплект", 25, "0012,350", 2.3m, "", "");
+        "Лазер", "5083H111", 2.5m, "1500x6000", "2", 25, "0012,350", 2.3m, "", "");
 }

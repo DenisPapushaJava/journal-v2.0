@@ -12,8 +12,11 @@ public partial class MainWindowViewModel
     private int _selectedCount;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanClearResult)), NotifyPropertyChangedFor(nameof(CanCopyResult))]
     private string _resultText = string.Empty;
-    [ObservableProperty] private string _resultMessage = "Для письма · текст можно поправить";
-    [ObservableProperty] private bool _hasResultError;
+    private const string DefaultResultMessage = "Для письма · текст можно поправить";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowResultFeedback))] private string _resultMessage = DefaultResultMessage;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowResultFeedback)), NotifyPropertyChangedFor(nameof(ResultFeedbackBrush))]
+    private bool _hasResultError;
+    public bool ShowResultFeedback => HasResultError || ResultMessage != DefaultResultMessage;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanAddResult)), NotifyPropertyChangedFor(nameof(CanClearResult)),
      NotifyPropertyChangedFor(nameof(CanCopyResult)), NotifyPropertyChangedFor(nameof(CanEditResult)), NotifyPropertyChangedFor(nameof(CanConfigureSource)), NotifyPropertyChangedFor(nameof(CanCheckUpdates))]
     private bool _isCopyingResult;
@@ -26,7 +29,7 @@ public partial class MainWindowViewModel
     {
         if (value.Length == 0) _resultOrderIds.Clear();
         HasResultError = false;
-        ResultMessage = "Для письма · текст можно поправить";
+        ResultMessage = DefaultResultMessage;
     }
 
     public void AddOrdersToResult(IEnumerable<OrderRowViewModel> selected)
@@ -71,12 +74,13 @@ public partial class MainWindowViewModel
     {
         if (!CanCopyResult) return;
         var text = ResultText;
+        var style = CaptureResultStyle();
         IsCopyingResult = true;
         HasResultError = false;
         ResultMessage = "Копирование…";
         try
         {
-            await clipboard.WriteAsync(ResultClipboardContent.FromText(text));
+            await clipboard.WriteAsync(ResultClipboardContent.FromText(text, style));
             ResultMessage = "Скопировано · вставьте в письмо через Ctrl+V";
         }
         catch (Exception exception)

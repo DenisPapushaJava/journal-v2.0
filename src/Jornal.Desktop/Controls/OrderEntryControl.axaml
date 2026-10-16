@@ -1,17 +1,18 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Jornal.Desktop.ViewModels"
              x:Class="Jornal.Desktop.Controls.OrderEntryControl" x:DataType="vm:OrderEntryField">
-  <StackPanel Spacing="8">
-    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource JournalMuted}" FontWeight="Medium" />
-    <TextBox x:Name="Input" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Hint}"
-             IsVisible="{Binding !HasChoices}" MinHeight="40" FontSize="14"
-             AutomationProperties.Name="{Binding Label}" Classes.invalid="{Binding HasError}" />
-    <ComboBox x:Name="Choice" ItemsSource="{Binding Choices}" SelectedItem="{Binding Value, Mode=TwoWay}"
-              IsVisible="{Binding HasChoices}" MinHeight="40" FontSize="14" HorizontalAlignment="Stretch"
+  <Grid ColumnDefinitions="144,8,*" RowDefinitions="Auto,Auto,Auto">
+    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource JournalMuted}" FontWeight="Medium" FontSize="13"
+               VerticalAlignment="Center" TextWrapping="Wrap" />
+    <TextBox x:Name="Input" Grid.Column="2" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Hint}"
+             IsVisible="{Binding !HasChoices}" MinHeight="36" FontSize="14"
+             AutomationProperties.Name="{Binding Label}" Classes.invalid="{Binding HasError}" ToolTip.Tip="{Binding Value}" />
+    <ComboBox x:Name="Choice" Grid.Column="2" ItemsSource="{Binding Choices}" SelectedItem="{Binding Value, Mode=TwoWay}"
+              IsVisible="{Binding HasChoices}" MinHeight="36" FontSize="14" HorizontalAlignment="Stretch"
               PlaceholderText="Выберите вид резки" AutomationProperties.Name="{Binding Label}" />
-    <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" TextWrapping="Wrap"
+    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Error}" IsVisible="{Binding HasError}" TextWrapping="Wrap" Margin="0,4,0,0"
                Foreground="{DynamicResource JournalDangerForeground}" FontSize="12" />
-    <TextBlock Text="{Binding ImportHint}" IsVisible="{Binding HasImportHint}" ToolTip.Tip="{Binding ImportEvidence}"
-               Classes="muted" FontSize="11" TextWrapping="Wrap" />
-  </StackPanel>
+    <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding ImportHint}" IsVisible="{Binding HasImportHint}" ToolTip.Tip="{Binding ImportEvidence}"
+               Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
+  </Grid>
 </UserControl>

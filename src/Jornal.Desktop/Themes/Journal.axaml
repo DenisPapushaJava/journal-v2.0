@@ -247,6 +247,34 @@
     <Setter Property="Foreground" Value="{DynamicResource ShippedForeground}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShippedForeground}" />
   </Style>
+  <Style Selector="Button.command.result-tool">
+    <Setter Property="Background" Value="#E6CAD5E4" />
+    <Setter Property="Foreground" Value="#263B57" />
+    <Setter Property="BorderBrush" Value="#8198B4" />
+  </Style>
+  <Style Selector="Button.command.result-tool.copy-tool">
+    <Setter Property="Background" Value="#F2B4C9E2" />
+    <Setter Property="Foreground" Value="#203F68" />
+    <Setter Property="BorderBrush" Value="#6E8BAE" />
+  </Style>
+  <Style Selector="Button.command.result-tool:pointerover:not(:disabled)">
+    <Setter Property="Background" Value="#BCCDE3" />
+    <Setter Property="Foreground" Value="#1E3653" />
+    <Setter Property="BorderBrush" Value="#617F9F" />
+  </Style>
+  <Style Selector="Button.command.result-tool:pressed">
+    <Setter Property="Background" Value="#A8BEDA" />
+  </Style>
+  <Style Selector="Button.command.result-tool:disabled">
+    <Setter Property="Opacity" Value="0.7" />
+  </Style>
+  <Style Selector="Window:not(.customizing) Border.result-editor:focus-within">
+    <Setter Property="BorderBrush" Value="#8297B0" />
+  </Style>
+  <Style Selector="TextBox.result-editor /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
   <Style Selector="RadioButton.filter">
     <Setter Property="Theme" Value="{StaticResource JournalFilterButton}" />
     <Setter Property="MinHeight" Value="32" />

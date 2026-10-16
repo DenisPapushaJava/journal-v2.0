@@ -60,7 +60,7 @@ def create_archive(publish_dir, output_dir, version, runtime, commit):
             bundle.write(path, path.relative_to(publish_dir).as_posix())
         bundle.writestr("BUILD-INFO.json", json.dumps({
             "version": version.version, "runtime": runtime, "commit": commit,
-            "deployment": "framework-dependent", "stage": "access-batch-writes",
+            "deployment": "framework-dependent", "stage": "specification-import",
         }, indent=2) + "\n")
         bundle.writestr("README-RUN.txt", (
             f"Journal {version.version} ({runtime})\n\n"
@@ -68,7 +68,9 @@ def create_archive(publish_dir, output_dir, version, runtime, commit):
             "Для Windows используйте OfflineSetup.exe из выпуска: он содержит необходимые среды .NET.\n"
             "Нужна .NET 10 Runtime. В шапке «База данных» можно выбрать копию существующей MDB.\n"
             "На Windows статусы и БЛЦБ записываются в MDB транзакцией; на Linux MDB доступна только для чтения.\n"
-            "Создание/полное редактирование заявок в MDB ещё не перенесены. Для проверки выбирайте копию MDB.\n"
+            "На Windows доступны создание/редактирование с расчётом, статусы, БЛЦБ и локальная корзина.\n"
+            "Импорт HTML БЛОК/Wintech и PDF HansLaser открывает новую заявку для проверки перед сохранением.\n"
+            "Для первой проверки выбирайте отдельную копию MDB.\n"
             "На Linux доступна отдельная редактируемая .journal-test.json с данными и прайсами, без обратной записи в MDB.\n"
             "MDB на Windows обслуживает вложенный модуль AccessHost x86; нужен также .NET Runtime x86.\n"
             "На Linux нужен mdbtools (mdb-export).\n"

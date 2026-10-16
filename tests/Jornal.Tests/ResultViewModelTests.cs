@@ -9,6 +9,34 @@ namespace Jornal.Tests;
 public sealed class ResultViewModelTests
 {
     [Fact]
+    public async Task EachNewBatchIsSortedWhileExistingEditsAndTableOrderAreKept()
+    {
+        var model = await Model();
+        var rows = model.Orders.ToArray();
+        var originalIds = rows.Select(row => row.Id).ToArray();
+        model.ResultText = "Примечание заказчику";
+
+        model.AddOrdersToResult(rows.Reverse());
+        var lines = model.ResultText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(4, lines.Length);
+        Assert.Equal("Примечание заказчику", lines[0]);
+        Assert.Contains("Лист 2,5x1250x2500,", lines[1]);
+        Assert.Contains("6x1500x3000,", lines[2]);
+        Assert.Contains("16x1500x6000,", lines[3]);
+        Assert.Equal(originalIds, model.Orders.Select(row => row.Id));
+
+        var previousText = model.ResultText;
+        model.AcceptCreatedOrder(ResultOutputTests.Order() with { Id = 4, ThicknessMillimeters = 1 });
+        model.AddOrdersToResult([model.Orders.Single(row => row.Id == 4)]);
+        Assert.StartsWith(previousText, model.ResultText);
+        Assert.Contains("Лист 1x1250x2500,", model.ResultText[previousText.Length..]);
+
+        var clipboard = new RecordingClipboard();
+        await model.CopyResultAsync(clipboard);
+        Assert.Equal(model.ResultText, clipboard.Content!.Text);
+    }
+
+    [Fact]
     public async Task AddingIsDeduplicatedByIdAcrossRefreshAndClearKeepsSelection()
     {
         var model = await Model();

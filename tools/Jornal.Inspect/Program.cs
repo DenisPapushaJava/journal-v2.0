@@ -6,6 +6,7 @@ using Jornal.Inspect;
 if (args.Length > 0 && args[0] is "prices" or "price") return await PriceCommands.RunAsync(args);
 if (args.Length > 0 && args[0] == "local-copy") return await LocalCopyCommand.RunAsync(args);
 if (args.Length > 0 && args[0] == "block-spec") return await BlockSpecificationCommand.RunAsync(args);
+if (args.Length > 0 && args[0] == "hans-spec") return await HansSpecificationCommand.RunAsync(args);
 
 if (args.Length == 0)
 {
@@ -13,6 +14,7 @@ if (args.Length == 0)
     PriceCommands.PrintUsage();
     Console.Error.WriteLine("Linux: Jornal.Inspect local-copy <копия.mdb> <новый.journal-test.json>");
     Console.Error.WriteLine("Jornal.Inspect block-spec <файл.html|файл.htm> [...]");
+    Console.Error.WriteLine("Jornal.Inspect hans-spec <файл.pdf> [...]");
     return 1;
 }
 

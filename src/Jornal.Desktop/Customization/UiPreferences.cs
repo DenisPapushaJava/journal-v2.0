@@ -1,11 +1,15 @@
+using Jornal.Core.Results;
+
 namespace Jornal.Desktop.Customization;
 
 public sealed record ColumnPreference(string Id, int Position, bool Visible, bool Star, double Width);
 
 public sealed record ScreenLayout
 {
+    public const double MinimumResultHeight = 106;
+    public const double MaximumResultHeight = 280;
     public bool ResultAboveCommands { get; init; } = true;
-    public double ResultHeight { get; init; } = 152;
+    public double ResultHeight { get; init; } = MinimumResultHeight;
     public string[] PanelOrder { get; init; } = ["orders", "clipboard", "status"];
     public Dictionary<string, double> PanelWidths { get; init; } = new()
         { ["orders"] = 380, ["clipboard"] = 548, ["status"] = 592 };
@@ -25,7 +29,7 @@ public sealed record ScreenLayout
             column.Width is > 0 and <= 5000).DistinctBy(column => column.Id).Take(64).ToArray();
         return this with
         {
-            ResultHeight = double.IsFinite(ResultHeight) ? Math.Clamp(ResultHeight, 120, 280) : 152,
+            ResultHeight = double.IsFinite(ResultHeight) ? Math.Clamp(ResultHeight, MinimumResultHeight, MaximumResultHeight) : MinimumResultHeight,
             PanelOrder = order, PanelWidths = widths, Columns = columns
         };
     }
@@ -36,6 +40,7 @@ public sealed record UiPreferences
     public int Version { get; init; } = 1;
     public bool DarkTheme { get; init; }
     public ScreenLayout Layout { get; init; } = new();
+    public ResultTextStyle ResultFormatting { get; init; } = new();
 }
 
 public sealed record PreferencesLoadResult(UiPreferences? Preferences, string? Error = null);

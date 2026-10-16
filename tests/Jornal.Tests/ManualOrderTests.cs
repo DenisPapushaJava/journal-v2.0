@@ -35,7 +35,7 @@ public sealed class ManualOrderTests
             Assert.Equal(2.5m, added.ThicknessMillimeters);
             Assert.Equal(1.25m, added.Coefficient);
             Assert.Equal("1500x3000", added.SheetSize);
-            Assert.Equal("2+1", added.SheetCount);
+            Assert.Equal("3", added.SheetCount);
             Assert.Equal("38,5", added.WeightKilograms);
             Assert.Equal(48, added.CutLengthMeters);
             Assert.Equal("2", added.MaterialId);
@@ -127,7 +127,7 @@ public sealed class ManualOrderTests
         form.Material.Value = "Амг3-5083H111";
         form.Thickness.Value = "2,5";
         form.SheetSize.Value = "1500x3000";
-        form.SheetCount.Value = "2+1";
+        form.SheetCount.Value = "3";
         form.Weight.Value = "38,5";
         form.CutLength.Value = "48";
         form.Coefficient.Value = "1,25";

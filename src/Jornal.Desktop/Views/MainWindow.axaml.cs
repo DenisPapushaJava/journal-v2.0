@@ -148,7 +148,9 @@ public partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(MainWindowViewModel.IsImportingSpecification)) UpdateSpecificationFocus();
         if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme))
-        { UpdateTheme(); _customization.ThemeChanged(); }
+        { UpdateTheme(); _customization.AppearanceChanged(); }
+        if (e.PropertyName is nameof(MainWindowViewModel.ResultFontSizePoints) or nameof(MainWindowViewModel.ResultTextColor))
+            _customization.AppearanceChanged();
     }
 
     private void UpdateTheme() => RequestedThemeVariant = _viewModel?.IsDarkTheme == true

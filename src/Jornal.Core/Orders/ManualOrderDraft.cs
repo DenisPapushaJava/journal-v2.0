@@ -39,6 +39,8 @@ public sealed record ManualOrderDraft(
             MaterialId.Any(c => char.IsControl(c) || c == '|') || CuttingGas.Any(c => char.IsControl(c) || c == '|') ||
             StoredCoefficient.Length > 255 || PartCount is < 1 || PunchCount is < 0)
             throw new OrderWriteException(OrderWriteFailure.NotSaved, "Проверьте обязательные поля, дату и формат ID/газа. Текстовые поля MDB — не более 255 символов.");
+        if (!OrderSheetCount.IsValid(SheetCount))
+            throw new OrderWriteException(OrderWriteFailure.NotSaved, OrderSheetCount.ValidationMessage);
         _ = CuttingPriceCalculator.SelectTable(PriceRequest);
     }
 
