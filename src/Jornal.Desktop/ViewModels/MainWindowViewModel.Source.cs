@@ -11,7 +11,12 @@ public partial class MainWindowViewModel
     public string SourceDescription => _source?.Description ?? "Демонстрационные данные · без подключения к базе";
     public string SourceDetails => _source?.Details ?? "Демонстрационный источник";
     public string? DatabasePath => _source?.Path;
-    private string BatchStorageDescription => _source?.Path is not null ? "Статусы и БЛЦБ сохраняются в MDB" : "Деморежим · до закрытия программы";
+    private string BatchStorageDescription => _source?.IsLocalCopy == true ? "Изменения сохраняются в локальной тестовой копии; исходная MDB не меняется" :
+        _source?.Path is not null ? "Статусы и БЛЦБ сохраняются в MDB" : "Деморежим · до закрытия программы";
+    private string StorageSuffix => _source?.IsLocalCopy == true ? "сохранено в локальной копии" :
+        _source?.Path is not null ? "сохранено в MDB" : "до закрытия программы";
+    public string NewOrderHint => _source?.IsLocalCopy == true ? "Добавить заявку в локальную тестовую копию с расчётом по её прайсам" :
+        _source?.Path is not null ? "Создание заявок в MDB ещё не подключено" : "Добавить заявку в деможурнал текущего сеанса";
     public bool CanConfigureSource => sourceManager is not null && CanUseJournal && !IsCopyingResult;
 
     public void InitializeSource(OrderSource source)
@@ -65,7 +70,7 @@ public partial class MainWindowViewModel
 
     private void NotifySourceChanged()
     {
-        foreach (var name in new[] { nameof(SourceDescription), nameof(SourceDetails), nameof(DatabasePath) }) OnPropertyChanged(name);
+        foreach (var name in new[] { nameof(SourceDescription), nameof(SourceDetails), nameof(DatabasePath), nameof(NewOrderHint) }) OnPropertyChanged(name);
         NotifyJournalAvailability();
     }
 }

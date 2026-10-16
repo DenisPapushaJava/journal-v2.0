@@ -68,7 +68,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public bool FilterShipped => StatusFilter == OrderStatusFilter.Shipped;
     public ObservableCollection<OrderRowViewModel> Orders { get; } = [];
     public bool CanCreateOrder => orderCreator is not null && CanUseJournal;
-    public NewOrderViewModel? CreateOrderForm() => CanCreateOrder ? new NewOrderViewModel(orderCreator!) : null;
+    public NewOrderViewModel? CreateOrderForm() => CanCreateOrder ? new NewOrderViewModel(orderCreator!, _source?.IsLocalCopy == true) : null;
 
     public void AcceptCreatedOrder(OrderSummary order)
     {
@@ -76,7 +76,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         // Новую строку показываем даже при несовпадающих прежних фильтрах.
         ResetFilters();
         ApplySearch();
-        UpdatedText = "Демозаявка добавлена · до закрытия программы";
+        UpdatedText = (_source?.IsLocalCopy == true ? "Заявка добавлена · " : "Демозаявка добавлена · ") + StorageSuffix;
     }
     public IReadOnlyList<string> SearchScopes { get; } =
         ["Все поля", "Менеджер", "Заказчик", "Спецификация", "БЛЦБ", "Материал", "Толщина"];

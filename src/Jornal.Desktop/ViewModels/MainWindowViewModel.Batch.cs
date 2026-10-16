@@ -73,7 +73,7 @@ public partial class MainWindowViewModel
             var active = surviving.FirstOrDefault(row => row.Id == activeId) ?? surviving.FirstOrDefault();
             UpdateSelection(surviving, active);
             SelectionRestoreRequested?.Invoke(this, new(surviving.Select(row => row.Id).ToArray(), active?.Id));
-            UpdatedText = message + " · " + (_source?.Path is not null ? "сохранено в MDB" : "до закрытия программы");
+            UpdatedText = message + " · " + StorageSuffix;
             return true;
         }
         catch (Exception exception)

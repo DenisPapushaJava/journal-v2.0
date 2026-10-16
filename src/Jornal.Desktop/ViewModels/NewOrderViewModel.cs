@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Jornal.Core.Orders;
+using Jornal.Core.Pricing;
 
 namespace Jornal.Desktop.ViewModels;
 
@@ -11,18 +12,45 @@ public partial class NewOrderViewModel : ObservableObject
     private readonly IManualOrderCreator _creator;
     private bool _submitted;
 
-    public NewOrderViewModel(IManualOrderCreator creator)
+    public NewOrderViewModel(IManualOrderCreator creator, bool isLocalCopy = false)
     {
         _creator = creator;
+        IsLocalCopy = isLocalCopy;
         foreach (var field in Fields) field.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(OrderEntryField.Value) && _submitted) Validate();
+            if (e.PropertyName != nameof(OrderEntryField.Value)) return;
+            if (_submitted) Validate();
+            PriceText = "Не рассчитана";
+            PriceError = null;
+        };
+        SaveCommand.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(IAsyncRelayCommand.IsRunning)) return;
+            OnPropertyChanged(nameof(IsBusy)); CalculatePriceCommand.NotifyCanExecuteChanged();
+        };
+        CalculatePriceCommand.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(IAsyncRelayCommand.IsRunning)) return;
+            OnPropertyChanged(nameof(IsBusy)); SaveCommand.NotifyCanExecuteChanged();
         };
         CuttingType.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(OrderEntryField.Value)) OnPropertyChanged(nameof(IsHansLaser));
         };
     }
+
+    public bool IsLocalCopy { get; }
+    public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning;
+    [ObservableProperty] private string _priceText = "Не рассчитана";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPriceError))] private string? _priceError;
+    public bool HasPriceError => PriceError is not null;
+    public string WindowTitle => IsLocalCopy ? "Новая заявка · Локальная копия" : "Новая заявка · Деморежим";
+    public string StorageDescription => IsLocalCopy ? "Ручной ввод · Локальная тестовая копия — изменения сохраняются между запусками" :
+        "Ручной ввод · Деморежим — данные доступны до закрытия программы";
+    public string SaveDescription => IsLocalCopy ? "Добавление в локальную копию; исходная MDB не меняется" : "Добавление только в деможурнал текущего сеанса";
+    public string SaveLabel => IsLocalCopy ? "Добавить заявку" : "Добавить в деможурнал";
+    public string PriceDescription => IsLocalCopy ? "При сохранении цена рассчитывается по прайсам, перенесённым из MDB. Существующие суммы не пересчитываются." :
+        "Расчёт появится после подключения прайсов из базы.";
 
     public OrderEntryField OrderDate { get; } = new("Дата *", "ДД.ММ.ГГГГ");
     public OrderEntryField SpecificationNumber { get; } = new("№ спецификации *", "Например, 1015-1004");
@@ -50,12 +78,34 @@ public partial class NewOrderViewModel : ObservableObject
     public OrderSummary? CreatedOrder { get; private set; }
     public event EventHandler? Saved;
 
-    private bool CanSave() => !IsSaved;
+    private bool CanSave() => !IsSaved && !CalculatePriceCommand.IsRunning;
+
+    private bool CanCalculatePrice() => IsLocalCopy && _creator is IPriceReader && !IsSaved && !SaveCommand.IsRunning;
+
+    [RelayCommand(CanExecute = nameof(CanCalculatePrice))]
+    private async Task CalculatePriceAsync(CancellationToken cancellationToken)
+    {
+        if (!CanCalculatePrice()) return;
+        PriceError = null;
+        PriceText = "Не рассчитана";
+        if (!TryDecimal(Thickness.Value, out var thickness) || !TryDecimal(Coefficient.Value, out var coefficient) ||
+            !int.TryParse(CutLength.Value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var length))
+        { PriceError = "Укажите толщину, целую длину в метрах и коэффициент."; return; }
+        try
+        {
+            var quote = await new CuttingPriceService((IPriceReader)_creator).CalculateAsync(
+                new(CuttingType.Value, thickness, length, coefficient, IsHansLaser ? MaterialId.Value.Trim() : null), cancellationToken);
+            PriceText = quote.StoredPrice.ToString("N0", CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception exception) when (exception is PriceCalculationException or PriceReadException or OrderReadException)
+        { PriceError = exception.Message; }
+    }
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
-        if (IsSaved) return;
+        if (IsSaved || CalculatePriceCommand.IsRunning) return;
         _submitted = true;
         SaveError = null;
         if (!Validate()) return;
@@ -75,11 +125,13 @@ public partial class NewOrderViewModel : ObservableObject
         catch (Exception exception)
         {
             Trace.TraceError("Manual order creation failed: {0}", exception);
-            SaveError = "Не удалось добавить заявку. Введённые данные сохранены в форме — попробуйте ещё раз.";
+            SaveError = exception is PriceCalculationException or OrderWriteException ? exception.Message :
+                "Не удалось добавить заявку. Введённые данные сохранены в форме — попробуйте ещё раз.";
             return;
         }
         IsSaved = true;
         SaveCommand.NotifyCanExecuteChanged();
+        CalculatePriceCommand.NotifyCanExecuteChanged();
         Saved?.Invoke(this, EventArgs.Empty);
     }
 

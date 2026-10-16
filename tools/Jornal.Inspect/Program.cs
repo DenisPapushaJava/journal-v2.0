@@ -4,11 +4,13 @@ using Jornal.Parsing.Documents;
 using Jornal.Inspect;
 
 if (args.Length > 0 && args[0] is "prices" or "price") return await PriceCommands.RunAsync(args);
+if (args.Length > 0 && args[0] == "local-copy") return await LocalCopyCommand.RunAsync(args);
 
 if (args.Length == 0)
 {
     Console.Error.WriteLine("Использование: Jornal.Inspect <файл.html|файл.pdf> [...]");
     PriceCommands.PrintUsage();
+    Console.Error.WriteLine("Linux: Jornal.Inspect local-copy <копия.mdb> <новый.journal-test.json>");
     return 1;
 }
 
