@@ -24,7 +24,8 @@ public partial class NewOrderViewModel
     {
         [nameof(OrderDate)] = OrderDate, [nameof(SpecificationNumber)] = SpecificationNumber, [nameof(CuttingType)] = CuttingType,
         [nameof(Material)] = Material, [nameof(Thickness)] = Thickness, [nameof(SheetSize)] = SheetSize, [nameof(SheetCount)] = SheetCount,
-        [nameof(Weight)] = Weight, [nameof(CutLength)] = CutLength, [nameof(Coefficient)] = Coefficient
+        [nameof(Weight)] = Weight, [nameof(CutLength)] = CutLength, [nameof(Coefficient)] = Coefficient,
+        [nameof(MaterialId)] = MaterialId, [nameof(Gas)] = Gas
     };
 
     partial void OnIsImportingChanged(bool value)
@@ -40,7 +41,6 @@ public partial class NewOrderViewModel
         {
             var value = preview.Fields[name]; field.ApplyImport(value.Value, value.Evidence);
         }
-        MaterialId.Value = ""; Gas.Value = "";
         HasValidationErrors = false; SaveError = null; ImportError = null;
         ImportPreview = preview;
         _quote = null; PriceText = "Не рассчитана"; PriceBreakdown = ""; PriceError = null;

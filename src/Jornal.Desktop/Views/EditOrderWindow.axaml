@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
         x:Class="Jornal.Desktop.Views.EditOrderWindow" x:DataType="vm:EditOrderViewModel"
-        Title="{Binding WindowTitle}" Width="1200" Height="720" MinWidth="1060" MinHeight="600"
+        Title="{Binding WindowTitle}" Width="1240" Height="760" MinWidth="1060" MinHeight="600"
         WindowStartupLocation="CenterOwner">
   <Window.Styles>
     <Style Selector="TextBlock.section">
@@ -21,35 +21,39 @@
   </Window.Styles>
   <Grid RowDefinitions="Auto,*,Auto">
     <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
-            BorderThickness="0,0,0,1" Padding="24,16">
+            BorderThickness="0,0,0,1" Padding="24,12">
       <StackPanel Spacing="4">
         <TextBlock Text="{Binding WindowTitle}" FontSize="20" FontWeight="SemiBold" />
         <TextBlock Text="{Binding SourceDescription}" Classes="muted" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceDescription}" />
       </StackPanel>
     </Border>
-    <Grid Grid.Row="1" Margin="24,16" ColumnDefinitions="*,24,260">
+    <Grid Grid.Row="1" Margin="24,12" ColumnDefinitions="*,24,260">
       <Border Classes="panel">
         <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel x:Name="FormFields" Margin="24" Spacing="20" IsEnabled="{Binding !IsBusy}">
+          <StackPanel x:Name="FormFields" Margin="16" Spacing="8" IsEnabled="{Binding !IsBusy}">
             <TextBlock Text="Заявка и заказчик" Classes="section" />
-            <Grid ColumnDefinitions="*,24,*,24,*">
+            <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding OrderDate}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SpecificationNumber}" />
-              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Manager}" />
             </Grid>
-            <ui:OrderEntryControl DataContext="{Binding Customer}" />
+            <Grid ColumnDefinitions="*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding Manager}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Customer}" />
+            </Grid>
             <TextBlock Text="Параметры резки" Classes="section" Margin="0,4,0,0" />
-            <Grid ColumnDefinitions="*,24,*,24,*">
+            <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding CuttingType}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Material}" />
-              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Thickness}" />
             </Grid>
-            <Grid ColumnDefinitions="*,24,*,24,*">
-              <ui:OrderEntryControl DataContext="{Binding SheetSize}" />
-              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SheetCount}" />
-              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Weight}" />
+            <Grid ColumnDefinitions="*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding Thickness}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SheetSize}" />
             </Grid>
-            <Grid ColumnDefinitions="*,24,*,24,*">
+            <Grid ColumnDefinitions="*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding SheetCount}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Weight}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding CutLength}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Coefficient}" />
             </Grid>
@@ -62,9 +66,9 @@
           </StackPanel>
         </ScrollViewer>
       </Border>
-      <Border Grid.Column="2" Classes="panel" Padding="24">
+      <Border Grid.Column="2" Classes="panel" Padding="20">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="16">
+        <StackPanel Spacing="12">
           <TextBlock Text="Стоимость" Classes="section" />
           <TextBlock Text="Прежняя цена" Classes="muted" />
           <TextBlock Text="{Binding StoredPriceText}" FontSize="18" FontWeight="Medium" TextWrapping="Wrap" />
@@ -80,7 +84,7 @@
       </Border>
     </Grid>
     <Border Grid.Row="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
-            BorderThickness="0,1,0,0" Padding="24,16">
+            BorderThickness="0,1,0,0" Padding="24,12">
       <Grid ColumnDefinitions="*,24,Auto" RowDefinitions="Auto,Auto">
         <StackPanel VerticalAlignment="Center" Spacing="4">
           <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />

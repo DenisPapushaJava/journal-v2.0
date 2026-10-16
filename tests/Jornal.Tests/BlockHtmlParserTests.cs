@@ -61,7 +61,7 @@ public sealed class BlockHtmlParserTests
         Assert.Equal(3, parsed.SheetCount!.Value); Assert.Equal(14, parsed.PartCount!.Value); Assert.Equal(31, parsed.PunchCount!.Value);
         Assert.Equal(32500.5m, parsed.CutLengthMillimeters!.Value); Assert.Equal(48.2m, parsed.WeightKilograms!.Value);
         Assert.Equal(TimeSpan.FromHours(36) + TimeSpan.FromMinutes(47), parsed.CuttingDuration!.Value);
-        var source = Assert.Single(parsed.CutLengthMillimeters.Sources);
+        var source = Assert.IsType<HtmlValueSource>(Assert.Single(parsed.CutLengthMillimeters.Sources));
         Assert.Equal("Длина реза:(мм)", source.Label); Assert.Equal("32500.5", source.RawText);
         Assert.Equal(3, source.Table); Assert.Equal(1, source.Row); Assert.Equal(1, source.Cell);
         var normalized = BlockSpecificationNormalizer.Normalize(parsed);
@@ -184,6 +184,9 @@ public sealed class BlockHtmlParserTests
     [InlineData("<td>Пробивки:</td><td>31</td>", "", SpecificationField.PunchCount, "MissingField")]
     [InlineData("<td>Вес:(кг)</td><td>48.2</td>", "<td>Вес:(кг)</td><td>неизвестно</td>", SpecificationField.Weight, "InvalidValue")]
     [InlineData("<td>Листов:</td><td>3</td>", "<td>Листов:</td><td>1.5</td>", SpecificationField.SheetCount, "InvalidValue")]
+    [InlineData("<td>Листов:</td><td>3</td>", "<td>Листов:</td><td>1,3</td>", SpecificationField.SheetCount, "InvalidValue")]
+    [InlineData("<td>Листов:</td><td>3</td>", "<td>Листов:</td><td>2+1</td>", SpecificationField.SheetCount, "InvalidValue")]
+    [InlineData("<td>Листов:</td><td>3</td>", "<td>Листов:</td><td>2 / комплект</td>", SpecificationField.SheetCount, "InvalidValue")]
     [InlineData("<td>Общие кол-во деталей:</td><td>14</td>", "<td>Общие кол-во деталей:</td><td>0</td>", SpecificationField.PartCount, "InvalidValue")]
     [InlineData("--ЛАЗЕР.rcam", "--НЕИЗВЕСТНЫЙ.rcam", SpecificationField.CuttingType, "InvalidValue")]
     [InlineData("2026-05-14", "2026-02-30", SpecificationField.Header, "InvalidValue")]

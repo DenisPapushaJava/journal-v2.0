@@ -79,7 +79,7 @@ public sealed class ResultWindowTests
     }
 
     [AvaloniaFact]
-    public void ResultUsesVisibleSortOrderAndCanStillBeSelectedWithKeyboard()
+    public void ResultUsesAscendingThicknessIndependentlyOfTableSortAndSupportsKeyboardSelection()
     {
         var model = new MainWindowViewModel(new DemoOrderStore());
         var window = new MainWindow { DataContext = model };
@@ -92,9 +92,12 @@ public sealed class ResultWindowTests
             table.SelectAll();
             Pump();
             Click(window, "AddResultButton");
-            var expected = table.CollectionView.Cast<OrderRowViewModel>().First();
-            Assert.Equal(3, expected.Id);
-            Assert.StartsWith("Лист   16x1500x6000", model.ResultText);
+            Assert.Equal(new[] { 3, 2, 1 }, table.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Assert.Equal(3, table.SelectedItems.Count);
+            var lines = model.ResultText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            Assert.StartsWith("Лист 2,5x1250x2500", lines[0]);
+            Assert.StartsWith("Лист     6x1500x3000", lines[1]);
+            Assert.StartsWith("Лист   16x1500x6000", lines[2]);
             var text = window.FindControl<TextBox>("ResultTextBox")!;
             text.Focus();
             window.KeyPress(Key.A, RawInputModifiers.Control, PhysicalKey.A, null);

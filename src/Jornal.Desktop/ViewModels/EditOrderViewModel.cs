@@ -51,7 +51,7 @@ public partial class EditOrderViewModel : ObservableObject
     public OrderEntryField Material { get; } = new("Материал", "Любая марка без пробелов");
     public OrderEntryField Thickness { get; } = new("Толщина, мм");
     public OrderEntryField SheetSize { get; } = new("Размер листа, мм");
-    public OrderEntryField SheetCount { get; } = new("Количество листов");
+    public OrderEntryField SheetCount { get; } = new("Количество листов", "Например, 2 или 1,3");
     public OrderEntryField Weight { get; } = new("Вес, кг");
     public OrderEntryField CutLength { get; } = new("Длина реза, м");
     public OrderEntryField Coefficient { get; } = new("Коэффициент");
@@ -134,6 +134,8 @@ public partial class EditOrderViewModel : ObservableObject
         var material = Text(Material, _expected.Material);
         if (Material.Value != _initial[Material] && material?.Any(char.IsWhiteSpace) == true)
         { Material.Error = "Материал без пробелов"; throw new ArgumentException("Материал"); }
+        if (SheetCount.Value != _initial[SheetCount] && !OrderSheetCount.IsValid(SheetCount.Value.Trim()))
+        { SheetCount.Error = OrderSheetCount.ValidationMessage; throw new ArgumentException("Количество листов"); }
         var values = _expected with { Date = date, Manager = Text(Manager, _expected.Manager), Specification = Text(SpecificationNumber, _expected.Specification),
             Customer = Text(Customer, _expected.Customer), CuttingType = CuttingType.Value, Material = material, SheetSize = Text(SheetSize, _expected.SheetSize),
             SheetCount = Text(SheetCount, _expected.SheetCount), Weight = Text(Weight, _expected.Weight),

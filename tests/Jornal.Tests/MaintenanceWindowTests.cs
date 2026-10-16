@@ -191,7 +191,7 @@ public sealed class MaintenanceWindowTests
             var path = Path.Combine(root, "OrderDB.journal-test.json");
             await LocalJournalStore.InitializeAsync(path, [], PriceTables.All.Select(name => new PriceTable(name, true, [new(2.5m, "2,5", 17)])).ToArray(),
                 "synthetic.mdb", new string('a', 64), TestContext.Current.CancellationToken);
-            var store = new LocalJournalStore(path); var original = OrderMaintenanceTests.Record();
+            var store = new LocalJournalStore(path); var original = OrderMaintenanceTests.Record() with { SheetCount = "2" };
             await store.RestoreAsync(original, TestContext.Current.CancellationToken);
             var source = new OrderSource(path, store, store, store, IsLocalCopy: true) { Maintenance = store };
             var model = new MainWindowViewModel(store, store, store, trashStore: new JsonTrashStore(Path.Combine(root, "Trash"))) { IsDarkTheme = dark };
@@ -206,6 +206,8 @@ public sealed class MaintenanceWindowTests
             editWindow.Show(); Dispatcher.UIThread.RunJobs();
             Save(editWindow, $"edit-{dark}");
             AssertVisible(editWindow, "SaveButton", "CancelButton", "CalculatePriceButton");
+            var fields = editWindow.FindControl<ScrollViewer>("FormScroll")!;
+            Assert.True(fields.Extent.Height <= fields.Viewport.Height + 1);
             editWindow.Close(); editWindow = null;
             Assert.Equal(result, model.ResultText); Assert.Equal(original, await store.ReadRecordAsync(original.Id, TestContext.Current.CancellationToken));
             var confirm = (await model.CreateTrashFormAsync(TestContext.Current.CancellationToken))!;

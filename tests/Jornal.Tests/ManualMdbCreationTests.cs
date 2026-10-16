@@ -112,7 +112,7 @@ public sealed class ManualMdbCreationTests
         form.OrderDate.Value = "02.01.2026"; form.SpecificationNumber.Value = "0102--44";
         form.Manager.Value = "Менеджер"; form.Customer.Value = "Клиент 'А'"; form.CuttingType.Value = "Лазер";
         form.Material.Value = "5083H111"; form.Thickness.Value = "2,5"; form.SheetSize.Value = "1500x3000";
-        form.SheetCount.Value = "02 / комплект"; form.Weight.Value = "0012,350";
+        form.SheetCount.Value = "2"; form.Weight.Value = "0012,350";
         form.CutLength.Value = "25"; form.Coefficient.Value = "2,3";
     }
     private static ManualOrderDraft Draft() => new(new(2026, 1, 2), "0102--44", "Имя", "Клиент", "Лазер", "5083H111", 2.5m,

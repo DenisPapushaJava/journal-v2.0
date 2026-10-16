@@ -122,7 +122,7 @@ public sealed class ScreenCustomizationTests
             Assert.True(model.IsDarkTheme);
             Assert.Equal(2, Grid.GetColumn(Find<Border>(window, "OrdersCommands")));
             Assert.Equal(2, Grid.GetRow(Find<Grid>(window, "ResultSlot")));
-            Assert.Equal(160, Find<Grid>(window, "ResultSlot").Bounds.Height);
+            Assert.Equal(114, Find<Grid>(window, "ResultSlot").Bounds.Height);
             Assert.False(table.Columns[3].IsVisible);
             Assert.Equal(1, table.Columns[2].DisplayIndex);
             model.SearchText = "5083";
@@ -144,7 +144,7 @@ public sealed class ScreenCustomizationTests
             Click(window, "ResetLayoutButton");
             Click(window, "SaveLayoutButton");
             Assert.True(store.Value!.Layout.ResultAboveCommands);
-            Assert.Equal(152, store.Value.Layout.ResultHeight);
+            Assert.Equal(106, store.Value.Layout.ResultHeight);
             Assert.True(model.IsDarkTheme);
             Assert.All(store.Value.Layout.Columns, column => Assert.True(column.Visible));
         }
@@ -155,15 +155,18 @@ public sealed class ScreenCustomizationTests
     public void ResultAndPanelResizeRespectMinimumsAndAreSaved()
     {
         var store = new MemoryUiPreferencesStore();
-        var (window, _) = Open(store, width: 1600, height: 1000);
+        var (window, model) = Open(store, width: 1600, height: 1000);
         try
         {
-            Click(window, "PersonalizeButton");
             var result = Find<Grid>(window, "ResultSlot");
             var sizeHandle = Find<LayoutHandle>(window, "ResultResizeHandle");
+            model.ResultText = "Текст для письма";
             var point = Center(window, sizeHandle);
             Drag(window, "ResultResizeHandle", new Point(point.X, point.Y + 70));
-            Assert.Equal(222, result.Bounds.Height);
+            Assert.Equal(176, result.Bounds.Height);
+            Assert.False(model.IsCustomizing);
+            Assert.Equal("Текст для письма", model.ResultText);
+            Click(window, "PersonalizeButton");
             var splitter = Find<GridSplitter>(window, "FirstPanelSplitter");
             var before = Find<Border>(window, "OrdersCommands").Bounds.Width;
             splitter.Focus();
@@ -172,7 +175,7 @@ public sealed class ScreenCustomizationTests
             for (var i = 0; i < 80; i++) PressKey(window, Key.Left);
             Assert.True(Find<Border>(window, "OrdersCommands").Bounds.Width >= 312);
             Click(window, "SaveLayoutButton");
-            Assert.Equal(222, store.Value!.Layout.ResultHeight);
+            Assert.Equal(176, store.Value!.Layout.ResultHeight);
             window.Width = 1280;
             window.Height = 680;
             Pump();
@@ -188,7 +191,7 @@ public sealed class ScreenCustomizationTests
             Pump();
             Click(window, "SaveLayoutButton");
             // В маленьком окне отмена захвата не заменяет желаемую высоту временно уменьшенной.
-            Assert.Equal(222, store.Value.Layout.ResultHeight);
+            Assert.Equal(176, store.Value.Layout.ResultHeight);
         }
         finally { window.Close(); }
     }

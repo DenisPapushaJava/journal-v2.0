@@ -14,8 +14,8 @@ public partial class NewOrderWindow
         {
             var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Выберите HTML-спецификацию БЛОК/Wintech", AllowMultiple = false,
-                FileTypeFilter = [new FilePickerFileType("Спецификации HTML") { Patterns = ["*.html", "*.htm", "*.HTML", "*.HTM"] }]
+                Title = "Выберите спецификацию", AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Спецификации HTML / PDF") { Patterns = ["*.html", "*.htm", "*.pdf", "*.HTML", "*.HTM", "*.PDF"] }]
             });
             if (!IsVisible || files.Count == 0) return;
             if (files[0].TryGetLocalPath() is not { } path)

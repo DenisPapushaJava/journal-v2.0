@@ -58,6 +58,8 @@ public sealed record OrderEditChange(OrderRecord Expected, OrderRecord Values, C
             Values.Material != Expected.Material && Values.Material?.Any(char.IsWhiteSpace) == true ||
             Values.Date != Expected.Date && Values.Date is null)
             throw new OrderWriteException(OrderWriteFailure.NotSaved, "Проверьте изменённые поля. Обязательный текст нельзя очистить, материал указывается без пробелов.");
+        if (Values.SheetCount != Expected.SheetCount && !OrderSheetCount.IsValid(Values.SheetCount))
+            throw new OrderWriteException(OrderWriteFailure.NotSaved, OrderSheetCount.ValidationMessage);
         _ = CuttingPriceCalculator.SelectTable(PriceRequest);
     }
 

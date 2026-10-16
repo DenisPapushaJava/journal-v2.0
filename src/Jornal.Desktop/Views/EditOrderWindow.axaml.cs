@@ -26,6 +26,7 @@ public partial class EditOrderWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        OrderWindowSizing.FitToWorkingArea(this);
         this.GetVisualDescendants().OfType<OrderEntryControl>().First().FocusInput();
     }
 

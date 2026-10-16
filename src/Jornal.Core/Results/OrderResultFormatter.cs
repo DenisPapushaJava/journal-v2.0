@@ -7,12 +7,17 @@ namespace Jornal.Core.Results;
 public static class OrderResultFormatter
 {
     private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("ru-RU");
+    private static readonly StringComparer MaterialComparer = StringComparer.Create(Culture, ignoreCase: true);
 
     public static string Format(IReadOnlyList<OrderSummary> orders)
     {
         if (orders.Any(order => order.StoredCuttingPrice is null))
             throw new ArgumentException("Для результата нужна рассчитанная стоимость каждой заявки.", nameof(orders));
         if (orders.Count == 0) return string.Empty;
+        // Меняется только порядок заявок в новой порции; формат строк и исходный список сохраняются.
+        orders = orders.OrderBy(order => order.ThicknessMillimeters is null)
+            .ThenBy(order => order.ThicknessMillimeters)
+            .ThenBy(order => order.MaterialName, MaterialComparer).ToArray();
         var rows = orders.Select(order => new[]
         {
             order.ThicknessMillimeters?.ToString("0.###", Culture) ?? "—", order.MaterialName, order.SheetCount,

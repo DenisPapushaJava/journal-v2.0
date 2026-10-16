@@ -59,33 +59,43 @@
       </Grid>
     </Border>
     <Grid x:Name="BodyGrid" Grid.Row="3" Margin="24,12,24,0" RowDefinitions="Auto,12,*">
-      <Grid x:Name="TopArea" RowDefinitions="152,12,120">
+      <Grid x:Name="TopArea" RowDefinitions="106,12,120">
         <Grid x:Name="ResultSlot">
-          <Border x:Name="ResultPanel" Classes="panel" Padding="16,12,16,16">
-            <Grid RowDefinitions="32,12,*">
-              <Grid ColumnDefinitions="Auto,16,*,Auto,8,Auto,8,Auto">
-                <TextBlock Text="Результат" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" IsVisible="{Binding !IsCustomizing}" />
-                <ui:LayoutHandle x:Name="ResultMoveHandle" AutomationProperties.Name="Переместить панель: Результат" Title="Результат" PanelId="result" IsVisible="{Binding IsCustomizing}"
-                                 ToolTip.Tip="Перетащите выше или ниже команд · ↑ ↓ с клавиатуры" />
-                <TextBlock x:Name="ResultFeedback" Grid.Column="2" Text="{Binding ResultMessage}" Classes="muted result-feedback"
-                           Classes.error="{Binding HasResultError}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+          <Border x:Name="ResultPanel" Classes="panel result-editor" Background="#F1F2F4" Margin="0,0,0,4">
+            <Grid ColumnDefinitions="*,176">
+              <Grid RowDefinitions="*,Auto">
+                <TextBox x:Name="ResultTextBox" Classes="result-editor" Text="{Binding ResultText, Mode=TwoWay}"
+                         IsReadOnly="{Binding !CanEditResult}" AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="Arial"
+                         FontSize="{Binding ResultFontSizePixels}" Padding="14,10" Background="Transparent" BorderThickness="0"
+                         Foreground="{Binding ResultTextBrush}" CaretBrush="#202124" SelectionBrush="#466991" SelectionForegroundBrush="White"
+                         PlaceholderForeground="#6A7482" PlaceholderText="Здесь будет текст для копирования в письмо"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         AutomationProperties.Name="Результат для письма" />
+                <TextBlock x:Name="ResultFeedback" Grid.Row="1" Text="{Binding ResultMessage}" IsVisible="{Binding ShowResultFeedback}"
+                           Foreground="{Binding ResultFeedbackBrush}" FontSize="11" Margin="14,0,12,6" TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding ResultMessage}" AutomationProperties.LiveSetting="Polite" />
-                <ui:JournalButton x:Name="AddResultButton" Grid.Column="3" Label="Добавить выбранные" Icon="list-plus"
-                                  Classes="outline" IsEnabled="{Binding CanAddResult}" Click="OnAddResultClick"
-                                  ToolTip.Tip="Добавить выбранные заявки без повторов" />
-                <ui:JournalButton x:Name="ClearResultButton" Grid.Column="5" Label="Очистить" Command="{Binding ClearResultCommand}"
-                                  IsEnabled="{Binding CanClearResult}" ToolTip.Tip="Очистить результат, сохранив выбор заявок" />
-                <ui:JournalButton x:Name="CopyResultButton" Grid.Column="7" Label="Копировать" Icon="clipboard-copy" Classes="primary"
-                                  IsEnabled="{Binding CanCopyResult}" Click="OnCopyResultClick"
-                                  ToolTip.Tip="Скопировать для письма: HTML, RTF и обычный текст" />
               </Grid>
-              <TextBox x:Name="ResultTextBox" Grid.Row="2" Text="{Binding ResultText, Mode=TwoWay}" IsReadOnly="{Binding !CanEditResult}" AcceptsReturn="True"
-                       TextWrapping="NoWrap" FontSize="14" Padding="16,10"
-                       Background="{DynamicResource JournalRaised}" Foreground="{DynamicResource JournalText}"
-                       BorderBrush="{DynamicResource JournalBorder}" CornerRadius="6"
-                       PlaceholderText="Здесь будет текст результата для копирования в письмо"
-                       ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                       AutomationProperties.Name="Результат для письма" />
+              <Grid Grid.Column="1" Margin="8,4">
+                <ui:ResultFormattingBar x:Name="ResultFormatting" Margin="0,0,38,0" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                <StackPanel x:Name="ResultActions" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Top">
+                  <ui:JournalButton x:Name="AddResultButton" Label="Добавить выбранные в результат" Icon="list-plus" IconOnly="True"
+                                    Classes="result-tool" Width="28" Height="28" MinHeight="28" Padding="0" CornerRadius="14"
+                                    IsEnabled="{Binding CanAddResult}" Click="OnAddResultClick"
+                                    ToolTip.Tip="Добавить выбранные заявки в результат без повторов" />
+                  <ui:JournalButton x:Name="CopyResultButton" Label="Копировать результат" Icon="clipboard-copy" IconOnly="True"
+                                    Classes="result-tool copy-tool" Width="28" Height="28" MinHeight="28" Padding="0" CornerRadius="14"
+                                    IsEnabled="{Binding CanCopyResult}" Click="OnCopyResultClick"
+                                    ToolTip.Tip="Скопировать для письма: HTML, RTF и обычный текст" />
+                  <ui:JournalButton x:Name="ClearResultButton" Label="Очистить результат" Icon="x" IconOnly="True"
+                                    Classes="result-tool" Width="28" Height="28" MinHeight="28" Padding="0" CornerRadius="14"
+                                    Command="{Binding ClearResultCommand}" IsEnabled="{Binding CanClearResult}"
+                                    ToolTip.Tip="Очистить текст результата, сохранив выбор заявок" />
+                </StackPanel>
+              </Grid>
+              <ui:LayoutHandle x:Name="ResultMoveHandle" AutomationProperties.Name="Переместить панель: Результат"
+                               Title="Результат" PanelId="result" IsVisible="{Binding IsCustomizing}" Margin="8"
+                               HorizontalAlignment="Left" VerticalAlignment="Top"
+                               ToolTip.Tip="Перетащите выше или ниже команд · ↑ ↓ с клавиатуры" />
             </Grid>
           </Border>
           <ui:LayoutHandle x:Name="ResultResizeHandle" PanelId="result-size" Classes="result-resizer" Height="8"
@@ -291,7 +301,7 @@
     </Grid>
     <Border x:Name="SpecificationOverlay" Grid.RowSpan="5" ZIndex="100" IsVisible="{Binding ShowSpecificationOverlay}"
             Background="#66000000" Padding="40" AutomationProperties.LiveSetting="Polite">
-      <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalAccent}" BorderThickness="2"
+      <Border IsVisible="{Binding IsImportingSpecification}" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalAccent}" BorderThickness="2"
               CornerRadius="16" Padding="40" MaxWidth="700" HorizontalAlignment="Stretch" VerticalAlignment="Center">
         <StackPanel Spacing="20">
           <TextBlock Text="{Binding SpecificationOverlayTitle}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Center" />

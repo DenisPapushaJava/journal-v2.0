@@ -33,7 +33,7 @@ public partial class MainWindow
         e.Handled = true; e.DragEffects = DragDropEffects.None;
         if (model.IsImportingSpecification || OwnedWindows.Count > 0) return;
         model.SpecificationDropError = model.ImportAvailabilityError ?? SpecificationImportService.CheckFiles(paths);
-        model.SpecificationOverlayDescription = model.SpecificationDropError ?? "HTML БЛОК/Wintech · затем проверьте поля новой заявки";
+        model.SpecificationOverlayDescription = model.SpecificationDropError ?? "HTML БЛОК/Wintech или PDF HansLaser · затем проверьте поля новой заявки";
         model.IsDraggingSpecification = true;
         if (model.SpecificationDropError is null) e.DragEffects = DragDropEffects.Copy;
     }

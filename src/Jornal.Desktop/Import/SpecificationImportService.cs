@@ -15,8 +15,8 @@ public sealed class SpecificationImportService : ISpecificationImportService
     public static string? CheckFiles(IReadOnlyList<string> paths) => paths.Count != 1
         ? "Перетащите одну спецификацию. Несколько файлов пока не импортируются одновременно."
         : string.IsNullOrWhiteSpace(paths[0]) ? "Перетащите файл из локальной или подключённой сетевой папки. Папки не импортируются."
-        : Path.GetExtension(paths[0]).ToLowerInvariant() is not (".html" or ".htm")
-            ? "Сейчас доступен импорт HTML БЛОК/Wintech (.html, .htm). Профиль PDF HansLaser ещё не подключён."
+        : Path.GetExtension(paths[0]).ToLowerInvariant() is not (".html" or ".htm" or ".pdf")
+            ? "Выберите HTML БЛОК/Wintech (.html, .htm) или PDF HansLaser (.pdf)."
             : null;
 
     public Task<SpecificationImportPreview> ReadAsync(string path, CancellationToken cancellationToken)
@@ -25,7 +25,8 @@ public sealed class SpecificationImportService : ISpecificationImportService
         return Task.Run(async () =>
         {
             var document = await new DocumentReader().ReadAsync(path, cancellationToken);
-            var report = new BlockHtmlSpecificationParser().Parse(document, cancellationToken);
+            var report = document.Kind == DocumentKind.Pdf ? new HansPdfSpecificationParser().Parse(document, cancellationToken) :
+                new BlockHtmlSpecificationParser().Parse(document, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             return SpecificationImportPreview.Create(Path.GetFileName(path), report);
         }, cancellationToken);
@@ -48,11 +49,15 @@ public sealed record SpecificationImportPreview(string FileName, SpecificationPa
     {
         var fields = new Dictionary<string, ImportedField>();
         bool Bad(SpecificationField field) => report.Issues.Any(issue => issue.Field == field && issue.Severity == SpecificationIssueSeverity.Error);
-        void Add(string name, SpecificationField field, string? value, IEnumerable<HtmlValueSource>? sources)
+        void Add(string name, SpecificationField field, string? value, IEnumerable<SpecificationValueSource>? sources)
         {
             sources ??= report.Issues.Where(issue => issue.Field == field).SelectMany(issue => issue.Sources ?? []);
-            var evidence = string.Join("\n", sources.Distinct().Select(source =>
-                $"Таблица {source.Table + 1}, строка {source.Row + 1}: {Short(source.Label)} {Short(source.RawText)}"));
+            var evidence = string.Join("\n", sources.Distinct().Select(source => source switch
+            {
+                HtmlValueSource html => $"Таблица {html.Table + 1}, строка {html.Row + 1}: {Short(html.Label)} {Short(html.RawText)}",
+                PdfValueSource pdf => $"Страница {pdf.Page}, область ({pdf.Left:0.#}; {pdf.Bottom:0.#})–({pdf.Right:0.#}; {pdf.Top:0.#}): {Short(pdf.Label)} {Short(pdf.RawText)}",
+                _ => $"{Short(source.Label)} {Short(source.RawText)}"
+            }));
             fields[name] = new(Bad(field) ? "" : value ?? "", evidence);
         }
         string Number(decimal value) => value.ToString("0.############################", CultureInfo.InvariantCulture);
@@ -71,7 +76,10 @@ public sealed record SpecificationImportPreview(string FileName, SpecificationPa
         Add("SheetCount", SpecificationField.SheetCount, report.SheetCount is { } count ? Number(count.Value) : null, report.SheetCount?.Sources);
         Add("Weight", SpecificationField.Weight, report.WeightKilograms is { } weight ? Number(weight.Value) : null, report.WeightKilograms?.Sources);
         Add("CutLength", SpecificationField.CutLength, report.CutLengthMillimeters is { } length && !Bad(SpecificationField.CutLength)
-            ? BlockSpecificationNormalizer.LegacyCutLengthMeters(length.Value).ToString(CultureInfo.InvariantCulture) : null, report.CutLengthMillimeters?.Sources);
+            ? (report.Profile == HansPdfSpecificationParser.Profile ? HansSpecificationNormalizer.LegacyCutLengthMeters(length.Value) :
+                BlockSpecificationNormalizer.LegacyCutLengthMeters(length.Value)).ToString(CultureInfo.InvariantCulture) : null, report.CutLengthMillimeters?.Sources);
+        Add("MaterialId", SpecificationField.MaterialId, report.MaterialId?.Value, report.MaterialId?.Sources);
+        Add("Gas", SpecificationField.CuttingGas, report.CuttingGas?.Value, report.CuttingGas?.Sources);
         var parts = !Bad(SpecificationField.PartCount) ? report.PartCount?.Value : null;
         var punches = !Bad(SpecificationField.PunchCount) ? report.PunchCount?.Value : null;
         fields["Coefficient"] = new(parts is > 0 && punches is >= 0 ? Number(CuttingPriceCalculator.CalculatePunchCoefficient(parts.Value, punches.Value)) : "",

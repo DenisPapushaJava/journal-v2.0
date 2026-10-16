@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
         x:Class="Jornal.Desktop.Views.NewOrderWindow" x:DataType="vm:NewOrderViewModel"
-        Title="{Binding WindowTitle}" Width="1200" Height="720" MinWidth="1060" MinHeight="600"
+        Title="{Binding WindowTitle}" Width="1240" Height="760" MinWidth="1060" MinHeight="600"
         WindowStartupLocation="CenterOwner">
   <Window.Styles>
     <Style Selector="TextBlock.section">
@@ -21,7 +21,7 @@
   </Window.Styles>
   <Grid RowDefinitions="Auto,*,Auto">
     <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
-            BorderThickness="0,0,0,1" Padding="24,16">
+            BorderThickness="0,0,0,1" Padding="24,12">
       <StackPanel Spacing="4">
         <TextBlock Text="Новая заявка" FontSize="20" FontWeight="SemiBold" />
         <TextBlock Text="{Binding StorageDescription}" Classes="muted" TextWrapping="Wrap" />
@@ -29,29 +29,33 @@
                    IsVisible="{Binding HasImportDiagnostics}" TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" />
       </StackPanel>
     </Border>
-    <Grid Grid.Row="1" Margin="24,16" ColumnDefinitions="*,24,260">
+    <Grid Grid.Row="1" Margin="24,12" ColumnDefinitions="*,24,260">
       <Border Classes="panel">
         <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel x:Name="FormFields" Margin="24" Spacing="20" IsEnabled="{Binding !IsBusy}">
+          <StackPanel x:Name="FormFields" Margin="16" Spacing="8" IsEnabled="{Binding !IsBusy}">
             <TextBlock Text="Заявка и заказчик" Classes="section" />
-            <Grid ColumnDefinitions="*,24,*,24,*">
+            <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding OrderDate}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SpecificationNumber}" />
-              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Manager}" />
             </Grid>
-            <ui:OrderEntryControl DataContext="{Binding Customer}" />
+            <Grid ColumnDefinitions="*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding Manager}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Customer}" />
+            </Grid>
             <TextBlock Text="Параметры резки" Classes="section" Margin="0,4,0,0" />
-            <Grid ColumnDefinitions="*,24,*,24,*">
+            <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding CuttingType}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Material}" />
-              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Thickness}" />
             </Grid>
-            <Grid ColumnDefinitions="*,24,*,24,*">
-              <ui:OrderEntryControl DataContext="{Binding SheetSize}" />
-              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SheetCount}" />
-              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Weight}" />
+            <Grid ColumnDefinitions="*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding Thickness}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SheetSize}" />
             </Grid>
-            <Grid ColumnDefinitions="*,24,*,24,*">
+            <Grid ColumnDefinitions="*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding SheetCount}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Weight}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding CutLength}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Coefficient}" />
             </Grid>
@@ -64,9 +68,9 @@
           </StackPanel>
         </ScrollViewer>
       </Border>
-      <Border Grid.Column="2" Classes="panel" Padding="24">
+      <Border Grid.Column="2" Classes="panel" Padding="20">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="16">
+        <StackPanel Spacing="12">
           <TextBlock Text="Стоимость" Classes="section" />
           <TextBlock Text="{Binding PriceText}" FontSize="18" FontWeight="Medium" />
           <TextBlock Text="{Binding PriceBreakdown}" Classes="muted" TextWrapping="Wrap" />
@@ -77,9 +81,9 @@
                      Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
           <Border Height="1" Background="{DynamicResource JournalBorder}" Margin="0,8" />
           <TextBlock Text="Из спецификации" Classes="section" />
-          <TextBlock Text="Выберите HTML БЛОК/Wintech или перетащите его на главное окно. Проверьте поля перед добавлением."
+          <TextBlock Text="Выберите HTML БЛОК/Wintech или PDF HansLaser. Файл можно перетащить на главное окно. Проверьте поля перед добавлением."
                      Classes="muted" TextWrapping="Wrap" />
-          <ui:JournalButton x:Name="BrowseSpecificationButton" Label="Выбрать HTML" Classes="outline" IsEnabled="{Binding !IsBusy}"
+          <ui:JournalButton x:Name="BrowseSpecificationButton" Label="Выбрать спецификацию" Classes="outline" IsEnabled="{Binding !IsBusy}"
                             Click="OnBrowseSpecification" ToolTip.Tip="Прочитать спецификацию без записи в журнал" />
           <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsImporting}" Height="4" />
           <ui:JournalButton Label="Отменить чтение" Click="OnCancelFormImport" IsVisible="{Binding IsImporting}" />
@@ -92,7 +96,7 @@
             </StackPanel>
           </Border>
           <TextBlock Text="{Binding ImportError}" IsVisible="{Binding HasImportError}" TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" />
-          <StackPanel IsVisible="{Binding HasImport}" Spacing="12">
+          <StackPanel IsVisible="{Binding HasImport}" Spacing="8">
             <TextBlock x:Name="ImportFileName" Text="{Binding ImportPreview.FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ImportPreview.FileName}" FontWeight="Medium" />
             <TextBlock Text="{Binding ImportPreview.Counts}" Classes="muted" TextWrapping="Wrap" />
             <TextBlock Text="{Binding ImportPreview.Duration}" Classes="muted" TextWrapping="Wrap" />
@@ -102,13 +106,13 @@
             <TextBlock Text="Пустые поля заполните вручную. Источник значения доступен в подсказке под полем." Classes="muted" TextWrapping="Wrap" />
           </StackPanel>
           <ui:JournalButton Label="Вставить текст" Classes="outline" IsEnabled="False"
-                            ToolTip.Tip="Профили PDF и текста будут добавлены отдельно" />
+                            ToolTip.Tip="Импорт текста из буфера будет добавлен отдельно" />
         </StackPanel>
         </ScrollViewer>
       </Border>
     </Grid>
     <Border Grid.Row="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
-            BorderThickness="0,1,0,0" Padding="24,16">
+            BorderThickness="0,1,0,0" Padding="24,12">
       <Grid ColumnDefinitions="*,24,Auto" RowDefinitions="Auto,Auto">
         <StackPanel VerticalAlignment="Center" Spacing="4">
           <TextBlock Text="{Binding SaveDescription}" Classes="muted" TextWrapping="Wrap" />

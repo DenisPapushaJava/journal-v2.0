@@ -79,7 +79,11 @@ public sealed class MainWindowCustomization
         if (Model is { } model)
         {
             model.PreferencesError = loaded.Error;
-            if (loaded.Preferences is { } profile) model.IsDarkTheme = profile.DarkTheme;
+            if (loaded.Preferences is { } profile)
+            {
+                model.IsDarkTheme = profile.DarkTheme;
+                model.ApplyResultStyle(profile.ResultFormatting ?? new());
+            }
         }
         Apply(loaded.Preferences?.Layout ?? new ScreenLayout());
         _applying = false;
@@ -131,10 +135,10 @@ public sealed class MainWindowCustomization
         UpdateResultSize();
     }
 
-    public void ThemeChanged()
+    public void AppearanceChanged()
     {
         if (!_initialized || _applying) return;
-        // Тема сохраняется сразу, даже если пробную компоновку затем отменят.
+        // Тема/оформление текста сохраняются и при последующей отмене пробной компоновки.
         if (_beforeEdit is { } original) Write(original);
         else Changed();
     }
@@ -159,7 +163,8 @@ public sealed class MainWindowCustomization
     {
         try
         {
-            _store.Save(new UiPreferences { DarkTheme = Model?.IsDarkTheme == true, Layout = layout });
+            _store.Save(new UiPreferences { DarkTheme = Model?.IsDarkTheme == true, Layout = layout,
+                ResultFormatting = Model?.CaptureResultStyle() ?? new() });
             if (Model is { } model) model.PreferencesError = null;
             return true;
         }
@@ -238,7 +243,7 @@ public sealed class MainWindowCustomization
         var filtersHeight = Math.Max(36, Find<Grid>("FiltersPanel").Bounds.Height);
         var error = Find<Border>("LoadErrorPanel");
         var available = body.Bounds.Height - 120 - 24 - filtersHeight - 12 - 36 - 128 - (error.IsVisible ? error.Bounds.Height + error.Margin.Bottom : 0);
-        var height = Math.Min(_layout.ResultHeight, Math.Max(120, available));
+        var height = Math.Min(_layout.ResultHeight, Math.Max(ScreenLayout.MinimumResultHeight, available));
         _top.RowDefinitions[_layout.ResultAboveCommands ? 0 : 2].Height = new GridLength(height);
         _top.RowDefinitions[_layout.ResultAboveCommands ? 2 : 0].Height = new GridLength(120);
     }
@@ -256,7 +261,7 @@ public sealed class MainWindowCustomization
         if (_drag is not { } handle) return;
         if (handle.PanelId == "result-size")
         {
-            _layout = _layout with { ResultHeight = Math.Clamp(_resizeStart + point.Y - handle.StartPoint.Y, 120, 280) };
+            _layout = _layout with { ResultHeight = Math.Clamp(_resizeStart + point.Y - handle.StartPoint.Y, ScreenLayout.MinimumResultHeight, ScreenLayout.MaximumResultHeight) };
             UpdateResultSize();
             return;
         }
@@ -334,7 +339,7 @@ public sealed class MainWindowCustomization
         if (sender is not LayoutHandle handle) return;
         if (handle.PanelId == "result-size" && e.Key is Key.Up or Key.Down)
         {
-            _layout = _layout with { ResultHeight = Math.Clamp(Find<Grid>("ResultSlot").Bounds.Height + (e.Key == Key.Up ? -8 : 8), 120, 280) };
+            _layout = _layout with { ResultHeight = Math.Clamp(Find<Grid>("ResultSlot").Bounds.Height + (e.Key == Key.Up ? -8 : 8), ScreenLayout.MinimumResultHeight, ScreenLayout.MaximumResultHeight) };
             UpdateResultSize();
             Changed();
             e.Handled = true;

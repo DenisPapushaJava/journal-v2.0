@@ -10,6 +10,21 @@ namespace Jornal.Tests;
 public sealed class SpecificationImportTests
 {
     [Fact]
+    public async Task FractionalHtmlCountRequiresManualInputAndIsNeverRounded()
+    {
+        using var sample = new Sample(Sample.Html.Replace("<td>Листов:</td><td>3</td>", "<td>Листов:</td><td>1,3</td>"));
+        var preview = await new SpecificationImportService().ReadAsync(sample.Path, TestContext.Current.CancellationToken);
+        var form = new NewOrderViewModel(new DemoOrderStore());
+        form.ApplyImport(preview);
+        Assert.Empty(form.SheetCount.Value); Assert.True(form.HasImportDiagnostics);
+        form.Manager.Value = "Менеджер"; form.Customer.Value = "Клиент";
+        form.SheetCount.Value = "1,3";
+        Assert.Equal("Изменено вручную", form.SheetCount.ImportHint);
+        await form.SaveCommand.ExecuteAsync(null);
+        Assert.True(form.IsSaved); Assert.Equal("1,3", form.CreatedOrder!.SheetCount);
+    }
+
+    [Fact]
     public async Task OptionalPrivateCorpusPrefillsTheSameFieldsAsIndependentExpectationsWithoutSaving()
     {
         var path = Environment.GetEnvironmentVariable("JOURNAL_BLOCK_SPEC_MANIFEST");
@@ -158,7 +173,7 @@ public sealed class SpecificationImportTests
     }
 
     [Theory]
-    [InlineData("a.pdf")]
+    [InlineData("a.docx")]
     [InlineData("a.txt")]
     [InlineData("")]
     public void UnsupportedInputsAreExplained(string path) => Assert.NotNull(SpecificationImportService.CheckFiles([path]));

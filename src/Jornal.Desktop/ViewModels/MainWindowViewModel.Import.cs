@@ -10,7 +10,7 @@ public partial class MainWindowViewModel
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowSpecificationOverlay)), NotifyPropertyChangedFor(nameof(SpecificationOverlayTitle))]
     private bool _isImportingSpecification;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(SpecificationOverlayTitle))] private string? _specificationDropError;
-    [ObservableProperty] private string _specificationOverlayDescription = "HTML БЛОК/Wintech · новая заявка после проверки";
+    [ObservableProperty] private string _specificationOverlayDescription = "HTML БЛОК/Wintech или PDF HansLaser · новая заявка после проверки";
     public bool ShowSpecificationOverlay => IsDraggingSpecification || IsImportingSpecification;
     public string SpecificationOverlayTitle => IsImportingSpecification ? "Читаем спецификацию…" :
         SpecificationDropError is null ? "Отпустите спецификацию здесь" : "Этот файл пока не принимается";
