@@ -1,10 +1,13 @@
 using Jornal.Core.Orders;
+using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Demo;
 
 public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor
 {
     private readonly object _gate = new();
+    private int _lastIssuedId = 3;
+    public IOrderMaintenance Maintenance => new MaintenanceAdapter(this);
     // Только память текущего сеанса. Рабочая MDB здесь никогда не открывается.
     private readonly List<OrderSummary> _orders =
         [
@@ -33,7 +36,7 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBa
         lock (_gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var order = new OrderSummary(_orders.Max(row => row.Id) + 1, draft.OrderDate,
+            var order = new OrderSummary(++_lastIssuedId, draft.OrderDate,
                 draft.SpecificationNumber, draft.ManagerName, draft.CustomerName, draft.CuttingType,
                 draft.MaterialName, draft.ThicknessMillimeters, null, -1)
             {
@@ -68,6 +71,50 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBa
             cancellationToken.ThrowIfCancellationRequested();
             foreach (var pair in prepared) _orders[pair.Index] = pair.Order;
             return Task.FromResult<IReadOnlyList<OrderSummary>>(prepared.Select(pair => pair.Order).ToArray());
+        }
+    }
+
+    private sealed class MaintenanceAdapter(DemoOrderStore store) : IOrderMaintenance
+    {
+        private OrderRecord? Find(int id) => store._orders.SingleOrDefault(row => row.Id == id) is { } row ? OrderRecord.FromSummary(row) : null;
+        public Task<OrderRecord?> ReadRecordAsync(int id, CancellationToken cancellationToken = default)
+        { lock (store._gate) { cancellationToken.ThrowIfCancellationRequested(); return Task.FromResult(Find(id)); } }
+        public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); PriceTables.ValidateName(tableName);
+            return Task.FromResult(new PriceTable(tableName, true, new decimal[] { 0.5m, 1, 1.5m, 2, 2.5m, 3, 4, 6, 8, 10, 12, 16, 20, 32, 60, 200 }
+                .Select(t => new PriceRate(t, t.ToString(System.Globalization.CultureInfo.InvariantCulture), 25)).ToArray()));
+        }
+        public async Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
+        {
+            change.Validate(); var table = await ReadAsync(CuttingPriceCalculator.SelectTable(change.PriceRequest), cancellationToken);
+            lock (store._gate)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (Find(change.Expected.Id) != change.Expected) throw OrderWriteException.Conflict();
+                var saved = change.Calculate(table);
+                store._orders[store._orders.FindIndex(row => row.Id == saved.Id)] = saved.ToSummary();
+                return saved;
+            }
+        }
+        public Task DeleteAsync(OrderRecord expected, CancellationToken cancellationToken = default)
+        {
+            lock (store._gate)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (Find(expected.Id) != expected) throw OrderWriteException.Conflict();
+                store._orders.RemoveAll(row => row.Id == expected.Id); return Task.CompletedTask;
+            }
+        }
+        public Task<OrderRecord> RestoreAsync(OrderRecord archived, CancellationToken cancellationToken = default)
+        {
+            archived.Validate(); lock (store._gate)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (Find(archived.Id) is not null) throw OrderWriteException.Conflict();
+                store._orders.Add(archived.ToSummary()); store._lastIssuedId = Math.Max(store._lastIssuedId, archived.Id);
+                return Task.FromResult(archived);
+            }
         }
     }
 }

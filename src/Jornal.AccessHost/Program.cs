@@ -38,6 +38,19 @@ try
         throw new InvalidDataException("Несовместимый запрос модуля Access.");
     if (request.Operation == AccessHostOperation.ReadPriceTable)
         response = new(1, PriceTable: await new AccessPriceReader(request.Path).ReadAsync(request.PriceTableName ?? ""));
+    else if (request.Operation is AccessHostOperation.ReadOrder or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder)
+    {
+        var maintenance = new OleDbOrderMaintenance(request.Path);
+        OrderRecord? row = null;
+        switch (request.Operation)
+        {
+            case AccessHostOperation.ReadOrder: row = await maintenance.ReadRecordAsync(request.OrderId); break;
+            case AccessHostOperation.UpdateOrder: row = await maintenance.UpdateAsync(request.Edit ?? throw new InvalidDataException("Не переданы правки.")); break;
+            case AccessHostOperation.DeleteOrder: await maintenance.DeleteAsync(request.Record ?? throw new InvalidDataException("Не передана исходная запись.")); break;
+            case AccessHostOperation.RestoreOrder: row = await maintenance.RestoreAsync(request.Record ?? throw new InvalidDataException("Не передан архив.")); break;
+        }
+        response = new(1, Record: row, MaintenanceCompleted: true);
+    }
     else
     {
         var editor = new OleDbOrderBatchEditor(request.Path);
@@ -54,13 +67,14 @@ try
     }
 }
 catch (OrderPriceChangedException exception) { response = new(1, Error: exception.Message, Failure: OrderWriteFailure.NotSaved, ChangedQuote: exception.Quote); }
+catch (OrderEditPriceChangedException exception) { response = new(1, Error: exception.Message, Failure: OrderWriteFailure.NotSaved, ChangedQuote: exception.Quote); }
 catch (PriceCalculationException exception) { response = new(1, Error: exception.Message, Failure: OrderWriteFailure.NotSaved); }
 catch (OrderWriteException exception) { response = new(1, Error: exception.Message, Failure: exception.Failure); }
 catch (Exception exception)
 {
     response = new(1, Error: exception is OrderReadException or PriceReadException or ArgumentException or InvalidDataException
         ? exception.Message : "Модуль Access не смог выполнить запрос.",
-        Failure: request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder
+        Failure: request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder
             ? exception is ArgumentException or InvalidDataException ? OrderWriteFailure.NotSaved : OrderWriteFailure.OutcomeUnknown : null);
 }
 await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response));

@@ -1,0 +1,100 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
+        x:Class="Jornal.Desktop.Views.EditOrderWindow" x:DataType="vm:EditOrderViewModel"
+        Title="{Binding WindowTitle}" Width="1200" Height="720" MinWidth="1060" MinHeight="600"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBox.invalid">
+      <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
+    </Style>
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+    </Style>
+    <Style Selector="TextBox.invalid:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
+    </Style>
+  </Window.Styles>
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
+            BorderThickness="0,0,0,1" Padding="24,16">
+      <StackPanel Spacing="4">
+        <TextBlock Text="{Binding WindowTitle}" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding SourceDescription}" Classes="muted" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceDescription}" />
+      </StackPanel>
+    </Border>
+    <Grid Grid.Row="1" Margin="24,16" ColumnDefinitions="*,24,260">
+      <Border Classes="panel">
+        <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="FormFields" Margin="24" Spacing="20" IsEnabled="{Binding !IsBusy}">
+            <TextBlock Text="Заявка и заказчик" Classes="section" />
+            <Grid ColumnDefinitions="*,24,*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding OrderDate}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SpecificationNumber}" />
+              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Manager}" />
+            </Grid>
+            <ui:OrderEntryControl DataContext="{Binding Customer}" />
+            <TextBlock Text="Параметры резки" Classes="section" Margin="0,4,0,0" />
+            <Grid ColumnDefinitions="*,24,*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding CuttingType}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Material}" />
+              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Thickness}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,24,*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding SheetSize}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding SheetCount}" />
+              <ui:OrderEntryControl Grid.Column="4" DataContext="{Binding Weight}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,24,*,24,*">
+              <ui:OrderEntryControl DataContext="{Binding CutLength}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Coefficient}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,24,*" IsVisible="{Binding IsHansLaser}">
+              <ui:OrderEntryControl DataContext="{Binding MaterialId}" />
+              <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Gas}" />
+            </Grid>
+            <TextBlock Text="Дробные значения — через запятую или точку. Незаданные исходные поля и время даты сохраняются, если их не менять."
+                       Classes="muted" TextWrapping="Wrap" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+      <Border Grid.Column="2" Classes="panel" Padding="24">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16">
+          <TextBlock Text="Стоимость" Classes="section" />
+          <TextBlock Text="Прежняя цена" Classes="muted" />
+          <TextBlock Text="{Binding StoredPriceText}" FontSize="18" FontWeight="Medium" TextWrapping="Wrap" />
+          <TextBlock Text="После сохранения" Classes="muted" />
+          <TextBlock Text="{Binding PriceText}" FontSize="18" FontWeight="Medium" TextWrapping="Wrap" />
+          <TextBlock Text="Сохранение пересчитывает цену по текущему прайсу, как в старой программе. Новая цена показывается перед записью." Classes="muted" TextWrapping="Wrap" />
+          <ui:JournalButton x:Name="CalculatePriceButton" Label="Рассчитать" Icon="refresh-cw" Command="{Binding CalculateCommand}" IsEnabled="{Binding CanSave}" />
+          <TextBlock Text="{Binding MetadataText}" Classes="muted" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Comparison}" IsVisible="{Binding HasCurrentVersion}" TextWrapping="Wrap" />
+          <ui:JournalButton Label="Применить мои правки" Command="{Binding RebaseCommand}" IsVisible="{Binding HasCurrentVersion}" />
+        </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+    <Border Grid.Row="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
+            BorderThickness="0,1,0,0" Padding="24,16">
+      <Grid ColumnDefinitions="*,24,Auto" RowDefinitions="Auto,Auto">
+        <StackPanel VerticalAlignment="Center" Spacing="4">
+          <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
+          <ui:JournalButton x:Name="RefreshConflictButton" Label="Обновить заявку (F5)" Command="{Binding RefreshCommand}" IsVisible="{Binding RequiresReload}" IsEnabled="{Binding CanRefresh}" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <ui:JournalButton x:Name="CancelButton" Label="Отмена" Classes="outline" MinHeight="38"
+                            Click="OnCancelClick" IsEnabled="{Binding !SaveCommand.IsRunning}" />
+          <ui:JournalButton x:Name="SaveButton" Label="Сохранить" Classes="primary" MinHeight="38"
+                            IsEnabled="{Binding CanSave}" Command="{Binding SaveCommand}" Click="OnSaveClick" IsDefault="True" />
+        </StackPanel>
+        <ui:WindowsSecurityHelp x:Name="OrderSecurityHelp" Grid.Row="1" Grid.ColumnSpan="3" Margin="0,8,0,0"
+                                DataContext="{Binding AccessHostHelp}" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

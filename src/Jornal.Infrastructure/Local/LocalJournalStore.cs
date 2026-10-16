@@ -8,7 +8,7 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Local;
 
 // Отдельная локальная копия для разработки. Этот адаптер никогда не открывает MDB для записи.
-public sealed class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor, IPriceReader
+public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor, IPriceReader, IOrderMaintenance
 {
     public const string Extension = ".journal-test.json";
     private const long MaximumSize = 128 * 1024 * 1024;
@@ -62,7 +62,9 @@ public sealed class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrde
             if (change.Expected.Any(expected => !current.TryGetValue(expected.Id, out var row) || !change.Matches(row, expected)))
                 throw OrderWriteException.Conflict();
             var replacements = change.Expected.ToDictionary(row => row.Id, row => change.Apply(current[row.Id]));
-            return (book with { Orders = book.Orders.Select(row => replacements.GetValueOrDefault(row.Id, row)).ToArray() },
+            return (book with { Orders = book.Orders.Select(row => replacements.GetValueOrDefault(row.Id, row)).ToArray(),
+                Records = book.Records?.Select(record => replacements.TryGetValue(record.Id, out var updated)
+                    ? record with { Color = updated.Color, DeliveryNumber = updated.DeliveryNumber } : record).ToArray() },
                 replacements.Values.ToArray());
         }, cancellationToken);
 
@@ -122,7 +124,7 @@ public sealed class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrde
             Validate(book);
             return book;
         }
-        catch (Exception exception) when (exception is JsonException or ArgumentException or InvalidOperationException)
+        catch (Exception exception) when (exception is JsonException or ArgumentException or InvalidOperationException or OrderWriteException or OverflowException)
         {
             throw new OrderReadException("Локальная копия повреждена или имеет неподдерживаемый формат. Файл не изменён.", exception);
         }
@@ -179,10 +181,22 @@ public sealed class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrde
             book.Prices.Length != PriceTables.All.Count ||
             !book.Prices.Select(table => table?.Name).ToHashSet().SetEquals(PriceTables.All))
             throw new ArgumentException("Некорректный файл локальной копии.");
+        if (book.Records is { } records)
+        {
+            var orders = book.Orders.ToDictionary(row => row.Id);
+            if (records.Any(row => row is null) || records.Select(row => row.Id).Distinct().Count() != records.Length)
+                throw new ArgumentException("Некорректные исходные записи локальной копии.");
+            foreach (var record in records)
+            {
+                record.Validate();
+                if (!orders.TryGetValue(record.Id, out var row) || row != record.ToSummary())
+                    throw new ArgumentException("Исходные записи не соответствуют списку локальной копии.");
+            }
+        }
         foreach (var table in book.Prices) table.Validate();
     }
 
 }
 
 internal sealed record LocalJournalFile(string Format, int Version, string SourceName, string SourceSha256,
-    DateTimeOffset ImportedAt, int LastIssuedId, OrderSummary[] Orders, PriceTable[] Prices);
+    DateTimeOffset ImportedAt, int LastIssuedId, OrderSummary[] Orders, PriceTable[] Prices, OrderRecord[]? Records = null);

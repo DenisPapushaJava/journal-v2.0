@@ -22,10 +22,14 @@ public sealed class AccessHostTests
         Assert.True(AccessHostBlockedException.Contains(read));
         var price = await Assert.ThrowsAsync<PriceReadException>(() => client.ReadPriceTableAsync(PriceTables.Laser, TestContext.Current.CancellationToken));
         Assert.True(AccessHostBlockedException.Contains(price));
+        Assert.True(AccessHostBlockedException.Contains(await Assert.ThrowsAsync<OrderReadException>(() => client.ReadRecordAsync(42, TestContext.Current.CancellationToken))));
         foreach (var operation in new Func<Task>[] {
             async () => await client.SetColorAsync([Row()], OrderColors.Work, TestContext.Current.CancellationToken),
             async () => await client.SetDeliveryNumberAsync([Row()], "номер", TestContext.Current.CancellationToken),
-            async () => await client.CreateAsync(Draft(), TestContext.Current.CancellationToken) })
+            async () => await client.CreateAsync(Draft(), TestContext.Current.CancellationToken),
+            async () => await client.UpdateAsync(new(OrderMaintenanceTests.Record(), OrderMaintenanceTests.Record() with { Customer = "Новая" }), TestContext.Current.CancellationToken),
+            async () => await client.DeleteAsync(OrderMaintenanceTests.Record(), TestContext.Current.CancellationToken),
+            async () => await client.RestoreAsync(OrderMaintenanceTests.Record(), TestContext.Current.CancellationToken) })
         {
             var write = await Assert.ThrowsAsync<OrderWriteException>(operation);
             Assert.Equal(OrderWriteFailure.NotSaved, write.Failure);
@@ -82,6 +86,12 @@ public sealed class AccessHostTests
         Assert.Equal(table.Rates, roundTrip.Rates);
         Assert.Equal(4, (int)AccessHostOperation.ReadPriceTable);
         Assert.Equal(5, (int)AccessHostOperation.CreateOrder);
+        Assert.Equal(6, (int)AccessHostOperation.ReadOrder);
+        Assert.Equal(7, (int)AccessHostOperation.UpdateOrder);
+        Assert.Equal(8, (int)AccessHostOperation.DeleteOrder);
+        Assert.Equal(9, (int)AccessHostOperation.RestoreOrder);
+        var record = OrderMaintenanceTests.Record();
+        Assert.Equal(record, JsonSerializer.Deserialize<AccessHostResponse>(JsonSerializer.Serialize(new AccessHostResponse(1, Record: record, MaintenanceCompleted: true)))!.Record);
         var draft = Draft() with { ExpectedQuote = new(PriceTables.Laser, "2,5", 17, 25, 2.3m, 977m) };
         Assert.Equal(draft, JsonSerializer.Deserialize<AccessHostRequest>(JsonSerializer.Serialize(
             new AccessHostRequest(1, AccessHostOperation.CreateOrder, @"C:\Orders.mdb", Draft: draft)))!.Draft);
@@ -172,6 +182,13 @@ public sealed class AccessHostTests
             Assert.Equal(draft.ToOrder(created.Id, 977m), created);
             Assert.Equal(created, (await client.ReadAsync(TestContext.Current.CancellationToken)).Single(row => row.Id == created.Id));
             Assert.Equal(history, (await client.ReadAsync(TestContext.Current.CancellationToken)).Where(row => row.Id != created.Id));
+            var raw = (await client.ReadRecordAsync(42, TestContext.Current.CancellationToken))!;
+            var changed = await client.UpdateAsync(new(raw, raw with { Customer = "Правка через x86 'А'" }), TestContext.Current.CancellationToken);
+            Assert.Equal(raw with { Customer = "Правка через x86 'А'", Price = 659m }, changed);
+            await client.DeleteAsync(changed, TestContext.Current.CancellationToken);
+            Assert.Null(await client.ReadRecordAsync(42, TestContext.Current.CancellationToken));
+            Assert.Equal(changed, await client.RestoreAsync(changed, TestContext.Current.CancellationToken));
+            Assert.Equal(changed, await client.ReadRecordAsync(42, TestContext.Current.CancellationToken));
         }
         finally { Directory.Delete(root, recursive: true); }
     }

@@ -7,12 +7,36 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 /// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
-public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IPriceReader
+public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IPriceReader, IOrderMaintenance
 {
     private readonly Action<Process> _start = static process => { process.Start(); };
     internal AccessHostClient(string path, string? executable, Action<Process> start) : this(path, executable) => _start = start;
     public static string DefaultExecutable => System.IO.Path.Combine(AppContext.BaseDirectory, "AccessHost", "Jornal.AccessHost.exe");
     public static bool IsBundled => OperatingSystem.IsWindows() && File.Exists(DefaultExecutable);
+
+    public async Task<OrderRecord?> ReadRecordAsync(int id, CancellationToken cancellationToken = default)
+    {
+        if (id <= 0) throw new ArgumentOutOfRangeException(nameof(id));
+        return (await SendAsync(new(1, AccessHostOperation.ReadOrder, System.IO.Path.GetFullPath(path), OrderId: id), cancellationToken)).Record;
+    }
+
+    public async Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
+    {
+        change.Validate();
+        return (await SendAsync(new(1, AccessHostOperation.UpdateOrder, System.IO.Path.GetFullPath(path), Edit: change), cancellationToken)).Record!;
+    }
+
+    public async Task DeleteAsync(OrderRecord expected, CancellationToken cancellationToken = default)
+    {
+        expected.Validate();
+        await SendAsync(new(1, AccessHostOperation.DeleteOrder, System.IO.Path.GetFullPath(path), Record: expected), cancellationToken);
+    }
+
+    public async Task<OrderRecord> RestoreAsync(OrderRecord archived, CancellationToken cancellationToken = default)
+    {
+        archived.Validate();
+        return (await SendAsync(new(1, AccessHostOperation.RestoreOrder, System.IO.Path.GetFullPath(path), Record: archived), cancellationToken)).Record!;
+    }
 
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) => ReadPriceTableAsync(tableName, cancellationToken);
 
@@ -56,7 +80,8 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
     private async Task<AccessHostResponse> SendAsync(AccessHostRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder;
+        var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or
+            AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder;
         var dispatched = false;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromMinutes(2));
@@ -93,17 +118,19 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
                     throw new InvalidDataException("Неизвестный результат записи.");
                 if (response.ChangedQuote is { } quote)
                 {
-                    if (request.Operation != AccessHostOperation.CreateOrder || response.Failure != OrderWriteFailure.NotSaved ||
-                        response.Orders is not null || response.PriceTable is not null)
+                    if (request.Operation is not (AccessHostOperation.CreateOrder or AccessHostOperation.UpdateOrder) || response.Failure != OrderWriteFailure.NotSaved ||
+                        response.Orders is not null || response.PriceTable is not null || response.Record is not null || response.MaintenanceCompleted is not null)
                         throw new InvalidDataException("Некорректный ответ об изменении прайса.");
                     try
                     {
-                        var calculated = CuttingPriceCalculator.Calculate(request.Draft!.PriceRequest,
-                            new(quote.TableName, true, [new(request.Draft.ThicknessMillimeters, quote.ThicknessColumn, quote.RublesPerMeter)]));
+                        var priceRequest = request.Draft?.PriceRequest ?? request.Edit!.PriceRequest;
+                        var calculated = CuttingPriceCalculator.Calculate(priceRequest,
+                            new(quote.TableName, true, [new(priceRequest.ThicknessMillimeters, quote.ThicknessColumn, quote.RublesPerMeter)]));
                         if (calculated != quote) throw new ArgumentException("Цена не соответствует параметрам.");
                     }
                     catch (Exception exception) when (exception is ArgumentException or PriceCalculationException)
                     { throw new InvalidDataException("Некорректная новая цена в ответе модуля Access.", exception); }
+                    if (request.Operation == AccessHostOperation.UpdateOrder) throw new OrderEditPriceChangedException(quote);
                     throw new OrderPriceChangedException(quote);
                 }
                 if (write) throw new OrderWriteException(response.Failure ?? OrderWriteFailure.OutcomeUnknown, response.Error);
@@ -111,6 +138,23 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             }
             if (response.Failure is not null || response.ChangedQuote is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");
+            if (request.Operation is AccessHostOperation.ReadOrder or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder)
+            {
+                if (response.MaintenanceCompleted != true || response.Orders is not null || response.PriceTable is not null)
+                    throw new InvalidDataException("Операция с полной записью не подтверждена.");
+                try { response.Record?.Validate(); }
+                catch (OrderWriteException exception) { throw new InvalidDataException("Некорректная полная запись в ответе хоста.", exception); }
+                if (request.Operation == AccessHostOperation.ReadOrder && response.Record is { } record && record.Id != request.OrderId ||
+                    request.Operation == AccessHostOperation.DeleteOrder && response.Record is not null ||
+                    request.Operation == AccessHostOperation.RestoreOrder && response.Record != request.Record ||
+                    request.Operation == AccessHostOperation.UpdateOrder && (response.Record is not { Price: >= 0 } updated || updated != request.Edit!.Values with { Price = updated.Price }))
+                    throw new InvalidDataException("Поля изменённой/восстановленной заявки не соответствуют запросу.");
+                if (request.Operation == AccessHostOperation.UpdateOrder && request.Edit?.ExpectedQuote is { } expectedQuote && response.Record!.Price != expectedQuote.StoredPrice)
+                    throw new InvalidDataException("Подтверждённая цена не соответствует просмотренной.");
+                return response;
+            }
+            if (response.Record is not null || response.MaintenanceCompleted is not null)
+                throw new InvalidDataException("Ответ полной записи передан для другой операции.");
             if (request.Operation == AccessHostOperation.ReadPriceTable)
             {
                 if (response.PriceTable is null || response.Orders is not null || response.PriceTable.Name != request.PriceTableName)
@@ -130,7 +174,7 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
         }
         catch (OrderReadException) { throw; }
         catch (OrderWriteException) { throw; }
-        catch (Exception exception) when (exception is AccessHostBlockedException or IOException or System.ComponentModel.Win32Exception or
+        catch (Exception exception) when (exception is AccessHostBlockedException or IOException or InvalidDataException or System.ComponentModel.Win32Exception or
             InvalidOperationException or JsonException or OperationCanceledException)
         {
             var blocked = exception as AccessHostBlockedException ??
