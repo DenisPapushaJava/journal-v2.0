@@ -9,6 +9,11 @@ if (args is ["--check-published-release", var expectedVersion])
     await PublishedFeedProbe.CheckAsync(expectedVersion);
     return;
 }
+if (args is ["--check-published-release", var targetVersion, var installedVersion])
+{
+    await PublishedFeedProbe.CheckAsync(targetVersion, installedVersion);
+    return;
+}
 
 VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
 // Только изолированная тестовая программа. Рабочее приложение не принимает источник обновлений из окружения.
