@@ -117,6 +117,8 @@ public sealed class LocalJournalTests
         var importer = new LocalJournalImporter(path =>
         {
             Assert.NotEqual(source, path); Assert.Equal(before, File.ReadAllBytes(path));
+            if (OperatingSystem.IsLinux()) Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+                File.GetUnixFileMode(System.IO.Path.GetDirectoryName(path)!));
             snapshot = path; return new StubOrders();
         }, path => { Assert.Equal(snapshot, path); return prices; });
         await importer.ImportAsync(source, fixture.Path, TestContext.Current.CancellationToken);
@@ -124,6 +126,7 @@ public sealed class LocalJournalTests
         Assert.Equal(LocalJournalFixture.Orders, await new LocalJournalStore(fixture.Path).ReadAsync(TestContext.Current.CancellationToken));
         Assert.Equal(before, await File.ReadAllBytesAsync(source, TestContext.Current.CancellationToken));
         Assert.False(File.Exists(snapshot));
+        if (OperatingSystem.IsLinux()) Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(fixture.Path));
         var json = JsonNode.Parse(await File.ReadAllTextAsync(fixture.Path, TestContext.Current.CancellationToken))!;
         Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(before)), (string?)json["SourceSha256"]);
     }

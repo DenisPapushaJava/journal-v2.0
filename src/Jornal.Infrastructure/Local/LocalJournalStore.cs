@@ -146,7 +146,7 @@ public sealed class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrde
         var temporary = _path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var stream = OpenPrivateFile(temporary, FileMode.CreateNew, FileAccess.Write))
             {
                 JsonSerializer.Serialize(stream, book, JsonOptions);
                 if (stream.Length > MaximumSize) throw new IOException("Локальная копия превышает допустимые 128 МиБ.");
@@ -166,12 +166,19 @@ public sealed class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrde
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            try { return new FileStream(_path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+            try { return OpenPrivateFile(_path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite); }
             catch (IOException) when (timer.Elapsed < TimeSpan.FromSeconds(2))
             {
                 if (cancellationToken.WaitHandle.WaitOne(25)) cancellationToken.ThrowIfCancellationRequested();
             }
         }
+    }
+
+    private static FileStream OpenPrivateFile(string path, FileMode mode, FileAccess access)
+    {
+        var options = new FileStreamOptions { Mode = mode, Access = access, Share = FileShare.None };
+        if (OperatingSystem.IsLinux()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        return new FileStream(path, options);
     }
 
     private static void Validate(LocalJournalFile book)

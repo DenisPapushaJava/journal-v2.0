@@ -14,7 +14,9 @@ public sealed class LocalJournalImporter(Func<string, IOrderReader>? orderReader
         if (File.Exists(destinationPath)) throw new IOException("Локальная копия уже существует. Выберите новое имя, чтобы сохранить её изменения.");
         // Экспорт всех таблиц идёт из одного снимка; исходная MDB открывается только для чтения.
         var directory = Path.Combine(Path.GetTempPath(), "journal-import-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        if (OperatingSystem.IsLinux())
+            Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        else Directory.CreateDirectory(directory);
         var temporary = Path.Combine(directory, "OrderDB.mdb");
         try
         {
