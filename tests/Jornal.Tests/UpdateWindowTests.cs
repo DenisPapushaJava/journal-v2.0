@@ -15,6 +15,35 @@ namespace Jornal.Tests;
 
 public sealed class UpdateWindowTests
 {
+    [AvaloniaFact]
+    public async Task ClosingTheMainWindowCancelsItsAutomaticCheck()
+    {
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var updater = new AppUpdatesTests.FakeUpdater
+        {
+            CheckHandler = async token =>
+            {
+                try { await Task.Delay(Timeout.InfiniteTimeSpan, token); }
+                catch (OperationCanceledException) { cancelled.SetResult(); throw; }
+                return null;
+            }
+        };
+        var updates = new AppUpdatesViewModel(updater) { CheckAutomatically = true };
+        var owner = new MainWindow { DataContext = new MainWindowViewModel(new DemoOrderStore(), appUpdates: updates) };
+        try
+        {
+            owner.Show(); Pump();
+            Assert.Equal(1, updater.Checks);
+            Assert.True(updates.IsBusy);
+            owner.Close(); Pump();
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            Pump();
+            Assert.False(updates.IsBusy);
+            Assert.False(updates.HasError);
+        }
+        finally { owner.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

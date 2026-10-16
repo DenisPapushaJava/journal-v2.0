@@ -7,23 +7,11 @@ namespace Jornal.Tests;
 public sealed class AppUpdatesTests
 {
     [Fact]
-    public async Task StartupOnlyChecksOnceAndNeverDownloadsOrInstalls()
-    {
-        var updater = new FakeUpdater();
-        var model = new AppUpdatesViewModel(updater) { CheckOnStartup = true };
-        await model.CheckAtStartupAsync(); await model.CheckAtStartupAsync();
-        Assert.Equal(1, updater.Checks); Assert.False(updater.Preview);
-        Assert.True(model.HasUpdate); Assert.Contains("2026.10.0", model.NotificationText);
-        Assert.True(model.CanDownload); Assert.False(model.CanInstall);
-        Assert.Equal(0, updater.Downloads); Assert.Equal(0, updater.Restarts);
-    }
-
-    [Fact]
     public async Task UninstalledZipDoesNotMakeRequestsAndExplainsHowToInstall()
     {
         var updater = new FakeUpdater { IsInstalled = false };
-        var model = new AppUpdatesViewModel(updater) { CheckOnStartup = true };
-        await model.CheckAtStartupAsync(); await model.CheckCommand.ExecuteAsync(null);
+        var model = new AppUpdatesViewModel(updater) { CheckAutomatically = true };
+        await model.RunAutomaticChecksAsync(TestContext.Current.CancellationToken); await model.CheckCommand.ExecuteAsync(null);
         Assert.Equal(0, updater.Checks); Assert.False(model.CanCheck); Assert.False(model.HasUpdate);
         Assert.NotEmpty(model.InstallationHint);
     }
@@ -61,8 +49,8 @@ public sealed class AppUpdatesTests
     public async Task OfflineAndDownloadFailuresKeepTheCurrentAppAndCanBeRetried()
     {
         var updater = new FakeUpdater { CheckError = new HttpRequestException() };
-        var model = new AppUpdatesViewModel(updater) { CheckOnStartup = true };
-        await model.CheckAtStartupAsync();
+        var model = new AppUpdatesViewModel(updater);
+        await model.CheckCommand.ExecuteAsync(null);
         Assert.True(model.HasError); Assert.False(model.HasUpdate); Assert.True(model.CanCheck);
         updater.CheckError = null;
         await model.CheckCommand.ExecuteAsync(null);
@@ -107,6 +95,7 @@ public sealed class AppUpdatesTests
         public bool IsInstalled { get; init; } = true;
         public AppUpdate? Update { get; set; } = new("2026.10.0", "Исправлен импорт длинных названий.\nСохранены привычные действия журнала.", 1234);
         public Exception? CheckError { get; set; }
+        public Func<CancellationToken, Task<AppUpdate?>>? CheckHandler { get; set; }
         public Exception? DownloadError { get; set; }
         public bool BlockDownload { get; init; }
         public int Checks { get; private set; }
@@ -115,7 +104,7 @@ public sealed class AppUpdatesTests
         public bool Preview { get; private set; }
         public Action? OnRestart { get; set; }
         public Task<AppUpdate?> CheckAsync(bool preview, CancellationToken cancellationToken)
-        { Checks++; Preview = preview; return CheckError is null ? Task.FromResult(Update) : Task.FromException<AppUpdate?>(CheckError); }
+        { Checks++; Preview = preview; return CheckHandler?.Invoke(cancellationToken) ?? (CheckError is null ? Task.FromResult(Update) : Task.FromException<AppUpdate?>(CheckError)); }
         public async Task DownloadAsync(AppUpdate update, IProgress<int> progress, CancellationToken cancellationToken)
         {
             Downloads++; progress.Report(50);

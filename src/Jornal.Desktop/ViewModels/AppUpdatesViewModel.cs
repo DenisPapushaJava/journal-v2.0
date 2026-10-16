@@ -5,16 +5,19 @@ using Jornal.Desktop.Updates;
 
 namespace Jornal.Desktop.ViewModels;
 
-public partial class AppUpdatesViewModel(IAppUpdater updater) : ObservableObject
+public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? timeProvider = null) : ObservableObject
 {
+    public static readonly TimeSpan AutomaticCheckInterval = TimeSpan.FromHours(6);
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private AppUpdate? _update;
     private readonly object _progressLock = new();
     private int _downloadOperation;
-    private bool _startupChecked;
+    private bool _automaticChecksStarted;
+    private long? _lastCheckCompleted;
     private Func<bool> _canRestart = () => false;
     private Action _prepareRestart = () => { };
     private Action _closeApplication = () => { };
-    public bool CheckOnStartup { get; init; }
+    public bool CheckAutomatically { get; init; }
     public string CurrentVersion => updater.CurrentVersion;
     public bool IsInstalled => updater.IsInstalled;
     public string InstallationHint => OperatingSystem.IsWindows()
@@ -55,31 +58,57 @@ public partial class AppUpdatesViewModel(IAppUpdater updater) : ObservableObject
         CheckCommand.NotifyCanExecuteChanged(); DownloadCommand.NotifyCanExecuteChanged(); InstallCommand.NotifyCanExecuteChanged();
     }
 
-    public async Task CheckAtStartupAsync()
+    public async Task RunAutomaticChecksAsync(CancellationToken cancellationToken)
     {
-        if (_startupChecked || !CheckOnStartup || !IsInstalled) return;
-        _startupChecked = true;
-        await CheckCommand.ExecuteAsync(null);
+        if (_automaticChecksStarted || !CheckAutomatically || !IsInstalled || cancellationToken.IsCancellationRequested) return;
+        _automaticChecksStarted = true;
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var remaining = _lastCheckCompleted is { } completed
+                    ? AutomaticCheckInterval - _timeProvider.GetElapsedTime(completed)
+                    : TimeSpan.Zero;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    // Все проверки разделяют IsBusy. Найденный пакет сохраняем до решения пользователя.
+                    if (CanCheck && !HasUpdate) await CheckForUpdatesAsync(quiet: true, cancellationToken);
+                    remaining = AutomaticCheckInterval;
+                }
+                // Один таймер без накопления пропущенных попыток после сна или отсутствия сети.
+                await Task.Delay(remaining, _timeProvider, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 
     [RelayCommand(CanExecute = nameof(CanCheck), IncludeCancelCommand = true)]
-    private async Task CheckAsync(CancellationToken cancellationToken)
+    private Task CheckAsync(CancellationToken cancellationToken) => CheckForUpdatesAsync(quiet: false, cancellationToken);
+
+    private async Task CheckForUpdatesAsync(bool quiet, CancellationToken cancellationToken)
     {
-        if (!CanCheck) return;
-        IsBusy = true; Error = null;
-        Status = "Проверяем выпуски на GitHub…";
+        if (!CanCheck || cancellationToken.IsCancellationRequested) return;
+        IsBusy = true;
+        if (!quiet) { Error = null; Status = "Проверяем выпуски на GitHub…"; }
         try
         {
-            _update = await updater.CheckAsync(IncludePreview, cancellationToken);
+            var update = await updater.CheckAsync(IncludePreview, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            _update = update;
+            Error = null;
             IsDownloaded = false;
             HasUpdate = _update is not null;
             AvailableVersion = _update?.Version ?? "";
             ReleaseNotes = string.IsNullOrWhiteSpace(_update?.Notes) ? "Описание изменений не добавлено." : _update.Notes;
             Status = HasUpdate ? $"Доступна версия {AvailableVersion}. Загрузка начнётся по вашей команде." : "Новых версий в выбранном канале не найдено.";
         }
-        catch (OperationCanceledException) { Status = "Проверка отменена."; }
-        catch (Exception exception) { Fail(exception, "Не удалось проверить обновления. Проверьте интернет и повторите попытку. Можно продолжать работу с журналом."); }
-        finally { IsBusy = false; OnPropertyChanged(nameof(CurrentVersion)); }
+        catch (OperationCanceledException) { if (!quiet) Status = "Проверка отменена."; }
+        catch (Exception exception)
+        {
+            if (quiet) Trace.TraceWarning("Background update check failed: {0}", exception);
+            else Fail(exception, "Не удалось проверить обновления. Проверьте интернет и повторите попытку. Можно продолжать работу с журналом.");
+        }
+        finally { _lastCheckCompleted = _timeProvider.GetTimestamp(); IsBusy = false; OnPropertyChanged(nameof(CurrentVersion)); }
     }
 
     [RelayCommand(CanExecute = nameof(CanDownload), IncludeCancelCommand = true)]
