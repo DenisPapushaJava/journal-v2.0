@@ -20,10 +20,10 @@ public sealed class VelopackAppUpdater : IAppUpdater
     {
         _managerFactory = managerFactory ?? (preview => new UpdateManager(
             new JournalGithubSource(preview),
-            new UpdateOptions { ExplicitChannel = Channel(preview), AllowVersionDowngrade = false }));
+            new UpdateOptions { ExplicitChannel = RuntimeChannel, AllowVersionDowngrade = false }));
     }
 
-    public static string Channel(bool preview) =>
+    public static string RuntimeChannel =>
         (OperatingSystem.IsWindows() ? "win" : "linux") + "-" + RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
     public string CurrentVersion => _manager?.CurrentVersion?.ToString() ??
         typeof(VelopackAppUpdater).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "неизвестна";
@@ -42,6 +42,8 @@ public sealed class VelopackAppUpdater : IAppUpdater
         var candidate = await Task.Run(() => manager.CheckForUpdatesAsync(), cancellationToken)
             .WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
+        if (candidate is not null && !string.Equals(candidate.TargetFullRelease.PackageId, manager.AppId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Пакет предназначен для другого приложения.");
         if (!preview && candidate?.TargetFullRelease.Version.IsPrerelease == true)
             throw new InvalidDataException("Тестовый пакет попал в стабильный канал.");
         _manager = manager; _candidate = null; _offered = null; _downloaded = false;

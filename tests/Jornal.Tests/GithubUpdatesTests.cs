@@ -50,6 +50,14 @@ public sealed class GithubUpdatesTests
     }
 
     [Fact]
+    public async Task PackageForAnotherAppIsRejectedBeforeItCanBeDownloaded()
+    {
+        using var fixture = new FeedFixture(); fixture.Downloader.PackageId = "AnotherApp";
+        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Updater().CheckAsync(false, TestContext.Current.CancellationToken));
+        Assert.Equal(0, fixture.Downloader.FileDownloads);
+    }
+
+    [Fact]
     public async Task CorruptedPackageAndUnrequestedRestartAreRejected()
     {
         using var fixture = new FeedFixture();
@@ -57,7 +65,7 @@ public sealed class GithubUpdatesTests
         var update = await updater.CheckAsync(false, TestContext.Current.CancellationToken);
         Assert.Throws<InvalidOperationException>(() => updater.ScheduleRestart(update!));
         fixture.Downloader.CorruptPackage = true;
-        await Assert.ThrowsAnyAsync<Exception>(() => updater.DownloadAsync(update!, new Progress<int>(), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<Velopack.Exceptions.ChecksumFailedException>(() => updater.DownloadAsync(update!, new Progress<int>(), TestContext.Current.CancellationToken));
         Assert.Throws<InvalidOperationException>(() => updater.ScheduleRestart(update!));
         Assert.False(File.Exists(Path.Combine(fixture.Directory, "JournalTest-2026.10.0-full.nupkg")));
     }
@@ -76,6 +84,7 @@ public sealed class GithubUpdatesTests
     private sealed class FakeGithubDownloader : IFileDownloader
     {
         public byte[] Package { get; } = Encoding.UTF8.GetBytes("ARTIFICIAL PACKAGE CONTENT");
+        public string PackageId { get; set; } = "JournalTest";
         public bool Preview { get; set; }
         public bool MislabelPreview { get; set; }
         public bool NoStable { get; set; }
@@ -97,7 +106,7 @@ public sealed class GithubUpdatesTests
         public Task<byte[]> DownloadBytes(string url, IDictionary<string, string>? headers = null, double timeout = 30)
         {
             UsedAuthorization |= headers?.ContainsKey("Authorization") == true;
-            var feed = new { Assets = new[] { new { PackageId = "JournalTest", Version, Type = "Full", FileName,
+            var feed = new { Assets = new[] { new { PackageId, Version, Type = "Full", FileName,
                 SHA256 = Convert.ToHexString(SHA256.HashData(Package)), Size = Package.Length, NotesMarkdown = "Изменения для проверки" } } };
             return Task.FromResult(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(feed)));
         }

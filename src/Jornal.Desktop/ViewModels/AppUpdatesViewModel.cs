@@ -8,6 +8,8 @@ namespace Jornal.Desktop.ViewModels;
 public partial class AppUpdatesViewModel(IAppUpdater updater) : ObservableObject
 {
     private AppUpdate? _update;
+    private readonly object _progressLock = new();
+    private int _downloadOperation;
     private bool _startupChecked;
     private Func<bool> _canRestart = () => false;
     private Action _prepareRestart = () => { };
@@ -84,16 +86,23 @@ public partial class AppUpdatesViewModel(IAppUpdater updater) : ObservableObject
     private async Task DownloadAsync(CancellationToken cancellationToken)
     {
         if (!CanDownload || _update is null) return;
-        IsBusy = true; IsDownloading = true; Error = null; DownloadProgress = 0; Status = "Загружаем обновление…";
+        IsBusy = true; Error = null; Status = "Загружаем обновление…";
+        int operation;
+        lock (_progressLock) { operation = ++_downloadOperation; IsDownloading = true; DownloadProgress = 0; }
         try
         {
-            await updater.DownloadAsync(_update, new Progress<int>(value => DownloadProgress = Math.Clamp(value, 0, 100)), cancellationToken);
-            IsDownloaded = true; DownloadProgress = 100;
+            await updater.DownloadAsync(_update, new Progress<int>(value =>
+            {
+                lock (_progressLock)
+                    if (operation == _downloadOperation && IsDownloading && !cancellationToken.IsCancellationRequested)
+                        DownloadProgress = Math.Max(DownloadProgress, Math.Clamp(value, 0, 100));
+            }), cancellationToken);
+            lock (_progressLock) { IsDownloaded = true; DownloadProgress = 100; }
             Status = "Обновление загружено. Установите его, когда будете готовы перезапустить Journal.";
         }
         catch (OperationCanceledException) { Status = "Загрузка отменена. Её можно повторить."; }
         catch (Exception exception) { Fail(exception, "Не удалось загрузить или проверить пакет. Текущая версия продолжает работать. Повторите загрузку."); }
-        finally { IsDownloading = false; IsBusy = false; }
+        finally { lock (_progressLock) { ++_downloadOperation; IsDownloading = false; } IsBusy = false; }
     }
 
     [RelayCommand(CanExecute = nameof(CanInstall))]
