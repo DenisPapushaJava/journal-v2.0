@@ -59,7 +59,7 @@ public partial class MainWindowViewModel
             }
             ApplySearch();
             NotifySourceChanged();
-            ErrorMessage = null;
+            ErrorMessage = (candidate.Reader as Jornal.Infrastructure.Access.OrderDurationPreparingReader)?.PreparationWarning;
             UpdatedText = $"Обновлено в {DateTime.Now:HH:mm} · F5 — обновить";
             await CleanupTrashAsync();
             return null;

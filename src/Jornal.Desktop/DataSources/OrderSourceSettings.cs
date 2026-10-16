@@ -97,7 +97,10 @@ public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, 
             var local = new LocalJournalStore(path);
             return new(System.IO.Path.GetFullPath(path), local, local, local, IsLocalCopy: true) { Maintenance = local };
         }
-        return new(System.IO.Path.GetFullPath(path), readerFactory?.Invoke(path) ?? new AccessOrderReader(path),
+        IOrderReader reader = readerFactory?.Invoke(path) ?? new AccessOrderReader(path);
+        if (readerFactory is null && OperatingSystem.IsWindows())
+            reader = new OrderDurationPreparingReader(reader, AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderExtras(path));
+        return new(System.IO.Path.GetFullPath(path), reader,
             Creator: creatorFactory is not null ? creatorFactory(path) : readerFactory is null && OperatingSystem.IsWindows()
                 ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbManualOrderCreator(path) : null,
             Editor: editorFactory is not null ? editorFactory(path) : readerFactory is null && OperatingSystem.IsWindows()

@@ -7,12 +7,15 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 /// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
-public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IPriceReader, IOrderMaintenance
+public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IPriceReader, IOrderMaintenance, IOrderDurationInitializer
 {
     private readonly Action<Process> _start = static process => { process.Start(); };
     internal AccessHostClient(string path, string? executable, Action<Process> start) : this(path, executable) => _start = start;
     public static string DefaultExecutable => System.IO.Path.Combine(AppContext.BaseDirectory, "AccessHost", "Jornal.AccessHost.exe");
     public static bool IsBundled => OperatingSystem.IsWindows() && File.Exists(DefaultExecutable);
+
+    public async Task PrepareCuttingTimeAsync(CancellationToken cancellationToken = default) =>
+        _ = await SendAsync(new(1, AccessHostOperation.PrepareCuttingTime, System.IO.Path.GetFullPath(path)), cancellationToken);
 
     public async Task<OrderRecord?> ReadRecordAsync(int id, CancellationToken cancellationToken = default)
     {
@@ -81,7 +84,7 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
     {
         cancellationToken.ThrowIfCancellationRequested();
         var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or
-            AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder;
+            AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.PrepareCuttingTime;
         var dispatched = false;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromMinutes(2));
@@ -138,6 +141,13 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             }
             if (response.Failure is not null || response.ChangedQuote is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");
+            if (request.Operation == AccessHostOperation.PrepareCuttingTime)
+            {
+                if (response.CuttingTimePrepared != true || response.Orders is not null || response.Record is not null || response.PriceTable is not null || response.MaintenanceCompleted is not null)
+                    throw new InvalidDataException("Подготовка хранения времени не подтверждена.");
+                return response;
+            }
+            if (response.CuttingTimePrepared is not null) throw new InvalidDataException("Ответ подготовки передан для другой операции.");
             if (request.Operation is AccessHostOperation.ReadOrder or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder)
             {
                 if (response.MaintenanceCompleted != true || response.Orders is not null || response.PriceTable is not null)

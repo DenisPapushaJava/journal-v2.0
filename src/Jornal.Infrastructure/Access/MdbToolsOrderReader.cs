@@ -4,8 +4,14 @@ namespace Jornal.Infrastructure.Access;
 
 public sealed class MdbToolsOrderReader(string? executable = null)
 {
-    public Task<IReadOnlyList<OrderSummary>> ReadAsync(string path, CancellationToken cancellationToken = default) =>
-        new MdbToolsTableExport(executable).ReadAsync(path, "Orders", ReadExport, cancellationToken);
+    public async Task<IReadOnlyList<OrderSummary>> ReadAsync(string path, CancellationToken cancellationToken = default)
+    {
+        var export = new MdbToolsTableExport(executable);
+        var rows = await export.ReadAsync(path, "Orders", ReadExport, cancellationToken);
+        if (!(await export.ListTablesAsync(path, cancellationToken)).Contains(OrderExtrasData.TableName, StringComparer.OrdinalIgnoreCase)) return rows;
+        var times = await export.ReadAsync(path, OrderExtrasData.TableName, OrderExtrasData.ReadExport, cancellationToken);
+        return rows.Select(row => row with { CuttingTime = times.GetValueOrDefault(row.Id) }).ToArray();
+    }
 
     public static IReadOnlyList<OrderSummary> ReadExport(TextReader reader, CancellationToken cancellationToken = default)
     {

@@ -126,7 +126,9 @@ public sealed class OleDbOrderBatchEditor(string path) : IOrderBatchEditor
         if (!reader.Read()) throw OrderWriteException.Conflict();
         var names = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToArray();
         AccessOrderMapper.ValidateColumns(names);
-        return AccessOrderMapper.Map(names.Select((name, index) => (name, value: reader.GetValue(index)))
+        var row = AccessOrderMapper.Map(names.Select((name, index) => (name, value: reader.GetValue(index)))
             .ToDictionary(item => item.name, item => (object?)item.value, StringComparer.Ordinal));
+        reader.Close();
+        return row with { CuttingTime = OleDbOrderExtras.Read(connection, transaction, id) };
     }
 }

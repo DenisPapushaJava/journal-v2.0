@@ -25,7 +25,7 @@ public partial class NewOrderViewModel
         [nameof(OrderDate)] = OrderDate, [nameof(SpecificationNumber)] = SpecificationNumber, [nameof(CuttingType)] = CuttingType,
         [nameof(Material)] = Material, [nameof(Thickness)] = Thickness, [nameof(SheetSize)] = SheetSize, [nameof(SheetCount)] = SheetCount,
         [nameof(Weight)] = Weight, [nameof(CutLength)] = CutLength, [nameof(Coefficient)] = Coefficient,
-        [nameof(MaterialId)] = MaterialId, [nameof(Gas)] = Gas
+        [nameof(MaterialId)] = MaterialId, [nameof(Gas)] = Gas, [nameof(CuttingTime)] = CuttingTime
     };
 
     partial void OnIsImportingChanged(bool value)

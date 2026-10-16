@@ -32,7 +32,7 @@
     <Grid Grid.Row="1" Margin="24,12" ColumnDefinitions="*,24,260">
       <Border Classes="panel">
         <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel x:Name="FormFields" Margin="16" Spacing="8" IsEnabled="{Binding !IsBusy}">
+          <StackPanel x:Name="FormFields" Margin="16" Spacing="5" IsEnabled="{Binding !IsBusy}">
             <TextBlock Text="Заявка и заказчик" Classes="section" />
             <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding OrderDate}" />
@@ -58,6 +58,12 @@
             <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding CutLength}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Coefficient}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,24,*">
+              <ui:OrderEntryControl x:Name="CuttingTimeInput" DataContext="{Binding CuttingTime}"
+                                    ToolTip.Tip="Часы и минуты. Например, 29:46 или 342:51. Пусто — время неизвестно." />
+              <TextBlock Grid.Column="2" Text="Часы могут превышать 24. Секунды из спецификации округляются вверх до минуты."
+                         Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="12" />
             </Grid>
             <Grid ColumnDefinitions="*,24,*" IsVisible="{Binding IsHansLaser}">
               <ui:OrderEntryControl DataContext="{Binding MaterialId}" />
@@ -100,7 +106,7 @@
             <TextBlock x:Name="ImportFileName" Text="{Binding ImportPreview.FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ImportPreview.FileName}" FontWeight="Medium" />
             <TextBlock Text="{Binding ImportPreview.Counts}" Classes="muted" TextWrapping="Wrap" />
             <TextBlock Text="{Binding ImportPreview.Duration}" Classes="muted" TextWrapping="Wrap" />
-            <TextBlock Text="Длительность справочная и пока не сохраняется в журнале." Classes="muted" TextWrapping="Wrap" FontSize="12" />
+            <TextBlock Text="Время можно исправить в поле слева. Секунды округляются вверх до полной минуты." Classes="muted" TextWrapping="Wrap" FontSize="12" />
             <TextBlock Text="{Binding ImportPreview.Diagnostics}" IsVisible="{Binding HasImportDiagnostics}" TextWrapping="Wrap"
                        Foreground="{DynamicResource JournalDangerForeground}" />
             <TextBlock Text="Пустые поля заполните вручную. Источник значения доступен в подсказке под полем." Classes="muted" TextWrapping="Wrap" />

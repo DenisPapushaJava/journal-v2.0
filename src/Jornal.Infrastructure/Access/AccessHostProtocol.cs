@@ -3,7 +3,7 @@ using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Access;
 
-public enum AccessHostOperation { Probe, Read, SetColor, SetDeliveryNumber, ReadPriceTable, CreateOrder, ReadOrder, UpdateOrder, DeleteOrder, RestoreOrder }
+public enum AccessHostOperation { Probe, Read, SetColor, SetDeliveryNumber, ReadPriceTable, CreateOrder, ReadOrder, UpdateOrder, DeleteOrder, RestoreOrder, PrepareCuttingTime }
 
 // Один запрос на процесс. Рабочие пути и данные передаются только по перенаправленному stdin.
 public sealed record AccessHostRequest(int Protocol, AccessHostOperation Operation, string Path,
@@ -12,4 +12,4 @@ public sealed record AccessHostRequest(int Protocol, AccessHostOperation Operati
 
 public sealed record AccessHostResponse(int Protocol, OrderSummary[]? Orders = null,
     string? Error = null, OrderWriteFailure? Failure = null, string? Provider = null, PriceTable? PriceTable = null,
-    CuttingPriceQuote? ChangedQuote = null, OrderRecord? Record = null, bool? MaintenanceCompleted = null);
+    CuttingPriceQuote? ChangedQuote = null, OrderRecord? Record = null, bool? MaintenanceCompleted = null, bool? CuttingTimePrepared = null);

@@ -74,12 +74,13 @@ public partial class NewOrderViewModel : ObservableObject
     public OrderEntryField SheetCount { get; } = new("Количество листов *", "Например, 2 или 1,3");
     public OrderEntryField Weight { get; } = new("Вес, кг *", "Например, 38,5");
     public OrderEntryField CutLength { get; } = new("Длина реза, м *", "Целое число метров");
+    public OrderEntryField CuttingTime { get; } = new("Время резки, ч:мин", "Например, 29:46");
     public OrderEntryField Coefficient { get; } = new("Коэффициент *", value: "1");
     public OrderEntryField MaterialId { get; } = new("ID материала HansLaser", "Если известен");
     public OrderEntryField Gas { get; } = new("Газ HansLaser", "Если известен");
     public bool IsHansLaser => CuttingType.Value == "HansLaser";
     public IReadOnlyList<OrderEntryField> Fields => [OrderDate, SpecificationNumber, Manager, Customer,
-        CuttingType, Material, Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas];
+        CuttingType, Material, Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas, CuttingTime];
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSaveError))] private string? _saveError;
     [ObservableProperty] private bool _hasValidationErrors;
@@ -143,7 +144,8 @@ public partial class NewOrderViewModel : ObservableObject
             Customer.Value.Trim(), CuttingType.Value, Material.Value.Trim(), thickness, SheetSize.Value.Trim(),
             SheetCount.Value.Trim(), length, Weight.Value.Trim(), coefficient,
             IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "")
-            { ExpectedQuote = _quote, PartCount = ImportPreview?.PartCount, PunchCount = ImportPreview?.PunchCount };
+            { ExpectedQuote = _quote, PartCount = ImportPreview?.PartCount, PunchCount = ImportPreview?.PunchCount,
+                CuttingDurationMinutes = CuttingDuration.TryParse(CuttingTime.Value, out var minutes) ? minutes : null };
         try
         {
             CreatedOrder = await _creator.CreateAsync(draft);
@@ -189,7 +191,7 @@ public partial class NewOrderViewModel : ObservableObject
             }
             var value = field.Value.Trim();
             field.Error = value.Length > 255 ? "Не более 255 символов." :
-                field != MaterialId && field != Gas && value.Length == 0 ? "Заполните поле." : null;
+                field != MaterialId && field != Gas && field != CuttingTime && value.Length == 0 ? "Заполните поле." : null;
         }
         if (OrderDate.Error is null && !DateOnly.TryParseExact(OrderDate.Value.Trim(), "dd.MM.yyyy",
             CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
@@ -224,6 +226,7 @@ public partial class NewOrderViewModel : ObservableObject
                 MaterialId.Error = "Проверьте ID: 0 — сталь, 1 — нержавеющая, 2 — цветной, -1 — стандартный прайс.";
             if (string.IsNullOrWhiteSpace(Gas.Value)) Gas.Error = "Проверьте газ по спецификации.";
         }
+        if (!CuttingDuration.TryParse(CuttingTime.Value, out _)) CuttingTime.Error = CuttingDuration.ValidationMessage;
         HasValidationErrors = Fields.Any(field => field.HasError);
         return !HasValidationErrors;
     }

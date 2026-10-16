@@ -65,6 +65,40 @@ internal sealed class MdbToolsTableExport(string? executable = null)
         }
     }
 
+    public async Task<IReadOnlyList<string>> ListTablesAsync(string path, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(60));
+        var export = executable ?? Environment.GetEnvironmentVariable("JOURNAL_MDB_EXPORT") ?? "mdb-export";
+        var sibling = Path.Combine(Path.GetDirectoryName(export) ?? "", "mdb-tables");
+        var program = Environment.GetEnvironmentVariable("JOURNAL_MDB_TABLES") ?? (File.Exists(sibling) ? sibling : "mdb-tables");
+        var start = new ProcessStartInfo(program) { UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 };
+        start.ArgumentList.Add("-1"); start.ArgumentList.Add(Path.GetFullPath(path)); start.Environment["LC_ALL"] = "C";
+        using var process = new Process { StartInfo = start };
+        try { process.Start(); }
+        catch (Win32Exception exception) { throw new OrderReadException("Для чтения MDB нужен полный пакет mdbtools, включая mdb-tables.", exception); }
+        using var cancel = timeout.Token.Register(() => Stop(process));
+        var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
+        var error = process.StandardError.ReadToEndAsync(timeout.Token);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+            var names = await output; var errors = await error;
+            if (process.ExitCode != 0 || !string.IsNullOrWhiteSpace(errors))
+                throw new OrderReadException("Не удалось проверить таблицы MDB. Время резки не подменяется отсутствующим.");
+            return names.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        { throw new OrderReadException("Превышено время проверки таблиц MDB."); }
+        finally
+        {
+            Stop(process);
+            try { await output; } catch (Exception) { }
+            try { await error; } catch (Exception) { }
+        }
+    }
+
     private static void Stop(Process process)
     {
         try { if (!process.HasExited) process.Kill(entireProcessTree: true); }

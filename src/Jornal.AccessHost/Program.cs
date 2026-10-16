@@ -36,7 +36,12 @@ try
     if (request.Protocol != 1 || !Enum.IsDefined(request.Operation) || request.Operation == AccessHostOperation.Probe ||
         !Path.IsPathFullyQualified(request.Path) || !string.Equals(Path.GetExtension(request.Path), ".mdb", StringComparison.OrdinalIgnoreCase))
         throw new InvalidDataException("Несовместимый запрос модуля Access.");
-    if (request.Operation == AccessHostOperation.ReadPriceTable)
+    if (request.Operation == AccessHostOperation.PrepareCuttingTime)
+    {
+        await new OleDbOrderExtras(request.Path).PrepareCuttingTimeAsync();
+        response = new(1, CuttingTimePrepared: true);
+    }
+    else if (request.Operation == AccessHostOperation.ReadPriceTable)
         response = new(1, PriceTable: await new AccessPriceReader(request.Path).ReadAsync(request.PriceTableName ?? ""));
     else if (request.Operation is AccessHostOperation.ReadOrder or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder)
     {

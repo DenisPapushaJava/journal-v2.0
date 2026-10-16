@@ -45,7 +45,9 @@ public static class OleDbOrderReader
                     .ToDictionary(item => item.name, item => (object?)item.value, StringComparer.Ordinal)));
             }
             cancellationToken.ThrowIfCancellationRequested();
-            return orders;
+            reader.Close();
+            var times = OleDbOrderExtras.ReadAll(connection);
+            return orders.Select(row => row with { CuttingTime = times.GetValueOrDefault(row.Id) }).ToArray();
         }
         catch (Exception exception) when (exception is OleDbException or InvalidOperationException)
         {

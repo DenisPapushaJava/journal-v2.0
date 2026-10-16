@@ -164,6 +164,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             var orders = await orderReader.ReadAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             _allOrders = orders;
+            ErrorMessage = (orderReader as Jornal.Infrastructure.Access.OrderDurationPreparingReader)?.PreparationWarning;
             ApplySearch();
             RequiresReload = false;
             UpdatedText = $"Обновлено в {DateTime.Now:HH:mm} · F5 — обновить";

@@ -36,7 +36,10 @@ public static class OrderResultFormatter
             // Порядок полей, табуляции и три пробела после них соответствуют PrintResult старого журнала.
             result.Append("Лист ").Append(row[0]).Append('x').Append(orders[index].SheetSize).Append(",\t   Материал: ")
                 .Append(row[1]).Append(",\t   ").Append(row[2]).Append(" шт.\t   Вес ").Append(row[3])
-                .Append(" кг.\t   Резка ").Append(row[4]).Append(" ₽.\t   резка ").Append(row[5]).Append('\n');
+                .Append(" кг.\t   Резка ").Append(row[4]).Append(" ₽.");
+            if (orders[index].CuttingDurationMinutes is { } minutes)
+                result.Append("     Время резки: ").Append(CuttingDuration.Format(minutes));
+            result.Append("\t   резка ").Append(row[5]).Append('\n');
         }
         return result.ToString();
     }

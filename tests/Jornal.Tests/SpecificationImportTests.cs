@@ -37,6 +37,11 @@ public sealed class SpecificationImportTests
             var store = new DemoOrderStore(); var form = new NewOrderViewModel(store);
             var preview = await new SpecificationImportService().ReadAsync(item.GetProperty("Path").GetString()!, TestContext.Current.CancellationToken);
             form.ApplyImport(preview);
+            if (expected.TryGetProperty("CuttingDurationMinutes", out var duration))
+            {
+                var minutes = duration.GetInt64();
+                Assert.Equal($"{minutes / 60:00}:{minutes % 60:00}", form.CuttingTime.Value);
+            }
             Assert.Equal(expected.GetProperty("SpecificationNumber").GetString(), form.SpecificationNumber.Value);
             Assert.Equal(expected.GetProperty("Material").GetString(), form.Material.Value);
             Assert.Equal(expected.GetProperty("SheetSize").GetString(), form.SheetSize.Value);
@@ -63,7 +68,7 @@ public sealed class SpecificationImportTests
         Assert.Equal("6", form.Thickness.Value); Assert.Equal("1500x4000, 1000x3000", form.SheetSize.Value);
         Assert.Equal("3", form.SheetCount.Value); Assert.Equal("48.2", form.Weight.Value); Assert.Equal("33", form.CutLength.Value);
         Assert.Equal("1.1", form.Coefficient.Value); Assert.Empty(form.Manager.Value); Assert.Empty(form.Customer.Value);
-        Assert.Equal("Время резки: 200 ч 01 мин", form.ImportPreview!.Duration);
+        Assert.Equal("Время резки: 200:01", form.ImportPreview!.Duration);
         Assert.Equal("Не рассчитана", form.PriceText); Assert.False(form.IsSaved);
         Assert.Equal(3, (await store.ReadAsync(TestContext.Current.CancellationToken)).Count);
         await form.SaveCommand.ExecuteAsync(null);
@@ -74,6 +79,7 @@ public sealed class SpecificationImportTests
         var saved = Assert.IsType<OrderSummary>(form.CreatedOrder);
         Assert.Equal(14, saved.PartCount); Assert.Equal(31, saved.PunchCount);
         Assert.Equal("1.1|14|31|-1|-1", saved.StoredCoefficient);
+        Assert.Equal("200:01", form.CuttingTime.Value); Assert.Equal(12001L, saved.CuttingDurationMinutes);
         Assert.Equal(4, (await store.ReadAsync(TestContext.Current.CancellationToken)).Count);
         Assert.Equal(bytes, SHA256.HashData(await File.ReadAllBytesAsync(sample.Path, TestContext.Current.CancellationToken)));
     }

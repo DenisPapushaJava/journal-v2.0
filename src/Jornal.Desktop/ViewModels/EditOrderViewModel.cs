@@ -14,6 +14,8 @@ public partial class EditOrderViewModel : ObservableObject
     private OrderRecord? _current;
     private readonly Dictionary<OrderEntryField, string> _initial = [];
     private CuttingPriceQuote? _quote;
+    private bool _timeEdited;
+    private bool _populating;
     public int Id => _expected.Id;
     public string WindowTitle => $"Редактировать заявку · код {Id}";
     public string SourceDescription { get; }
@@ -34,6 +36,8 @@ public partial class EditOrderViewModel : ObservableObject
         {
             if (e.PropertyName != nameof(OrderEntryField.Value)) return;
             field.Error = null;
+            if (field == CuttingTime && !_populating) _timeEdited = true;
+            OnPropertyChanged(nameof(CuttingTimeNotice));
             if (field == CuttingType || field == Thickness || field == CutLength || field == Coefficient || field == MaterialId)
             { _quote = null; PriceText = "Не рассчитана"; }
             if (field == CuttingType) OnPropertyChanged(nameof(IsHansLaser));
@@ -54,11 +58,15 @@ public partial class EditOrderViewModel : ObservableObject
     public OrderEntryField SheetCount { get; } = new("Количество листов", "Например, 2 или 1,3");
     public OrderEntryField Weight { get; } = new("Вес, кг");
     public OrderEntryField CutLength { get; } = new("Длина реза, м");
+    public OrderEntryField CuttingTime { get; } = new("Время резки, ч:мин", "Например, 29:46");
+    public string CuttingTimeNotice => _expected.ToSummary().CuttingTimeNeedsReview
+        ? "Параметры заявки изменились. Прежнее время требует проверки: введите актуальное время."
+        : "При изменении параметров раскроя проверьте время: введите его заново или очистите поле. Неподтверждённое время не попадёт в письмо.";
     public OrderEntryField Coefficient { get; } = new("Коэффициент");
     public OrderEntryField MaterialId { get; } = new("ID материала HansLaser");
     public OrderEntryField Gas { get; } = new("Газ HansLaser");
     public IReadOnlyList<OrderEntryField> Fields => [OrderDate, SpecificationNumber, Manager, Customer, CuttingType, Material,
-        Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas];
+        Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas, CuttingTime];
     public bool IsHansLaser => CuttingType.Value == "HansLaser";
     [ObservableProperty] private string _priceText = "Не рассчитана";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _error;
@@ -78,8 +86,10 @@ public partial class EditOrderViewModel : ObservableObject
 
     private void Populate(OrderRecord row)
     {
+        _populating = true;
         var values = FieldValues(row);
         for (var i = 0; i < Fields.Count; i++) { Fields[i].Value = values[i]; _initial[Fields[i]] = values[i]; }
+        _timeEdited = false; _populating = false;
         _quote = null; PriceText = "Не рассчитана";
     }
 
@@ -89,7 +99,7 @@ public partial class EditOrderViewModel : ObservableObject
         return [row.Date?.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) ?? "", row.Specification ?? "", row.Manager ?? "",
             row.Customer ?? "", row.CuttingType ?? "", row.Material ?? "", view.ThicknessMillimeters?.ToString(CultureInfo.InvariantCulture) ?? "",
             row.SheetSize ?? "", row.SheetCount ?? "", row.Weight ?? "", row.CutLength?.ToString(CultureInfo.InvariantCulture) ?? "",
-            view.Coefficient?.ToString(CultureInfo.InvariantCulture) ?? "", view.MaterialId, view.CuttingGas];
+            view.Coefficient?.ToString(CultureInfo.InvariantCulture) ?? "", view.MaterialId, view.CuttingGas, view.CuttingDurationMinutes is { } minutes ? CuttingDuration.Format(minutes) : ""];
     }
 
     public OrderEditChange BuildChange()
@@ -140,6 +150,9 @@ public partial class EditOrderViewModel : ObservableObject
             Customer = Text(Customer, _expected.Customer), CuttingType = CuttingType.Value, Material = material, SheetSize = Text(SheetSize, _expected.SheetSize),
             SheetCount = Text(SheetCount, _expected.SheetCount), Weight = Text(Weight, _expected.Weight),
             Thickness = Thickness.Value == _initial[Thickness] ? _expected.Thickness : (double)thickness, CutLength = length, Coefficient = storedCoefficient };
+        if (!CuttingDuration.TryParse(CuttingTime.Value, out var minutes))
+        { CuttingTime.Error = CuttingDuration.ValidationMessage; throw new ArgumentException(CuttingTime.Error); }
+        if (_timeEdited) values = values with { CuttingTime = minutes is { } time ? OrderCuttingTime.For(values.ToSummary(), time) : null };
         var change = new OrderEditChange(_expected, values, _quote); change.Validate(); return change;
     }
 

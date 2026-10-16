@@ -30,7 +30,7 @@
     <Grid Grid.Row="1" Margin="24,12" ColumnDefinitions="*,24,260">
       <Border Classes="panel">
         <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel x:Name="FormFields" Margin="16" Spacing="8" IsEnabled="{Binding !IsBusy}">
+          <StackPanel x:Name="FormFields" Margin="16" Spacing="5" IsEnabled="{Binding !IsBusy}">
             <TextBlock Text="Заявка и заказчик" Classes="section" />
             <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding OrderDate}" />
@@ -57,6 +57,12 @@
               <ui:OrderEntryControl DataContext="{Binding CutLength}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Coefficient}" />
             </Grid>
+            <Grid ColumnDefinitions="*,24,*">
+              <ui:OrderEntryControl x:Name="CuttingTimeInput" DataContext="{Binding CuttingTime}"
+                                    ToolTip.Tip="Часы и минуты. Например, 29:46 или 342:51. Пусто — время неизвестно." />
+              <TextBlock Grid.Column="2" Text="Часы могут превышать 24. Секунды из спецификации округляются вверх до минуты."
+                         Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="12" />
+            </Grid>
             <Grid ColumnDefinitions="*,24,*" IsVisible="{Binding IsHansLaser}">
               <ui:OrderEntryControl DataContext="{Binding MaterialId}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Gas}" />
@@ -76,6 +82,7 @@
           <TextBlock Text="{Binding PriceText}" FontSize="18" FontWeight="Medium" TextWrapping="Wrap" />
           <TextBlock Text="Сохранение пересчитывает цену по текущему прайсу, как в старой программе. Новая цена показывается перед записью." Classes="muted" TextWrapping="Wrap" />
           <ui:JournalButton x:Name="CalculatePriceButton" Label="Рассчитать" Icon="refresh-cw" Command="{Binding CalculateCommand}" IsEnabled="{Binding CanSave}" />
+          <TextBlock Text="{Binding CuttingTimeNotice}" Classes="muted" TextWrapping="Wrap" FontSize="12" />
           <TextBlock Text="{Binding MetadataText}" Classes="muted" TextWrapping="Wrap" />
           <TextBlock Text="{Binding Comparison}" IsVisible="{Binding HasCurrentVersion}" TextWrapping="Wrap" />
           <ui:JournalButton Label="Применить мои правки" Command="{Binding RebaseCommand}" IsVisible="{Binding HasCurrentVersion}" />

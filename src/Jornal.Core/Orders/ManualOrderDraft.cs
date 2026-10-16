@@ -21,6 +21,7 @@ public sealed record ManualOrderDraft(
     string MaterialId,
     string CuttingGas)
 {
+    public long? CuttingDurationMinutes { get; init; }
     public int InitialColor { get; init; } = OrderColors.None;
     public int? PartCount { get; init; }
     public int? PunchCount { get; init; }
@@ -32,6 +33,8 @@ public sealed record ManualOrderDraft(
 
     public void Validate()
     {
+        if (CuttingDurationMinutes is < 0 || CuttingDurationMinutes > OrderCuttingTime.MaximumMinutes)
+            throw new OrderWriteException(OrderWriteFailure.NotSaved, CuttingDuration.ValidationMessage);
         var required = new[] { SpecificationNumber, ManagerName, CustomerName, MaterialName, SheetSize, SheetCount, WeightKilograms };
         if (required.Any(value => string.IsNullOrWhiteSpace(value) || value.Length > 255 || value.Any(char.IsControl)) ||
             OrderDate.Year < 100 || MaterialName.Any(char.IsWhiteSpace) || MaterialId is null || CuttingGas is null ||
@@ -51,14 +54,18 @@ public sealed record ManualOrderDraft(
         return quote;
     }
 
-    public OrderSummary ToOrder(int id, decimal? price) => new(id, OrderDate, SpecificationNumber, ManagerName,
+    public OrderSummary ToOrder(int id, decimal? price)
+    {
+        var row = new OrderSummary(id, OrderDate, SpecificationNumber, ManagerName,
         CustomerName, CuttingType, MaterialName, ThicknessMillimeters, price, InitialColor)
     {
         SheetSize = SheetSize, SheetCount = SheetCount, CutLengthMeters = CutLengthMeters, WeightKilograms = WeightKilograms,
         Coefficient = Coefficient, PartCount = PartCount, PunchCount = PunchCount,
         MaterialId = MaterialId == "-1" ? "" : MaterialId, CuttingGas = CuttingGas == "-1" ? "" : CuttingGas,
         StoredOrderDateTime = OrderDate.ToDateTime(TimeOnly.MinValue), StoredCoefficient = StoredCoefficient
-    };
+        };
+        return row with { CuttingTime = CuttingDurationMinutes is { } minutes ? OrderCuttingTime.For(row, minutes) : null };
+    }
 }
 
 public sealed class OrderPriceChangedException(CuttingPriceQuote quote) : Exception(

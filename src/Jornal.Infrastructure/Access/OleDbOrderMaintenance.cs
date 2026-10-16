@@ -37,8 +37,9 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
     public Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
     {
         change.Validate();
-        return Write((connection, transaction, token) =>
+        return PrepareAndWrite(change.Values.CuttingTime is not null, (connection, transaction, token) =>
         {
+            if (Read(connection, transaction, change.Expected.Id) != change.Expected) throw Conflict();
             var table = OleDbPriceReader.Read(connection, transaction, CuttingPriceCalculator.SelectTable(change.PriceRequest), token);
             var values = change.Calculate(table);
             using var command = Command(connection, transaction);
@@ -46,6 +47,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
             AddValues(command, values, skipId: true);
             command.CommandText += Where(command, change.Expected);
             if (command.ExecuteNonQuery() != 1) throw Conflict();
+            OleDbOrderExtras.Write(connection, transaction, values.Id, change.Expected.CuttingTime, values.CuttingTime);
             var saved = Read(connection, transaction, values.Id);
             if (saved != values) throw new InvalidOperationException("MDB изменила сохраняемые поля.");
             return saved!;
@@ -65,6 +67,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
             using var command = Command(connection, transaction);
             command.CommandText = "DELETE FROM [Orders]" + Where(command, expected);
             if (command.ExecuteNonQuery() != 1) throw Conflict();
+            OleDbOrderExtras.Write(connection, transaction, expected.Id, expected.CuttingTime, null);
             return true;
         }, cancellationToken);
     }
@@ -72,7 +75,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
     public Task<OrderRecord> RestoreAsync(OrderRecord archived, CancellationToken cancellationToken = default)
     {
         archived.Validate();
-        return Write((connection, transaction, token) =>
+        return PrepareAndWrite(archived.CuttingTime is not null, (connection, transaction, token) =>
         {
             if (Read(connection, transaction, archived.Id) is not null)
                 throw new OrderWriteException(OrderWriteFailure.Conflict, "Исходный код уже занят. Существующая заявка не заменена; копия осталась в корзине.");
@@ -80,10 +83,17 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
             command.CommandText = "INSERT INTO [Orders] (" + string.Join(", ", Names.Select(name => $"[{name}]")) + ") VALUES (" + string.Join(", ", Names.Select(_ => "?")) + ")";
             AddValues(command, archived);
             if (command.ExecuteNonQuery() != 1) throw new InvalidOperationException("INSERT не подтвердил восстановление.");
+            OleDbOrderExtras.Write(connection, transaction, archived.Id, null, archived.CuttingTime);
             var saved = Read(connection, transaction, archived.Id);
             if (saved != archived) throw new InvalidOperationException("MDB изменила восстановленные поля.");
             return saved!;
         }, cancellationToken);
+    }
+
+    private async Task<T> PrepareAndWrite<T>(bool needsTime, Func<OleDbConnection, OleDbTransaction, CancellationToken, T> action, CancellationToken token)
+    {
+        if (needsTime) await new OleDbOrderExtras(path).PrepareCuttingTimeAsync(token);
+        return await Write(action, token);
     }
 
     private Task<T> Write<T>(Func<OleDbConnection, OleDbTransaction, CancellationToken, T> action, CancellationToken cancellationToken) => Task.Run(() =>
@@ -190,6 +200,8 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
             (string?)Get("Заказчик"), (string?)Get("Вид_резки"), (string?)Get("Марка_стали"), (string?)Get("Размер_листа"),
             (string?)Get("Кол_во_листов"), (decimal?)Get("Стоимость"), (double?)Get("Толщина"), (int?)Get("Ход"), (string?)Get("Вес"),
             (string?)Get("БЛЦБ"), (int?)Get("Color"), (string?)Get("Коэффициент"));
+        reader.Close();
+        row = row with { CuttingTime = OleDbOrderExtras.ReadOne(connection, transaction, id) };
         row.Validate(); return row;
     }
 }

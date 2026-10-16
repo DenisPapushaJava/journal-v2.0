@@ -193,6 +193,7 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
                     throw new ArgumentException("Исходные записи не соответствуют списку локальной копии.");
             }
         }
+        foreach (var row in book.Orders) row.CuttingTime?.Validate();
         foreach (var table in book.Prices) table.Validate();
     }
 

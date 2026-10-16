@@ -1,5 +1,6 @@
 using System.Globalization;
 using Jornal.Core.Pricing;
+using Jornal.Core.Orders;
 using Jornal.Parsing.Documents;
 using Jornal.Parsing.Specifications;
 
@@ -41,7 +42,7 @@ public sealed record SpecificationImportPreview(string FileName, SpecificationPa
     public string Diagnostics => string.Join("\n\n", Report.Issues.Select(issue => issue.Message +
         (issue.Sources is { Count: > 0 } sources ? "\nВ документе: " + string.Join("; ", sources.Select(source => Short(source.RawText)).Distinct()) : "")));
     public string Duration => Report.CuttingDuration is { } duration
-        ? $"Время резки: {(long)duration.Value.TotalHours} ч {duration.Value.Minutes:00} мин" + (duration.Value.Seconds == 0 ? "" : $" {duration.Value.Seconds:00} с")
+        ? "Время резки: " + CuttingDuration.Format(CuttingDuration.RoundUpMinutes(duration.Value))
         : "Время резки не распознано";
     public string Counts => $"Детали: {PartCount?.ToString() ?? "не распознано"} · Пробивки: {PunchCount?.ToString() ?? "не распознано"}";
 
@@ -78,6 +79,8 @@ public sealed record SpecificationImportPreview(string FileName, SpecificationPa
         Add("CutLength", SpecificationField.CutLength, report.CutLengthMillimeters is { } length && !Bad(SpecificationField.CutLength)
             ? (report.Profile == HansPdfSpecificationParser.Profile ? HansSpecificationNormalizer.LegacyCutLengthMeters(length.Value) :
                 BlockSpecificationNormalizer.LegacyCutLengthMeters(length.Value)).ToString(CultureInfo.InvariantCulture) : null, report.CutLengthMillimeters?.Sources);
+        Add("CuttingTime", SpecificationField.CuttingDuration, report.CuttingDuration is { } duration
+            ? CuttingDuration.Format(CuttingDuration.RoundUpMinutes(duration.Value)) : null, report.CuttingDuration?.Sources);
         Add("MaterialId", SpecificationField.MaterialId, report.MaterialId?.Value, report.MaterialId?.Sources);
         Add("Gas", SpecificationField.CuttingGas, report.CuttingGas?.Value, report.CuttingGas?.Sources);
         var parts = !Bad(SpecificationField.PartCount) ? report.PartCount?.Value : null;

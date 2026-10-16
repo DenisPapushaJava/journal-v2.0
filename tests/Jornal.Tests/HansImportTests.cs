@@ -108,6 +108,9 @@ public sealed class HansImportTests
             Assert.Equal(expected.WeightKilograms, form.Weight.Value); Assert.Equal(expected.CutLengthMeters.ToString(), form.CutLength.Value);
             Assert.Equal(expected.Coefficient, decimal.Parse(form.Coefficient.Value, System.Globalization.CultureInfo.InvariantCulture));
             Assert.Equal(expected.OrderDate.ToString("dd.MM.yyyy"), form.OrderDate.Value);
+            var rawSeconds = item.GetProperty("Raw").GetProperty("DurationSeconds").GetInt64();
+            var expectedMinutes = rawSeconds / 60 + (rawSeconds % 60 == 0 ? 0 : 1);
+            Assert.Equal($"{expectedMinutes / 60:00}:{expectedMinutes % 60:00}", form.CuttingTime.Value);
             Assert.Equal(3, (await store.ReadAsync(TestContext.Current.CancellationToken)).Count);
         }
     }
