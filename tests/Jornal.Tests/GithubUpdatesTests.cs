@@ -66,6 +66,8 @@ public sealed class GithubUpdatesTests
         Assert.Throws<InvalidOperationException>(() => updater.ScheduleRestart(update!));
         fixture.Downloader.CorruptPackage = true;
         await Assert.ThrowsAsync<Velopack.Exceptions.ChecksumFailedException>(() => updater.DownloadAsync(update!, new Progress<int>(), TestContext.Current.CancellationToken));
+        fixture.Downloader.KeepCorruptSize = true;
+        await Assert.ThrowsAsync<Velopack.Exceptions.ChecksumFailedException>(() => updater.DownloadAsync(update!, new Progress<int>(), TestContext.Current.CancellationToken));
         Assert.Throws<InvalidOperationException>(() => updater.ScheduleRestart(update!));
         Assert.False(File.Exists(Path.Combine(fixture.Directory, "JournalTest-2026.10.0-full.nupkg")));
     }
@@ -89,6 +91,7 @@ public sealed class GithubUpdatesTests
         public bool MislabelPreview { get; set; }
         public bool NoStable { get; set; }
         public bool CorruptPackage { get; set; }
+        public bool KeepCorruptSize { get; set; }
         public int FileDownloads { get; private set; }
         public bool UsedAuthorization { get; private set; }
         public string LastApiUrl { get; private set; } = "";
@@ -113,7 +116,13 @@ public sealed class GithubUpdatesTests
         public Task DownloadFile(string url, string targetFile, Action<int> progress, IDictionary<string, string>? headers = null, double timeout = 30, CancellationToken cancelToken = default)
         {
             FileDownloads++; UsedAuthorization |= headers?.ContainsKey("Authorization") == true;
-            File.WriteAllBytes(targetFile, CorruptPackage ? Encoding.UTF8.GetBytes("CORRUPT") : Package); progress(100);
+            var bytes = Package.ToArray();
+            if (CorruptPackage)
+            {
+                if (KeepCorruptSize) bytes[0] ^= 1;
+                else bytes = Encoding.UTF8.GetBytes("CORRUPT");
+            }
+            File.WriteAllBytes(targetFile, bytes); progress(100);
             return Task.CompletedTask;
         }
     }

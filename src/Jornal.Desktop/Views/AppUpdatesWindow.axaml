@@ -7,7 +7,7 @@
     <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}" BorderThickness="0,0,0,1" Padding="24,16">
       <StackPanel Spacing="4">
         <TextBlock Text="Обновления Journal" FontSize="20" FontWeight="SemiBold" />
-        <TextBlock Text="{Binding CurrentVersion, StringFormat='Установленная версия: {0}'}" Classes="muted" />
+        <TextBlock Text="{Binding CurrentVersion, StringFormat='Текущая версия: {0}'}" Classes="muted" />
       </StackPanel>
     </Border>
     <Grid Grid.Row="1" Margin="24,16" RowDefinitions="Auto,12,Auto,12,Auto,12,*,12,Auto">

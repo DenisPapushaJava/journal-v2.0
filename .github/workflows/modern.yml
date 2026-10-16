@@ -43,6 +43,9 @@ jobs:
       - name: Package update artifacts
         shell: bash
         run: ${{ matrix.python }} scripts/release.py package --version 2026.1.0-alpha.1 --runtime ${{ runner.os == 'Windows' && 'win-x64' || 'linux-x64' }} --updates
+      - name: Test Linux update and restart
+        if: runner.os == 'Linux'
+        run: python3 scripts/test-update-install-linux.py
       - name: Test Windows install and restart
         if: runner.os == 'Windows'
         shell: pwsh

@@ -7,7 +7,7 @@ VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
 // Только изолированная тестовая программа. Рабочее приложение не принимает источник обновлений из окружения.
 var root = Environment.GetEnvironmentVariable("JOURNAL_UPDATE_PROBE_ROOT") ?? throw new InvalidOperationException("Test root is required.");
 var updater = new VelopackAppUpdater(_ => new UpdateManager(new SimpleFileSource(new DirectoryInfo(Path.Combine(root, "releases"))),
-    new UpdateOptions { ExplicitChannel = "win-x64", AllowVersionDowngrade = false }));
+    new UpdateOptions { ExplicitChannel = VelopackAppUpdater.RuntimeChannel, AllowVersionDowngrade = false }));
 try
 {
     if (!updater.IsInstalled) throw new InvalidOperationException("Probe was not installed.");
