@@ -1,0 +1,95 @@
+using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
+using Jornal.Core.Orders;
+
+namespace Jornal.Infrastructure.Access;
+
+/// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
+public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor
+{
+    public static string DefaultExecutable => System.IO.Path.Combine(AppContext.BaseDirectory, "AccessHost", "Jornal.AccessHost.exe");
+    public static bool IsBundled => OperatingSystem.IsWindows() && File.Exists(DefaultExecutable);
+
+    public Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
+        SendAsync(new(1, AccessHostOperation.Read, path), cancellationToken);
+
+    public Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<OrderSummary> expected, int color,
+        CancellationToken cancellationToken = default)
+    {
+        var change = OrderBatchChange.ForColor(expected, color);
+        return SendAsync(new(1, AccessHostOperation.SetColor, path, change.Expected.ToArray(), color), cancellationToken);
+    }
+
+    public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<OrderSummary> expected, string number,
+        CancellationToken cancellationToken = default)
+    {
+        var change = OrderBatchChange.ForDeliveryNumber(expected, number);
+        return SendAsync(new(1, AccessHostOperation.SetDeliveryNumber, path, change.Expected.ToArray(), DeliveryNumber: change.DeliveryNumber), cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<OrderSummary>> SendAsync(AccessHostRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber;
+        var dispatched = false;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromMinutes(2));
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo(System.IO.Path.GetFullPath(executable ?? DefaultExecutable))
+            {
+                UseShellExecute = false, CreateNoWindow = true,
+                RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
+                StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
+            }
+        };
+        Task<string>? output = null;
+        Task<string>? error = null;
+        try
+        {
+            process.Start();
+            output = process.StandardOutput.ReadToEndAsync(deadline.Token);
+            error = process.StandardError.ReadToEndAsync(deadline.Token);
+            // После начала отправки записи любой обрыв считается неподтверждённым исходом.
+            dispatched = true;
+            await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(request).AsMemory(), deadline.Token);
+            process.StandardInput.Close();
+            await process.WaitForExitAsync(deadline.Token);
+            var response = JsonSerializer.Deserialize<AccessHostResponse>(await output);
+            _ = await error;
+            if (response is null || response.Protocol != 1 || process.ExitCode != 0)
+                throw new InvalidDataException("Некорректный ответ модуля Access.");
+            if (response.Error is not null)
+            {
+                if (response.Failure is { } failure && !Enum.IsDefined(failure))
+                    throw new InvalidDataException("Неизвестный результат записи.");
+                if (write) throw new OrderWriteException(response.Failure ?? OrderWriteFailure.OutcomeUnknown, response.Error);
+                throw new OrderReadException(response.Error);
+            }
+            if (response.Orders is null || response.Failure is not null)
+                throw new InvalidDataException("Неполный ответ модуля Access.");
+            return response.Orders;
+        }
+        catch (OrderReadException) { throw; }
+        catch (OrderWriteException) { throw; }
+        catch (Exception exception) when (exception is IOException or System.ComponentModel.Win32Exception or
+            InvalidOperationException or JsonException or OperationCanceledException)
+        {
+            if (write)
+                throw new OrderWriteException(dispatched ? OrderWriteFailure.OutcomeUnknown : OrderWriteFailure.NotSaved,
+                    dispatched ? "Модуль Access не подтвердил сохранение. Изменения могли примениться. Обновите список (F5) перед повтором."
+                    : "Не удалось запустить модуль Access. Пакет не сохранён. Восстановите установку Journal.", exception);
+            if (cancellationToken.IsCancellationRequested) throw new OperationCanceledException(cancellationToken);
+            throw new OrderReadException("Не удалось получить данные от модуля Access. Проверьте доступ к MDB и восстановите установку Journal при необходимости.", exception);
+        }
+        finally
+        {
+            try { if (process.Id != 0 && !process.HasExited) process.Kill(entireProcessTree: true); }
+            catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+            // Наблюдаем и ошибки перенаправленных потоков при отмене/завершении процесса.
+            if (output is not null) try { await output; } catch (Exception) { }
+            if (error is not null) try { await error; } catch (Exception) { }
+        }
+    }
+}

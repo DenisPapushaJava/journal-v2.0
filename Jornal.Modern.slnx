@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Jornal.AccessHost/Jornal.AccessHost.csproj" />
     <Project Path="src/Jornal.Core/Jornal.Core.csproj" />
     <Project Path="src/Jornal.Desktop/Jornal.Desktop.csproj" />
     <Project Path="src/Jornal.Infrastructure/Jornal.Infrastructure.csproj" />

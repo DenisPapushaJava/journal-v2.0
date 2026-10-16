@@ -1,0 +1,62 @@
+$ErrorActionPreference = 'Stop'
+# Только одноразовая Windows CI-машина, искусственная MDB и случайная папка установки.
+if (-not $env:CI) { throw 'Сценарий установки/удаления разрешён только на изолированной CI-машине.' }
+$root = Join-Path ([IO.Path]::GetTempPath()) ('journal-offline-test-' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $root | Out-Null
+$setup = @(Get-ChildItem artifacts/release -Filter '*-OfflineSetup.exe')
+if ($setup.Count -ne 1) { throw 'Ожидается один полный установщик.' }
+$installed = Join-Path $root 'installed'
+$fixture = Join-Path $root 'synthetic.mdb'
+& "$env:WINDIR/SysWOW64/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File tests/Fixtures/New-AccessFixture.ps1 -Destination $fixture -RequireProvider
+if ($LASTEXITCODE -ne 0) { throw 'Не удалось подготовить искусственную MDB.' }
+$fixtureHash = (Get-FileHash $fixture).Hash
+$profileRoot = Join-Path $env:LOCALAPPDATA 'Journal'
+New-Item -ItemType Directory -Force -Path $profileRoot | Out-Null
+$profile = Join-Path $profileRoot 'data-source.json'
+if (Test-Path $profile) { throw 'Тест не должен заменять существующий профиль.' }
+[IO.File]::WriteAllText($profile, '{"Version":1,"DatabasePath":null}', [Text.UTF8Encoding]::new($false))
+$profileHash = (Get-FileHash $profile).Hash
+$app = $null
+try {
+    foreach ($attempt in 1..2) {
+        $log = Join-Path $root "setup-$attempt.log"
+        $process = Start-Process $setup[0].FullName -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', ('/JOURNALDIR="' + $installed + '"'), ('/LOG="' + $log + '"')) -Wait -PassThru
+        if ($process.ExitCode -notin @(0, 3010)) {
+            Get-Content $log -ErrorAction SilentlyContinue | Write-Host
+            throw "Offline installer failed: $($process.ExitCode). Logs: $root"
+        }
+        if ((Get-FileHash $fixture).Hash -ne $fixtureHash -or (Get-FileHash $profile).Hash -ne $profileHash) { throw 'Внешняя MDB/профиль изменились при установке.' }
+    }
+    $hostPath = Join-Path $installed 'current/AccessHost/Jornal.AccessHost.exe'
+    & $hostPath --probe
+    if ($LASTEXITCODE -ne 0) { throw 'Установленный модуль Jet x86 не запускается.' }
+    $env:JOURNAL_ACCESS_HOST = $hostPath
+    $env:JOURNAL_SYNTHETIC_MDB = $fixture
+    & dotnet test tests/Jornal.Tests/Jornal.Tests.csproj -c Release --no-build --no-restore --filter 'FullyQualifiedName~AccessHostTests.NativeX64Client' --logger 'trx;LogFileName=access-host.trx' --results-directory artifacts/test-results
+    if ($LASTEXITCODE -ne 0) { throw 'Нативная проверка x64 → x86 не прошла.' }
+    [xml]$results = Get-Content artifacts/test-results/access-host.trx
+    if ([int]$results.TestRun.ResultSummary.Counters.passed -ne 1) { throw 'Обязательная проверка хоста не выполнена.' }
+    $app = Start-Process (Join-Path $installed 'current/Jornal.Desktop.exe') -PassThru
+    $deadline = [DateTime]::UtcNow.AddSeconds(45)
+    do {
+        Start-Sleep -Milliseconds 500
+        $app.Refresh()
+        if ($app.HasExited) { throw "Установленное приложение завершилось до открытия окна: $($app.ExitCode)." }
+    } while ($app.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
+    if ($app.MainWindowHandle -eq 0) { throw 'Главное окно установленного приложения не открылось.' }
+    if (-not $app.CloseMainWindow() -or -not $app.WaitForExit(10000)) { throw 'Приложение не завершилось обычным закрытием окна.' }
+    $app = $null
+    $remove = Start-Process (Join-Path $installed 'Update.exe') -ArgumentList @('uninstall', '--silent') -Wait -PassThru
+    if ($remove.ExitCode -ne 0) { throw "Uninstall failed: $($remove.ExitCode)." }
+    if ((Get-FileHash $fixture).Hash -ne $fixtureHash -or (Get-FileHash $profile).Hash -ne $profileHash) { throw 'Внешняя MDB/профиль изменились при удалении.' }
+    Write-Host 'Офлайн-комплект: установка, повторная установка, Jet x86 из x64, запуск/закрытие окна и удаление прошли. MDB и профиль сохранены.'
+    Write-Host "Полный установщик: $([Math]::Round($setup[0].Length / 1MB, 2)) МиБ. Диагностика: $root"
+}
+finally {
+    if ($app -and -not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+    Remove-Item Env:JOURNAL_ACCESS_HOST -ErrorAction SilentlyContinue
+    Remove-Item Env:JOURNAL_SYNTHETIC_MDB -ErrorAction SilentlyContinue
+    if (Test-Path $profile) { Remove-Item $profile }
+    New-Item -ItemType Directory -Force artifacts/installer-logs | Out-Null
+    Copy-Item (Join-Path $root '*.log') artifacts/installer-logs -ErrorAction SilentlyContinue
+}

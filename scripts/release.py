@@ -64,11 +64,13 @@ def create_archive(publish_dir, output_dir, version, runtime, commit):
         }, indent=2) + "\n")
         bundle.writestr("README-RUN.txt", (
             f"Journal {version.version} ({runtime})\n\n"
-            "ПРЕДВАРИТЕЛЬНАЯ СБОРКА. Рабочий установщик ещё не готов.\n"
+            "ПРЕДВАРИТЕЛЬНАЯ СБОРКА. ZIP предназначен для проверки и требует .NET.\n"
+            "Для Windows используйте OfflineSetup.exe из выпуска: он содержит необходимые среды .NET.\n"
             "Нужна .NET 10 Runtime. В шапке «База данных» можно выбрать копию существующей MDB.\n"
             "На Windows статусы и БЛЦБ записываются в MDB транзакцией; на Linux MDB доступна только для чтения.\n"
             "Создание заявок пока работает только в деможурнале. Для разработки выбирайте копию MDB.\n"
-            "Для MDB на Windows нужен ACE той же разрядности; на Linux — mdbtools (mdb-export).\n"
+            "MDB на Windows обслуживает вложенный модуль AccessHost x86; нужен также .NET Runtime x86.\n"
+            "На Linux нужен mdbtools (mdb-export).\n"
             "Распакуйте архив целиком, затем запустите " + launcher + ".\n"
             "На Linux при необходимости разрешите запуск: chmod +x Jornal.Desktop\n"
             "Для проверки этой сборки не заменяйте и не перемещайте существующий OrderDB.mdb.\n"
@@ -94,7 +96,7 @@ def package_updates(dotnet, staging, output_dir, version, runtime):
         "--runtime", runtime, "--channel", update_channel(version, runtime),
         "--outputDir", str(output_dir), "--releaseNotes", str(ROOT / "docs/release-notes.md")]
     if runtime.startswith("win"):
-        command += ["--framework", "net10.0-x64-runtime", "--icon", str(ROOT / "docs/design/assets/journal-icon.ico")]
+        command += ["--framework", "net10.0-x64-runtime,net10.0-x86-runtime", "--icon", str(ROOT / "docs/design/assets/journal-icon.ico")]
     else:
         command += ["--icon", str(ROOT / "docs/design/assets/journal-icon.png"), "--categories", "Office"]
     subprocess.run(command, cwd=ROOT, check=True)
@@ -123,11 +125,20 @@ def package(version, runtime, with_updates=False):
             "-p:ContinuousIntegrationBuild=true", "-p:RestoreLockedMode=true",
             "-p:DebugType=None", "-p:DebugSymbols=false", "--output", staging,
         ], cwd=ROOT, check=True)
+        if runtime == "win-x64":
+            subprocess.run([dotnet, "publish", "src/Jornal.AccessHost/Jornal.AccessHost.csproj", "-c", "Release",
+                "-r", "win-x86", "--self-contained", "false", f"-p:Version={version.version}",
+                f"-p:SourceRevisionId={commit}", "-p:ContinuousIntegrationBuild=true", "-p:RestoreLockedMode=true",
+                "-p:DebugType=None", "-p:DebugSymbols=false", "-o", str(Path(staging) / "AccessHost")], cwd=ROOT, check=True)
         for path in create_archive(staging, work_dir / "release", version, runtime, commit):
             print(path.relative_to(ROOT))
         if with_updates:
             updates_dir = work_dir / "updates" / runtime
             package_updates(dotnet, staging, updates_dir, version, runtime)
+            if runtime == "win-x64":
+                from windows_installer import build_offline_installer
+                app_setup, = updates_dir.glob("*Setup.exe")
+                print(build_offline_installer(app_setup, Path(staging) / "AccessHost", work_dir / "release", version.version).relative_to(ROOT))
             for asset in updates_dir.iterdir():
                 if asset.is_file(): shutil.copy2(asset, work_dir / "release" / asset.name)
 

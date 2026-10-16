@@ -264,6 +264,36 @@
           "System.Diagnostics.PerformanceCounter": "10.0.13"
         }
       }
+    },
+    "net10.0/win-x86": {
+      "Microsoft.Win32.Registry": {
+        "type": "Transitive",
+        "resolved": "5.0.0",
+        "contentHash": "dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg=="
+      },
+      "System.Diagnostics.EventLog": {
+        "type": "Transitive",
+        "resolved": "10.0.13",
+        "contentHash": "DkNjtQyPR5Ud/zHnWHdsOuKbFRL9nIC92Q76z0NmHVDoQm40toLtsGFTIWq7toBoVa6fo/DInL3PLxY3Asixyw=="
+      },
+      "System.Diagnostics.PerformanceCounter": {
+        "type": "Transitive",
+        "resolved": "10.0.13",
+        "contentHash": "K2t0EVIUB5g+gc+hZ7x9DWyGLvuTsfD/tbPJBbLaIGuW2OQl+ivm1MKIlqYrMWxX9TK+LqMDVuE0LcOCOFmueQ==",
+        "dependencies": {
+          "System.Configuration.ConfigurationManager": "10.0.13"
+        }
+      },
+      "System.Data.OleDb": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.13, )",
+        "resolved": "10.0.13",
+        "contentHash": "egfyZB9/6dVa6jlVR2zXMETNR5woDg8EIClKDZQl125e7nlGLLJNWgCwA4br0UdKw0DjtEU+4r0stAZySQIWxA==",
+        "dependencies": {
+          "System.Configuration.ConfigurationManager": "10.0.13",
+          "System.Diagnostics.PerformanceCounter": "10.0.13"
+        }
+      }
     }
   }
 }

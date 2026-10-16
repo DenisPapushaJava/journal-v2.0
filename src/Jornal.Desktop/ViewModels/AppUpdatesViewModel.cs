@@ -21,7 +21,7 @@ public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? time
     public string CurrentVersion => updater.CurrentVersion;
     public bool IsInstalled => updater.IsInstalled;
     public string InstallationHint => OperatingSystem.IsWindows()
-        ? "Для обновления из программы установите Journal через Setup.exe из раздела выпусков."
+        ? "Для установки со всеми необходимыми компонентами используйте OfflineSetup.exe из раздела выпусков."
         : "Для обновления из программы запустите Journal из AppImage из раздела выпусков.";
     [ObservableProperty] private string _status = "Проверьте, появилась ли новая версия Journal.";
     [ObservableProperty] private string? _error;
