@@ -1,6 +1,7 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
+using System.Text;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
 
@@ -33,12 +34,29 @@ public sealed class DocumentReader
             .Select(table => new HtmlTable(table.Rows
                 .Where(row => ReferenceEquals(row.Closest("table"), table))
                 .Select(row => new HtmlRow(row.Cells.Select(cell => new HtmlCell(
-                    cell.TextContent, cell.ColumnSpan, cell.RowSpan)).ToArray()))
+                    CellText(cell), cell.ColumnSpan, cell.RowSpan)).ToArray()))
                 .ToArray()))
             .ToArray();
 
         cancellationToken.ThrowIfCancellationRequested();
         return new SourceDocument(DocumentKind.Html, document.Body?.TextContent, tables, []);
+    }
+
+    private static string CellText(IHtmlTableCellElement cell)
+    {
+        var text = new StringBuilder();
+        void Read(INode node)
+        {
+            // Вложенная таблица будет прочитана самостоятельно. Её поля не становятся значением внешней ячейки.
+            if (node is IHtmlTableElement) return;
+            if (node is IText part) { text.Append(part.Data); return; }
+            var boundary = node is IElement element && element.LocalName is "br" or "p" or "div";
+            if (boundary) text.Append('\n');
+            foreach (var child in node.ChildNodes) Read(child);
+            if (boundary && node is not IElement { LocalName: "br" }) text.Append('\n');
+        }
+        foreach (var child in cell.ChildNodes) Read(child);
+        return text.ToString();
     }
 
     private static SourceDocument ReadPdf(string path, CancellationToken cancellationToken)

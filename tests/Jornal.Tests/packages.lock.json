@@ -423,6 +423,7 @@
         "type": "Project",
         "dependencies": {
           "AngleSharp": "[1.8.5, )",
+          "Jornal.Core": "[2026.1.0-dev, )",
           "PdfPig": "[0.1.16, )"
         }
       },

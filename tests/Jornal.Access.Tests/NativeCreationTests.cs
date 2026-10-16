@@ -22,7 +22,8 @@ public sealed partial class NativeAccessTests
         var original = await database.Read(); var schema = database.Schema();
         var creator = new OleDbManualOrderCreator(database.Path);
         var draft = CreationDraft() with { CuttingType = kind, MaterialId = materialId,
-            ThicknessMillimeters = decimal.Parse(thickness, System.Globalization.CultureInfo.InvariantCulture), InitialColor = -16711936 };
+            ThicknessMillimeters = decimal.Parse(thickness, System.Globalization.CultureInfo.InvariantCulture), InitialColor = -16711936,
+            SheetSize = "1500x6000, 1000x2000", SheetCount = "3" };
         var saved = await creator.CreateAsync(draft, TestContext.Current.CancellationToken);
         Assert.True(saved.Id > original.Max(row => row.Id));
         Assert.Equal(draft.ToOrder(saved.Id, price), saved);
@@ -86,6 +87,7 @@ public sealed partial class NativeAccessTests
         var bytes = SHA256.HashData(File.ReadAllBytes(database.Path));
         var creator = new OleDbManualOrderCreator(database.Path);
         foreach (var draft in new[] { CreationDraft() with { CustomerName = new string('А', 256) },
+                     CreationDraft() with { SheetSize = new string('1', 256) },
                      CreationDraft() with { OrderDate = new(1, 1, 1) }, CreationDraft() with { MaterialId = "x|2" } })
             await Assert.ThrowsAsync<OrderWriteException>(() => creator.CreateAsync(draft, TestContext.Current.CancellationToken));
         using var cancel = new CancellationTokenSource(); cancel.Cancel();
