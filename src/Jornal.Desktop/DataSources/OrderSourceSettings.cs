@@ -2,6 +2,7 @@ using System.Text.Json;
 using Jornal.Core.Orders;
 using Jornal.Infrastructure.Access;
 using Jornal.Infrastructure.Demo;
+using Jornal.Infrastructure.Local;
 
 namespace Jornal.Desktop.DataSources;
 
@@ -32,7 +33,7 @@ public sealed class JsonOrderSourceSettingsStore(string path) : IOrderSourceSett
             stream.Position = 0;
             var settings = JsonSerializer.Deserialize<OrderSourceSettings>(stream);
             if (settings is null || settings.Version != 1 || settings.DatabasePath is not null &&
-                (!Path.IsPathFullyQualified(settings.DatabasePath) || !string.Equals(Path.GetExtension(settings.DatabasePath), ".mdb", StringComparison.OrdinalIgnoreCase)))
+                (!Path.IsPathFullyQualified(settings.DatabasePath) || !IsSupportedPath(settings.DatabasePath)))
                 return new(null, "Настройки базы несовместимы с этой версией. Выберите источник заново.");
             if (settings.DatabasePath is not null) _ = Path.GetFullPath(settings.DatabasePath);
             return new(settings);
@@ -46,6 +47,9 @@ public sealed class JsonOrderSourceSettingsStore(string path) : IOrderSourceSett
             return new(null, "Не удалось прочитать настройки базы. Выберите источник заново.");
         }
     }
+
+    private static bool IsSupportedPath(string path) => string.Equals(Path.GetExtension(path), ".mdb", StringComparison.OrdinalIgnoreCase) ||
+        OperatingSystem.IsLinux() && LocalJournalStore.IsLocalCopyPath(path);
 
     public void Save(OrderSourceSettings settings)
     {
@@ -66,10 +70,11 @@ public sealed class JsonOrderSourceSettingsStore(string path) : IOrderSourceSett
 }
 
 public sealed record OrderSource(string? Path, IOrderReader Reader, IManualOrderCreator? Creator = null, IOrderBatchEditor? Editor = null,
-    string? Error = null)
+    string? Error = null, bool IsLocalCopy = false)
 {
     public string Description => Error is not null ? "Источник не подключён" : Path is null ?
-        "Деможурнал · до закрытия программы" : $"{System.IO.Path.GetFileName(Path)} · {(Editor is null ? "только чтение" : "статусы и БЛЦБ")}";
+        "Деможурнал · до закрытия программы" : IsLocalCopy ? "Локальная тестовая копия · изменения сохраняются" :
+        $"{System.IO.Path.GetFileName(Path)} · {(Editor is null ? "только чтение" : "статусы и БЛЦБ")}";
     public string Details => Error ?? Path ?? "Вымышленные заявки. Изменения хранятся в памяти текущего сеанса.";
 }
 
@@ -82,10 +87,19 @@ public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, 
         var loaded = settingsStore.Load();
         return loaded.Error is not null ? new(null, new UnavailableReader(loaded.Error), Error: loaded.Error) : Create(loaded.Settings?.DatabasePath);
     }
-    public OrderSource Create(string? path) => path is null ? new(null, _demo, _demo, _demo) :
-        new(System.IO.Path.GetFullPath(path), readerFactory?.Invoke(path) ?? new AccessOrderReader(path),
+    public OrderSource Create(string? path)
+    {
+        if (path is null) return new(null, _demo, _demo, _demo);
+        if (LocalJournalStore.IsLocalCopyPath(path))
+        {
+            if (!OperatingSystem.IsLinux()) return new(path, new UnavailableReader("Локальные тестовые копии доступны на Linux. На Windows выберите исходную MDB."));
+            var local = new LocalJournalStore(path);
+            return new(System.IO.Path.GetFullPath(path), local, local, local, IsLocalCopy: true);
+        }
+        return new(System.IO.Path.GetFullPath(path), readerFactory?.Invoke(path) ?? new AccessOrderReader(path),
             Editor: editorFactory is not null ? editorFactory(path) : readerFactory is null && OperatingSystem.IsWindows()
                 ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderBatchEditor(path) : null);
+    }
     public void Save(OrderSource source) => settingsStore.Save(new(DatabasePath: source.Path));
 
     private sealed class UnavailableReader(string error) : IOrderReader

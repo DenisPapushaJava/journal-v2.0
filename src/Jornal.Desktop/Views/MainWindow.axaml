@@ -94,7 +94,7 @@
               <Grid Grid.Row="2" ColumnDefinitions="1.18*,8,*">
                 <ui:JournalButton x:Name="NewOrderButton" Label="Новая заявка" Icon="plus" Classes="primary"
                                   IsEnabled="{Binding CanCreateOrder}" Click="OnNewOrderClick"
-                                  ToolTip.Tip="Добавить заявку в деможурнал текущего сеанса" />
+                                  ToolTip.Tip="{Binding NewOrderHint}" />
                 <ui:JournalButton x:Name="ReloadButton" Grid.Column="2" Label="Обновить" Icon="refresh-cw" Command="{Binding ReloadCommand}" />
               </Grid>
               <Grid Grid.Row="4" ColumnDefinitions="1.18*,8,*">

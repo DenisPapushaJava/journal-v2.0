@@ -12,9 +12,10 @@
       </StackPanel>
     </Border>
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Margin="24,16" Spacing="12" IsEnabled="{Binding !ConnectCommand.IsRunning}">
+      <StackPanel Margin="24,16" Spacing="12" IsEnabled="{Binding CanChangeSource}">
         <RadioButton x:Name="DatabaseModeButton" GroupName="Source" Content="Существующая база OrderDB.mdb"
                      IsChecked="{Binding UseDatabase, Mode=TwoWay}" />
+        <StackPanel Spacing="12" IsVisible="{Binding UseDatabase}">
         <Grid ColumnDefinitions="*,8,Auto" IsEnabled="{Binding UseDatabase}">
           <TextBox x:Name="DatabasePathInput" Text="{Binding DatabasePath, Mode=TwoWay}" MinHeight="36"
                    PlaceholderText="Полный путь к файлу .mdb" AutomationProperties.Name="Путь к базе данных"
@@ -26,8 +27,26 @@
           <TextBlock Text="{Binding DatabaseCapabilities}"
                      TextWrapping="Wrap" />
         </Border>
+        </StackPanel>
         <RadioButton x:Name="DemoModeButton" GroupName="Source" Content="Демонстрационный журнал"
                      IsChecked="{Binding UseDemo, Mode=TwoWay}" />
+        <StackPanel Spacing="8" IsVisible="{Binding CanUseLocalCopy}">
+          <Grid ColumnDefinitions="*,8,Auto">
+          <RadioButton x:Name="LocalCopyModeButton" GroupName="Source" Content="Локальная тестовая копия"
+                       IsChecked="{Binding UseLocalCopy, Mode=TwoWay}" />
+          <ui:JournalButton x:Name="ImportLocalCopyButton" Grid.Column="2" Label="Создать из MDB…" Icon="plus" Click="OnImportLocalCopyClick"
+                            ToolTip.Tip="Перенести заявки и прайсы в новый локальный файл для тестирования" />
+          </Grid>
+          <StackPanel Spacing="8" IsVisible="{Binding UseLocalCopy}">
+          <Grid ColumnDefinitions="*,8,Auto">
+            <TextBox x:Name="LocalCopyPathInput" Text="{Binding LocalCopyPath, Mode=TwoWay}" MinHeight="36"
+                     PlaceholderText="Полный путь к .journal-test.json" AutomationProperties.Name="Путь к локальной тестовой копии" />
+            <ui:JournalButton x:Name="BrowseLocalCopyButton" Grid.Column="2" Label="Обзор…" Icon="folder-plus" Click="OnBrowseLocalCopyClick" />
+          </Grid>
+          <TextBlock Text="Заявки и прайсы из MDB. Создание, статусы и БЛЦБ сохраняются в отдельном файле. Исходная MDB не меняется; обратной синхронизации нет."
+                     Classes="muted" TextWrapping="Wrap" />
+          </StackPanel>
+        </StackPanel>
       </StackPanel>
     </ScrollViewer>
     <Border Grid.Row="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
@@ -39,6 +58,7 @@
                    Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
         <Grid ColumnDefinitions="*,12,Auto,8,Auto">
         <TextBlock Text="Подключение…" IsVisible="{Binding ConnectCommand.IsRunning}" Classes="muted" VerticalAlignment="Center" />
+        <TextBlock Text="Создание копии…" IsVisible="{Binding IsImporting}" Classes="muted" VerticalAlignment="Center" />
         <ui:JournalButton x:Name="CancelDatabaseButton" Grid.Column="2" Label="Отмена" Click="OnCancelClick" />
         <ui:JournalButton x:Name="ConnectDatabaseButton" Grid.Column="4" Label="Подключить" Icon="check" Classes="primary"
                           Command="{Binding ConnectCommand}" IsDefault="True" />

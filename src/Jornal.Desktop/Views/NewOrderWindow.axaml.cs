@@ -37,7 +37,11 @@ public partial class NewOrderWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        if (_viewModel is not null) _viewModel.Saved -= OnSaved;
+        if (_viewModel is not null)
+        {
+            _viewModel.CalculatePriceCommand.Cancel();
+            _viewModel.Saved -= OnSaved;
+        }
         base.OnClosed(e);
     }
 

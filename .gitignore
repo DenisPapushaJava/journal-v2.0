@@ -372,6 +372,8 @@ TestResults/
 *.ldb
 *.accdb
 *.laccdb
+*.journal-test.json
+*.journal-test.json.lock
 
 # Release tooling tests are source files, not build output.
 !/tests/release/
