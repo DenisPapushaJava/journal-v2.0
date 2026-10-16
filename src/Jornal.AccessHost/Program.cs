@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Jornal.Core.Orders;
+using Jornal.Core.Pricing;
 using Jornal.Infrastructure.Access;
 
 Console.InputEncoding = new UTF8Encoding(false);
@@ -35,20 +36,25 @@ try
     if (request.Protocol != 1 || !Enum.IsDefined(request.Operation) || request.Operation == AccessHostOperation.Probe ||
         !Path.IsPathFullyQualified(request.Path) || !string.Equals(Path.GetExtension(request.Path), ".mdb", StringComparison.OrdinalIgnoreCase))
         throw new InvalidDataException("Несовместимый запрос модуля Access.");
-    var editor = new OleDbOrderBatchEditor(request.Path);
-    var rows = request.Operation switch
+    if (request.Operation == AccessHostOperation.ReadPriceTable)
+        response = new(1, PriceTable: await new AccessPriceReader(request.Path).ReadAsync(request.PriceTableName ?? ""));
+    else
     {
-        AccessHostOperation.Read => await new AccessOrderReader(request.Path).ReadAsync(),
-        AccessHostOperation.SetColor => await editor.SetColorAsync(request.Expected ?? [], request.Color),
-        AccessHostOperation.SetDeliveryNumber => await editor.SetDeliveryNumberAsync(request.Expected ?? [], request.DeliveryNumber ?? ""),
-        _ => throw new InvalidDataException("Неизвестное действие.")
-    };
-    response = new(1, rows.ToArray());
+        var editor = new OleDbOrderBatchEditor(request.Path);
+        var rows = request.Operation switch
+        {
+            AccessHostOperation.Read => await new AccessOrderReader(request.Path).ReadAsync(),
+            AccessHostOperation.SetColor => await editor.SetColorAsync(request.Expected ?? [], request.Color),
+            AccessHostOperation.SetDeliveryNumber => await editor.SetDeliveryNumberAsync(request.Expected ?? [], request.DeliveryNumber ?? ""),
+            _ => throw new InvalidDataException("Неизвестное действие.")
+        };
+        response = new(1, rows.ToArray());
+    }
 }
 catch (OrderWriteException exception) { response = new(1, Error: exception.Message, Failure: exception.Failure); }
 catch (Exception exception)
 {
-    response = new(1, Error: exception is OrderReadException or ArgumentException or InvalidDataException
+    response = new(1, Error: exception is OrderReadException or PriceReadException or ArgumentException or InvalidDataException
         ? exception.Message : "Модуль Access не смог выполнить запрос.",
         Failure: request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber
             ? exception is ArgumentException or InvalidDataException ? OrderWriteFailure.NotSaved : OrderWriteFailure.OutcomeUnknown : null);

@@ -11,6 +11,9 @@
     <PackageReference Include="Avalonia.Headless.XUnit" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Независимый эталон совместимости из прежнего приложения, только для тестов. -->
+    <Compile Include="../../Clasess/CalculationCoefficient.cs" Link="Legacy/CalculationCoefficient.cs" />
+    <Compile Include="../../Clasess/IdMaterialPrice.cs" Link="Legacy/IdMaterialPrice.cs" />
     <ProjectReference Include="../../src/Jornal.Core/Jornal.Core.csproj" />
     <ProjectReference Include="../../src/Jornal.Infrastructure/Jornal.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Jornal.Parsing/Jornal.Parsing.csproj" />

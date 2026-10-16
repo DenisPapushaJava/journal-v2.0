@@ -4,5 +4,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Jornal.Parsing/Jornal.Parsing.csproj" />
+    <ProjectReference Include="../../src/Jornal.Infrastructure/Jornal.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

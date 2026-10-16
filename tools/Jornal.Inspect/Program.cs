@@ -1,10 +1,14 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Jornal.Parsing.Documents;
+using Jornal.Inspect;
+
+if (args.Length > 0 && args[0] is "prices" or "price") return await PriceCommands.RunAsync(args);
 
 if (args.Length == 0)
 {
     Console.Error.WriteLine("Использование: Jornal.Inspect <файл.html|файл.pdf> [...]");
+    PriceCommands.PrintUsage();
     return 1;
 }
 

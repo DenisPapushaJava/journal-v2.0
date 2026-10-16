@@ -32,8 +32,14 @@ VALUES (42, #01/02/2026 08:31:42#, 'Менеджер', '0102-42', 'Пример 
  '02 / комплект', 1234.5678, 2.5, 31, '0012.350', 'БЛЦБ-000042', -16711936, ' 1,25 | 20 | 340 | 2 | N2 ')
 '@)
     $null = $connection.Execute("INSERT INTO [Orders] ([Код], [Спецификация]) VALUES (43, 'без даты')")
-    $null = $connection.Execute("CREATE TABLE [PriceP] ([1,5] LONG)")
-    $null = $connection.Execute("INSERT INTO [PriceP] ([1,5]) VALUES (87)")
+    $null = $connection.Execute("CREATE TABLE [PriceP] ([1,5] LONG, [2] LONG, [2,5] LONG, [3] LONG)")
+    $null = $connection.Execute("INSERT INTO [PriceP] ([1,5], [2], [2,5], [3]) VALUES (87, 100, NULL, 0)")
+    $null = $connection.Execute("INSERT INTO [PriceP] ([1,5], [2], [2,5], [3]) VALUES (999, 999, 999, 999)")
+    foreach ($table in @('PriceLM500', 'PriceLL500', 'PriceG', 'PriceHL_id1', 'PriceHL_id2')) {
+        $null = $connection.Execute("CREATE TABLE [$table] ([Код] COUNTER PRIMARY KEY, [2,5] LONG, [20] LONG, [60] LONG)")
+        $null = $connection.Execute("INSERT INTO [$table] ([2,5], [20], [60]) VALUES (17, 20, 60)")
+        $null = $connection.Execute("INSERT INTO [$table] ([2,5], [20], [60]) VALUES (999, 999, 999)")
+    }
     Write-Host "Создана искусственная Jet MDB через $provider."
 }
 finally {

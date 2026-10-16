@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Jornal.Core.Orders;
+using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Access;
 
@@ -11,24 +12,37 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
     public static string DefaultExecutable => System.IO.Path.Combine(AppContext.BaseDirectory, "AccessHost", "Jornal.AccessHost.exe");
     public static bool IsBundled => OperatingSystem.IsWindows() && File.Exists(DefaultExecutable);
 
-    public Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
-        SendAsync(new(1, AccessHostOperation.Read, path), cancellationToken);
+    public async Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
+        (await SendAsync(new(1, AccessHostOperation.Read, path), cancellationToken)).Orders!;
+
+    public async Task<PriceTable> ReadPriceTableAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+        PriceTables.ValidateName(tableName);
+        try
+        {
+            return (await SendAsync(new(1, AccessHostOperation.ReadPriceTable, System.IO.Path.GetFullPath(path), PriceTableName: tableName), cancellationToken)).PriceTable!;
+        }
+        catch (OrderReadException exception) { throw new PriceReadException(exception.Message, exception); }
+    }
 
     public Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<OrderSummary> expected, int color,
         CancellationToken cancellationToken = default)
     {
         var change = OrderBatchChange.ForColor(expected, color);
-        return SendAsync(new(1, AccessHostOperation.SetColor, path, change.Expected.ToArray(), color), cancellationToken);
+        return SendOrdersAsync(new(1, AccessHostOperation.SetColor, path, change.Expected.ToArray(), color), cancellationToken);
     }
 
     public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<OrderSummary> expected, string number,
         CancellationToken cancellationToken = default)
     {
         var change = OrderBatchChange.ForDeliveryNumber(expected, number);
-        return SendAsync(new(1, AccessHostOperation.SetDeliveryNumber, path, change.Expected.ToArray(), DeliveryNumber: change.DeliveryNumber), cancellationToken);
+        return SendOrdersAsync(new(1, AccessHostOperation.SetDeliveryNumber, path, change.Expected.ToArray(), DeliveryNumber: change.DeliveryNumber), cancellationToken);
     }
 
-    private async Task<IReadOnlyList<OrderSummary>> SendAsync(AccessHostRequest request, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<OrderSummary>> SendOrdersAsync(AccessHostRequest request, CancellationToken cancellationToken) =>
+        (await SendAsync(request, cancellationToken)).Orders!;
+
+    private async Task<AccessHostResponse> SendAsync(AccessHostRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber;
@@ -67,9 +81,18 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
                 if (write) throw new OrderWriteException(response.Failure ?? OrderWriteFailure.OutcomeUnknown, response.Error);
                 throw new OrderReadException(response.Error);
             }
-            if (response.Orders is null || response.Failure is not null)
+            if (response.Failure is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");
-            return response.Orders;
+            if (request.Operation == AccessHostOperation.ReadPriceTable)
+            {
+                if (response.PriceTable is null || response.Orders is not null || response.PriceTable.Name != request.PriceTableName)
+                    throw new InvalidDataException("Неполный ответ с прайсом модуля Access.");
+                try { response.PriceTable.Validate(); }
+                catch (ArgumentException exception) { throw new InvalidDataException("Некорректный прайс в ответе модуля Access.", exception); }
+            }
+            else if (response.Orders is null || response.PriceTable is not null)
+                throw new InvalidDataException("Неполный ответ модуля Access.");
+            return response;
         }
         catch (OrderReadException) { throw; }
         catch (OrderWriteException) { throw; }
