@@ -15,6 +15,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64os
 MinVersion=10.0.19045
 SetupMutex=DenisPapusha.Journal.OfflineSetup
+SetupLogging=yes
 AppMutex=Local\DenisPapusha.Journal.Running
 OutputBaseFilename=Journal-{#JournalVersion}-win-x64-OfflineSetup
 SetupIconFile=..\..\docs\design\assets\journal-icon.ico
@@ -78,7 +79,7 @@ begin
   ExistingRoot := RegisteredRoot;
   DefaultRoot := ExistingRoot;
   if DefaultRoot = '' then DefaultRoot := ExpandConstant('{localappdata}\DenisPapusha.Journal');
-  Description := 'Выберите отдельную пустую папку для приложения. Файл OrderDB.mdb остаётся на прежнем месте и выбирается после установки.';
+  Description := 'Установка для текущего пользователя. Выберите пустую папку с правами записи вне Program Files и Windows. OrderDB.mdb выбирается после установки.';
   if ExistingRoot <> '' then
     Description := 'Journal уже установлен. Повторная установка использует прежнюю папку. Для переноса сначала удалите Journal через параметры Windows, затем установите заново; база и личные настройки хранятся отдельно.';
   DirectoryPage := CreateInputDirPage(wpWelcome, 'Папка установки',
@@ -94,6 +95,13 @@ end;
 function InstallRoot: String;
 begin
   Result := NormalizeRoot(DirectoryPage.Values[0]);
+end;
+
+function IsWithinDirectory(Value, Parent: String): Boolean;
+begin
+  Parent := NormalizeRoot(Parent);
+  Result := (CompareText(Value, Parent) = 0) or
+    (CompareText(Copy(Value, 1, Length(Parent) + 1), AddBackslash(Parent)) = 0);
 end;
 
 function DirectoryError: String;
@@ -114,6 +122,12 @@ begin
   end;
   Value := InstallRoot;
   Log('Нормализованная папка: [' + Value + ']');
+  if IsWithinDirectory(Value, ExpandConstant('{pf64}')) or
+    IsWithinDirectory(Value, ExpandConstant('{pf32}')) or
+    IsWithinDirectory(Value, ExpandConstant('{win}')) then begin
+    Result := 'Этот установщик устанавливает Journal для текущего пользователя. Program Files и папка Windows требуют другого режима установки. Выберите папку в профиле пользователя или другую отдельную папку с правами записи; так обновления смогут работать без запуска Journal от администратора.';
+    Exit;
+  end;
   if Length(Value) <= 3 then begin Log('Нельзя устанавливать в корень диска.'); Exit; end;
   if FileExists(Value) then begin Log('Вместо папки указан файл.'); Exit; end;
   if (ExistingRoot <> '') and (CompareText(Value, ExistingRoot) <> 0) then begin
