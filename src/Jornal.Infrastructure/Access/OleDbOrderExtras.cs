@@ -19,38 +19,17 @@ public sealed class OleDbOrderExtras(string path) : IOrderDurationInitializer
         try
         {
             using (var probe = OleDbAccessConnection.Create(path, writable: false))
-            { probe.Open(); if (Exists(probe)) { Validate(probe, null); return; } }
+            {
+                probe.Open();
+                if (Exists(probe)) { Validate(probe, null); return; }
+                ValidateOrders(probe);
+            }
+            CreateBackup(cancellationToken);
             // Только однократная подготовка требует исключительного доступа. Рабочие записи — shared.
             using var connection = OleDbAccessConnection.Create(path, writable: true, exclusive: true);
             connection.Open();
             if (Exists(connection)) { Validate(connection, null); return; }
-            using (var command = Command(connection, null))
-            {
-                command.CommandText = "SELECT * FROM [Orders] WHERE 1=0";
-                using var reader = command.ExecuteReader()!;
-                if (reader.FieldCount != AccessOrderMapper.Columns.Count)
-                    throw new OrderReadException("Для подготовки времени нужна исходная таблица Orders из 16 полей.");
-                AccessOrderMapper.ValidateColumns(Enumerable.Range(0, reader.FieldCount).Select(reader.GetName));
-            }
-            cancellationToken.ThrowIfCancellationRequested();
-            // Копирование при исключительном доступе: активных транзакций клиентов в этой базе нет.
-            var backup = Path.GetFullPath(path) + ".before-journal-extras-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) +
-                "-" + Guid.NewGuid().ToString("N") + ".bak";
-            var partial = backup + ".partial";
-            try
-            {
-                // File.Copy запрещает уже открытую запись Jet своим FileShare.Read. Разрешаем
-                // существующий дескриптор Jet; исключительный Mode по-прежнему закрывает доступ клиентам БД.
-                using (var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                using (var destination = new FileStream(partial, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                {
-                    source.CopyTo(destination);
-                    destination.Flush(flushToDisk: true);
-                }
-                cancellationToken.ThrowIfCancellationRequested();
-                File.Move(partial, backup);
-            }
-            finally { if (File.Exists(partial)) File.Delete(partial); }
+            ValidateOrders(connection);
             cancellationToken.ThrowIfCancellationRequested();
             using (var create = Command(connection, null))
             {
@@ -74,6 +53,40 @@ public sealed class OleDbOrderExtras(string path) : IOrderDurationInitializer
                 "Не удалось подготовить хранение времени резки. Закройте Journal и старую программу на остальных ПК, проверьте права на базу и её папку, затем обновите список (F5). Обычный журнал остаётся доступен.", exception);
         }
     }, cancellationToken);
+
+    private static void ValidateOrders(OleDbConnection connection)
+    {
+        using var command = Command(connection, null);
+        command.CommandText = "SELECT * FROM [Orders] WHERE 1=0";
+        using var reader = command.ExecuteReader()!;
+        if (reader.FieldCount != AccessOrderMapper.Columns.Count)
+            throw new OrderReadException("Для подготовки времени нужна исходная таблица Orders из 16 полей.");
+        AccessOrderMapper.ValidateColumns(Enumerable.Range(0, reader.FieldCount).Select(reader.GetName));
+    }
+
+    private void CreateBackup(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var backup = Path.GetFullPath(path) + ".before-journal-extras-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) +
+            "-" + Guid.NewGuid().ToString("N") + ".bak";
+        var partial = backup + ".partial";
+        try
+        {
+            // Jet Share Exclusive запрещает чтение вторым дескриптором, даже в том же процессе.
+            // Согласованную копию создаём до подключения Jet, запретив любой доступ к исходному файлу.
+            using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+            using (var destination = new FileStream(partial, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                source.CopyTo(destination);
+                destination.Flush(flushToDisk: true);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(partial, backup);
+        }
+        finally { if (File.Exists(partial)) File.Delete(partial); }
+        // Между закрытием файла и Open Jet может подключиться другой клиент.
+        // Поэтому DDL допускается только после повторного захвата исключительного доступа и проверки схемы.
+    }
 
     internal static bool Exists(OleDbConnection connection) => connection.GetSchema("Tables", [null, null, TableName, "TABLE"]).Rows.Count > 0;
 
