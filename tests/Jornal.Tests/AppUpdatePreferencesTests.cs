@@ -48,6 +48,21 @@ public sealed class AppUpdatePreferencesTests
     }
 
     [Fact]
+    public void AutomaticChoiceSurvivesRestartAndAlpha2ProfilesKeepTheirPreviousBehavior()
+    {
+        using var fixture = new Fixture();
+        File.WriteAllText(fixture.Path, "{\"Version\":1,\"IncludePreview\":true}");
+        var model = fixture.Model();
+        Assert.True(model.CheckAutomatically);
+        model.CheckAutomatically = false;
+        var restarted = fixture.Model();
+        Assert.False(restarted.CheckAutomatically);
+        Assert.True(restarted.IncludePreview);
+        restarted.IncludePreview = false;
+        Assert.False(fixture.Store().Load().Preferences!.CheckAutomatically);
+    }
+
+    [Fact]
     public void DevelopmentLaunchDoesNotOptIntoPreviewByVersionAlone()
     {
         using var fixture = new Fixture();
@@ -66,12 +81,14 @@ public sealed class AppUpdatePreferencesTests
     [InlineData("{\"Version\":2,\"IncludePreview\":true}")]
     [InlineData("{\"Version\":1,\"IncludePreview\":\"true\"}")]
     [InlineData("{\"Version\":1,\"IncludePreview\":null}")]
+    [InlineData("{\"Version\":1,\"IncludePreview\":true,\"CheckAutomatically\":\"false\"}")]
     public async Task DamagedOrUnknownSettingsFallBackToStableWithoutOverwritingAndCanBeRepaired(string content)
     {
         using var fixture = new Fixture();
         File.WriteAllText(fixture.Path, content);
         var model = fixture.Model("2026.1.0-alpha.2");
         Assert.False(model.IncludePreview);
+        Assert.False(model.CheckAutomatically);
         Assert.True(model.HasPreferencesWarning);
         Assert.Equal(content, File.ReadAllText(fixture.Path));
         await model.CheckCommand.ExecuteAsync(null);

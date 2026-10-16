@@ -68,7 +68,8 @@ try {
     if (-not $app.CloseMainWindow() -or -not $app.WaitForExit(10000)) { throw 'Приложение не завершилось обычным закрытием окна.' }
     $app = $null
     $diagnostic = Join-Path $root 'journal-diagnostics.json'
-    & ./scripts/Get-JournalDiagnostics.ps1 -InstallDirectory $installed -OutputPath $diagnostic
+    & "$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File ./scripts/Get-JournalDiagnostics.ps1 -InstallDirectory $installed -OutputPath $diagnostic
+    if ($LASTEXITCODE -ne 0) { throw 'Диагностический скрипт не выполнился в Windows PowerShell 5.1.' }
     $diagnosticReport = Get-Content -LiteralPath $diagnostic -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($diagnosticReport.Version -ne 1 -or $diagnosticReport.Files.Count -eq 0) { throw 'Диагностический отчёт не содержит файлов установленной программы.' }
     foreach ($relative in @('Jornal.Desktop.exe', 'Update.exe', 'current\Jornal.Desktop.exe', 'current\AccessHost\Jornal.AccessHost.exe')) {

@@ -31,9 +31,44 @@ public sealed class AutomaticUpdateChecksTests
     {
         var clock = new ManualTimeProvider();
         var updater = new AppUpdatesTests.FakeUpdater();
-        await new AppUpdatesViewModel(updater, clock).RunAutomaticChecksAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(0, updater.Checks);
-        Assert.Equal(0, clock.ActiveTimers);
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var checking = new AppUpdatesViewModel(updater, clock).RunAutomaticChecksAsync(lifetime.Token);
+        try { Assert.Equal(0, updater.Checks); Assert.Equal(0, clock.ActiveTimers); }
+        finally { lifetime.Cancel(); await checking; }
+    }
+
+    [AvaloniaFact]
+    public async Task TurningAutomaticChecksOffStopsTheTimerButKeepsManualChecksAndCanResume()
+    {
+        await using var fixture = new Fixture();
+        fixture.Updater.Update = null;
+        await fixture.StartAsync();
+        fixture.Model.CheckAutomatically = false;
+        await Task.Yield();
+        Assert.Equal(0, fixture.Clock.ActiveTimers);
+        fixture.Clock.Advance(TimeSpan.FromDays(2));
+        Assert.Equal(1, fixture.Updater.Checks);
+        await fixture.Model.CheckCommand.ExecuteAsync(null);
+        Assert.Equal(2, fixture.Updater.Checks);
+        fixture.Model.CheckAutomatically = true;
+        await fixture.Clock.NextDelayAsync();
+        Assert.Equal(3, fixture.Updater.Checks);
+        Assert.Equal(0, fixture.Updater.Downloads);
+    }
+
+    [AvaloniaFact]
+    public async Task TurningAutomaticChecksOffCancelsAnInFlightQuietRequest()
+    {
+        await using var fixture = new Fixture();
+        fixture.Updater.CheckHandler = async token => { await Task.Delay(Timeout.InfiniteTimeSpan, token); return null; };
+        fixture.Run();
+        Assert.True(fixture.Model.IsBusy);
+        fixture.Model.CheckAutomatically = false;
+        await Task.Yield();
+        Assert.False(fixture.Model.IsBusy);
+        Assert.False(fixture.Model.HasError);
+        Assert.False(fixture.Model.HasUpdate);
+        Assert.Equal(0, fixture.Clock.ActiveTimers);
     }
 
     [AvaloniaTheory]
@@ -57,6 +92,21 @@ public sealed class AutomaticUpdateChecksTests
         Assert.True(fixture.Model.HasUpdate);
         Assert.Equal(0, fixture.Updater.Downloads);
         Assert.Equal(0, fixture.Updater.Restarts);
+    }
+
+    [AvaloniaFact]
+    public async Task QuicklyReenablingDuringCancellationChecksAgainWithoutWaitingSixHours()
+    {
+        await using var fixture = new Fixture();
+        fixture.Updater.CheckHandler = async token => { await Task.Delay(Timeout.InfiniteTimeSpan, token); return null; };
+        fixture.Run();
+        fixture.Model.CheckAutomatically = false;
+        fixture.Model.CheckAutomatically = true;
+        fixture.Updater.CheckHandler = null;
+        await fixture.Clock.NextDelayAsync();
+        Assert.Equal(2, fixture.Updater.Checks);
+        Assert.True(fixture.Model.HasUpdate);
+        Assert.False(fixture.Model.HasError);
     }
 
     [AvaloniaFact]

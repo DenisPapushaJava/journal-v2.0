@@ -70,7 +70,7 @@ public sealed class UpdateWindowTests
             Assert.Equal("Получать тестовые версии", dialog.FindControl<CheckBox>("PreviewUpdatesCheckBox")!.Content);
             Assert.False(dialog.FindControl<JournalButton>("InstallUpdateButton")!.IsVisible);
             Assert.True(dialog.FindControl<JournalButton>("DownloadUpdateButton")!.IsEffectivelyEnabled);
-            foreach (var name in new[] { "CheckUpdatesButton", "DownloadUpdateButton", "CloseUpdatesButton", "UpdateError", "PreviewUpdatesCheckBox", "UpdatePreferencesWarning" }) AssertInside(dialog, name);
+            foreach (var name in new[] { "CheckUpdatesButton", "DownloadUpdateButton", "CloseUpdatesButton", "UpdateError", "AutomaticUpdatesCheckBox", "PreviewUpdatesCheckBox", "UpdatePreferencesWarning" }) AssertInside(dialog, name);
             Screenshot(dialog, "update-available-" + (dark ? "dark" : "light"));
             Click(dialog, "DownloadUpdateButton"); Pump();
             Assert.True(dialog.FindControl<JournalButton>("InstallUpdateButton")!.IsEffectivelyEnabled);

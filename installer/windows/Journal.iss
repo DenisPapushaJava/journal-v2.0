@@ -168,7 +168,8 @@ function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoType
 begin
   Result := 'Папка приложения:' + NewLine + Space + InstallRoot + NewLine + NewLine +
     'Компоненты:' + NewLine + Space + 'Journal x64, модуль MDB x86, .NET Runtime x64/x86' + NewLine + NewLine +
-    'База данных:' + NewLine + Space + 'Существующий файл выбирается в приложении; установка его не меняет.';
+    'База данных:' + NewLine + Space + 'Существующий файл выбирается в приложении; установка его не меняет.' + NewLine + NewLine +
+    'Сеть:' + NewLine + Space + 'Автопроверка обновлений обращается к GitHub. Её можно отключить в окне колокольчика; скачивание и установка — по вашей команде.';
 end;
 
 function LaunchPath(Param: String): String;

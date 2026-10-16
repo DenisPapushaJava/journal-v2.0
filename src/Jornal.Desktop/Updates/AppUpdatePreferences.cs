@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Jornal.Desktop.Updates;
 
-public sealed record AppUpdatePreferences(int Version = 1, bool IncludePreview = false);
+public sealed record AppUpdatePreferences(int Version = 1, bool IncludePreview = false, bool CheckAutomatically = true);
 public sealed record AppUpdatePreferencesLoad(AppUpdatePreferences? Preferences, string? Error = null);
 
 public interface IAppUpdatePreferencesStore
@@ -27,7 +27,13 @@ public sealed class JsonAppUpdatePreferencesStore(string path) : IAppUpdatePrefe
                 !root.TryGetProperty("Version", out var version) || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != 1 ||
                 !root.TryGetProperty("IncludePreview", out var preview) || preview.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
                 return InvalidSettings();
-            return new(new(IncludePreview: preview.GetBoolean()));
+            var automatic = true; // Совместимость с профилем alpha.2, где автопроверка была включена.
+            if (root.TryGetProperty("CheckAutomatically", out var check))
+            {
+                if (check.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return InvalidSettings();
+                automatic = check.GetBoolean();
+            }
+            return new(new(IncludePreview: preview.GetBoolean(), CheckAutomatically: automatic));
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
         {
@@ -35,12 +41,12 @@ public sealed class JsonAppUpdatePreferencesStore(string path) : IAppUpdatePrefe
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
-            return new(null, "Не удалось прочитать настройки обновлений. Выбран стабильный канал; укажите нужный канал заново.");
+            return new(null, "Не удалось прочитать настройки обновлений. Автопроверка отключена, выбран стабильный канал. Укажите настройки заново.");
         }
     }
 
     private static AppUpdatePreferencesLoad InvalidSettings() =>
-        new(null, "Настройки обновлений несовместимы с этой версией. Выбран стабильный канал; укажите нужный канал заново.");
+        new(null, "Настройки обновлений несовместимы с этой версией. Автопроверка отключена, выбран стабильный канал. Укажите настройки заново.");
 
     public void Save(AppUpdatePreferences preferences)
     {
