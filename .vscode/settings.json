@@ -6,6 +6,9 @@
   "avalonia.preview.autoOpen": false,
   "avalonia.preview.defaultZoomLevel": "Fit All",
   "avalonia.preview.fpsLimit": 15,
+  "debug.saveBeforeStart": "allEditorsInActiveGroup",
+  "debug.onTaskErrors": "abort",
+  "task.saveBeforeRun": "always",
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
