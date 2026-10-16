@@ -20,8 +20,8 @@ public partial class DatabaseSettingsViewModel(string? currentPath, Func<string?
     [ObservableProperty] private bool _isConnected;
     public bool HasError => !string.IsNullOrEmpty(Error);
     public string DatabaseCapabilities => OperatingSystem.IsWindows()
-        ? "В MDB доступны поиск, фильтры, результат для письма, изменение статусов и БЛЦБ. Создание заявок в MDB и расчёты пока не подключены."
-        : "На Linux MDB доступна только для чтения: поиск, фильтры и результат для письма. Запись статусов и БЛЦБ реализована для Windows с совместимым драйвером Access.";
+        ? "В MDB доступны поиск, фильтры, результат для письма, создание заявки с расчётом цены, изменение статусов и БЛЦБ. Редактирование и импорт спецификаций ещё переносятся."
+        : "На Linux MDB доступна только для чтения: поиск, фильтры и результат для письма. Создание с расчётом, статусы и БЛЦБ доступны в локальной копии или через MDB на Windows.";
     public event EventHandler? Connected;
     partial void OnDatabasePathChanged(string value) => Error = null;
     partial void OnLocalCopyPathChanged(string value) => Error = null;

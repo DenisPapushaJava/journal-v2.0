@@ -16,7 +16,8 @@ public partial class MainWindowViewModel
     private string StorageSuffix => _source?.IsLocalCopy == true ? "сохранено в локальной копии" :
         _source?.Path is not null ? "сохранено в MDB" : "до закрытия программы";
     public string NewOrderHint => _source?.IsLocalCopy == true ? "Добавить заявку в локальную тестовую копию с расчётом по её прайсам" :
-        _source?.Path is not null ? "Создание заявок в MDB ещё не подключено" : "Добавить заявку в деможурнал текущего сеанса";
+        _source?.Path is not null ? orderCreator is null ? "Для создания заявки в MDB используйте Windows" :
+            "Добавить заявку в MDB с расчётом по её текущему прайсу" : "Добавить заявку в деможурнал текущего сеанса";
     public bool CanConfigureSource => sourceManager is not null && CanUseJournal && !IsCopyingResult;
 
     public void InitializeSource(OrderSource source)
@@ -48,6 +49,7 @@ public partial class MainWindowViewModel
             RequiresReload = false;
             if (changed)
             {
+                _pendingCreationForm = null;
                 ResultText = "";
                 _resultOrderIds.Clear();
                 ResetFilters();

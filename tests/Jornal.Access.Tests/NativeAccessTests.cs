@@ -9,7 +9,7 @@ using Xunit;
 namespace Jornal.Access.Tests;
 
 [SupportedOSPlatform("windows")]
-public sealed class NativeAccessTests
+public sealed partial class NativeAccessTests
 {
     [Fact]
     public async Task ReadsOnlyFirstPriceRowPreservingNullZeroAndAllDatabaseBytes()

@@ -136,7 +136,7 @@ public partial class MainWindow : Window
         var order = await dialog.ShowDialog<OrderSummary?>(this);
         if (order is null) return;
         _viewModel.AcceptCreatedOrder(order);
-        OrdersGrid.SelectedItem = _viewModel.Orders.First(row => row.Id == order.Id);
+        OrdersGrid.SelectedItem = _viewModel.Orders.FirstOrDefault(row => row.Id == order.Id);
         OrdersGrid.ScrollIntoView(OrdersGrid.SelectedItem, OrdersGrid.Columns[2]);
     }
 

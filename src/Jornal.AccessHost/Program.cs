@@ -46,17 +46,21 @@ try
             AccessHostOperation.Read => await new AccessOrderReader(request.Path).ReadAsync(),
             AccessHostOperation.SetColor => await editor.SetColorAsync(request.Expected ?? [], request.Color),
             AccessHostOperation.SetDeliveryNumber => await editor.SetDeliveryNumberAsync(request.Expected ?? [], request.DeliveryNumber ?? ""),
+            AccessHostOperation.CreateOrder => [await new OleDbManualOrderCreator(request.Path).CreateAsync(
+                request.Draft ?? throw new InvalidDataException("Не переданы поля новой заявки."))],
             _ => throw new InvalidDataException("Неизвестное действие.")
         };
         response = new(1, rows.ToArray());
     }
 }
+catch (OrderPriceChangedException exception) { response = new(1, Error: exception.Message, Failure: OrderWriteFailure.NotSaved, ChangedQuote: exception.Quote); }
+catch (PriceCalculationException exception) { response = new(1, Error: exception.Message, Failure: OrderWriteFailure.NotSaved); }
 catch (OrderWriteException exception) { response = new(1, Error: exception.Message, Failure: exception.Failure); }
 catch (Exception exception)
 {
     response = new(1, Error: exception is OrderReadException or PriceReadException or ArgumentException or InvalidDataException
         ? exception.Message : "Модуль Access не смог выполнить запрос.",
-        Failure: request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber
+        Failure: request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder
             ? exception is ArgumentException or InvalidDataException ? OrderWriteFailure.NotSaved : OrderWriteFailure.OutcomeUnknown : null);
 }
 await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response));

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -41,24 +40,12 @@ public sealed class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrde
     public Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default) =>
         WriteAsync(book =>
         {
-            var request = new CuttingPriceRequest(draft.CuttingType, draft.ThicknessMillimeters,
-                draft.CutLengthMeters, draft.Coefficient, draft.MaterialId);
-            var table = book.Prices.Single(price => price.Name == CuttingPriceCalculator.SelectTable(request));
-            var quote = CuttingPriceCalculator.Calculate(request, table);
-            ValidateDraft(draft);
+            draft.Validate();
+            var table = book.Prices.Single(price => price.Name == CuttingPriceCalculator.SelectTable(draft.PriceRequest));
+            var quote = draft.Calculate(table);
             if (book.LastIssuedId == int.MaxValue)
                 throw new OrderWriteException(OrderWriteFailure.NotSaved, "Закончился диапазон номеров локальных записей.");
-            var order = new OrderSummary(book.LastIssuedId + 1, draft.OrderDate, draft.SpecificationNumber,
-                draft.ManagerName, draft.CustomerName, draft.CuttingType, draft.MaterialName,
-                draft.ThicknessMillimeters, quote.StoredPrice, OrderColors.None)
-            {
-                SheetSize = draft.SheetSize, SheetCount = draft.SheetCount, CutLengthMeters = draft.CutLengthMeters,
-                WeightKilograms = draft.WeightKilograms, Coefficient = draft.Coefficient,
-                MaterialId = draft.MaterialId, CuttingGas = draft.CuttingGas,
-                StoredOrderDateTime = draft.OrderDate.ToDateTime(TimeOnly.MinValue),
-                StoredCoefficient = draft.Coefficient.ToString(CultureInfo.InvariantCulture) + "|-1|-1" +
-                    (draft.CuttingType == "HansLaser" ? "|" + draft.MaterialId + "|" + draft.CuttingGas : "")
-            };
+            var order = draft.ToOrder(book.LastIssuedId + 1, quote.StoredPrice);
             return (book with { LastIssuedId = order.Id, Orders = [.. book.Orders, order] }, order);
         }, cancellationToken);
 
@@ -195,16 +182,6 @@ public sealed class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrde
         foreach (var table in book.Prices) table.Validate();
     }
 
-    private static void ValidateDraft(ManualOrderDraft draft)
-    {
-        var fields = new[] { draft.SpecificationNumber, draft.ManagerName, draft.CustomerName, draft.MaterialName,
-            draft.SheetSize, draft.SheetCount, draft.WeightKilograms };
-        if (fields.Any(value => string.IsNullOrWhiteSpace(value) || value.Length > 255 || value.Any(char.IsControl)) ||
-            draft.MaterialName.Any(char.IsWhiteSpace) || draft.MaterialId is null || draft.CuttingGas is null ||
-            draft.MaterialId.Length > 255 || draft.CuttingGas.Length > 255 ||
-            draft.MaterialId.Any(c => char.IsControl(c) || c == '|') || draft.CuttingGas.Any(c => char.IsControl(c) || c == '|'))
-            throw new OrderWriteException(OrderWriteFailure.NotSaved, "Проверьте обязательные поля и формат ID/газа заявки.");
-    }
 }
 
 internal sealed record LocalJournalFile(string Format, int Version, string SourceName, string SourceSha256,
