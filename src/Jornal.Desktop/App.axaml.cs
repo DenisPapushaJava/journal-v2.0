@@ -20,7 +20,7 @@ public partial class App : Application
             var sources = new OrderSourceManager(new JsonOrderSourceSettingsStore(JsonOrderSourceSettingsStore.DefaultPath));
             var source = sources.Load();
             var updates = new AppUpdatesViewModel(new VelopackAppUpdater(),
-                preferencesStore: new JsonAppUpdatePreferencesStore(JsonAppUpdatePreferencesStore.DefaultPath)) { CheckAutomatically = true };
+                preferencesStore: new JsonAppUpdatePreferencesStore(JsonAppUpdatePreferencesStore.DefaultPath));
             var model = new MainWindowViewModel(source.Reader, source.Creator, source.Editor, sources, updates);
             model.InitializeSource(source);
             var restartStore = new JsonUpdateRestartStore(JsonUpdateRestartStore.DefaultPath);

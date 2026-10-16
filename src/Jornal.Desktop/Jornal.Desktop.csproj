@@ -23,6 +23,7 @@
     <AvaloniaResource Include="../../docs/design/assets/journal-icon.png" Link="Assets/Journal.png" />
     <AvaloniaResource Include="../../docs/design/assets/lucide/*.svg" Link="Assets/Icons/%(Filename)%(Extension)" />
     <Content Include="../../docs/licenses/Velopack.txt" Link="Licenses/Velopack.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../LICENSE" Link="Licenses/Journal.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../docs/design/assets/lucide/LICENSE" Link="Licenses/Lucide.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <!-- Native NuGet assets include large PDBs even when managed DebugType=None. -->

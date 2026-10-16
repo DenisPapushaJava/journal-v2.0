@@ -19,6 +19,7 @@ public partial class AppUpdatesViewModel : ObservableObject
         _preferencesStore = preferencesStore;
         var loaded = preferencesStore?.Load();
         _preferencesWarning = loaded?.Error;
+        _checkAutomatically = loaded?.Preferences?.CheckAutomatically ?? (preferencesStore is not null && loaded?.Error is null);
         // Явный выбор важнее установленной версии. Первый запуск alpha/beta продолжает её канал.
         _includePreview = loaded?.Preferences?.IncludePreview ?? (loaded?.Error is null && updater.IsInstalled &&
             Velopack.SemanticVersion.TryParse(updater.CurrentVersion, out var version) && version.IsPrerelease);
@@ -28,11 +29,12 @@ public partial class AppUpdatesViewModel : ObservableObject
     private readonly object _progressLock = new();
     private int _downloadOperation;
     private bool _automaticChecksStarted;
+    private CancellationTokenSource? _automaticChecksWake;
     private long? _lastCheckCompleted;
     private Func<bool> _canRestart = () => false;
     private Action _prepareRestart = () => { };
     private Action _closeApplication = () => { };
-    public bool CheckAutomatically { get; init; }
+    [ObservableProperty] private bool _checkAutomatically;
     public string CurrentVersion => _updater.CurrentVersion;
     public bool IsInstalled => _updater.IsInstalled;
     public string InstallationHint => OperatingSystem.IsWindows()
@@ -71,14 +73,21 @@ public partial class AppUpdatesViewModel : ObservableObject
         Status = "Канал изменён. Нажмите «Проверить обновления».";
         SavePreferences();
     }
+    partial void OnCheckAutomaticallyChanged(bool value)
+    {
+        SavePreferences();
+        _lastCheckCompleted = null;
+        _automaticChecksWake?.Cancel();
+        if (!IsBusy) Status = value ? "Автопроверка включена." : "Автопроверка отключена. Можно проверить обновления вручную.";
+    }
     private void SavePreferences()
     {
         if (_preferencesStore is null) return;
-        try { _preferencesStore.Save(new(IncludePreview: IncludePreview)); PreferencesWarning = null; }
+        try { _preferencesStore.Save(new(IncludePreview: IncludePreview, CheckAutomatically: CheckAutomatically)); PreferencesWarning = null; }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             Trace.TraceWarning("Update preferences could not be saved: {0}", exception);
-            PreferencesWarning = "Не удалось сохранить канал обновлений. Выбор действует до закрытия программы. Проверьте доступ к папке профиля.";
+            PreferencesWarning = "Не удалось сохранить настройки обновлений. Выбор действует до закрытия программы. Проверьте доступ к папке профиля.";
         }
     }
     private void NotifyCommands()
@@ -89,23 +98,36 @@ public partial class AppUpdatesViewModel : ObservableObject
 
     public async Task RunAutomaticChecksAsync(CancellationToken cancellationToken)
     {
-        if (_automaticChecksStarted || !CheckAutomatically || !IsInstalled || cancellationToken.IsCancellationRequested) return;
+        if (_automaticChecksStarted || !IsInstalled || cancellationToken.IsCancellationRequested) return;
         _automaticChecksStarted = true;
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var remaining = _lastCheckCompleted is { } completed
-                    ? AutomaticCheckInterval - _timeProvider.GetElapsedTime(completed)
-                    : TimeSpan.Zero;
-                if (remaining <= TimeSpan.Zero)
+                using var wake = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                _automaticChecksWake = wake;
+                try
                 {
-                    // Все проверки разделяют IsBusy. Найденный пакет сохраняем до решения пользователя.
-                    if (CanCheck && !HasUpdate) await CheckForUpdatesAsync(quiet: true, cancellationToken);
-                    remaining = AutomaticCheckInterval;
+                    if (!CheckAutomatically)
+                    {
+                        // Ожидание настройки без таймеров и сетевых запросов.
+                        await Task.Delay(Timeout.InfiniteTimeSpan, wake.Token);
+                        continue;
+                    }
+                    var remaining = _lastCheckCompleted is { } completed
+                        ? AutomaticCheckInterval - _timeProvider.GetElapsedTime(completed)
+                        : TimeSpan.Zero;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        // Все проверки разделяют IsBusy. Найденный пакет сохраняем до решения пользователя.
+                        if (CanCheck && !HasUpdate) await CheckForUpdatesAsync(quiet: true, wake.Token);
+                        remaining = AutomaticCheckInterval;
+                    }
+                    // Один таймер без накопления пропущенных попыток после сна или отсутствия сети.
+                    await Task.Delay(remaining, _timeProvider, wake.Token);
                 }
-                // Один таймер без накопления пропущенных попыток после сна или отсутствия сети.
-                await Task.Delay(remaining, _timeProvider, cancellationToken);
+                catch (OperationCanceledException) when (wake.IsCancellationRequested) { }
+                finally { _automaticChecksWake = null; }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
@@ -137,7 +159,13 @@ public partial class AppUpdatesViewModel : ObservableObject
             if (quiet) Trace.TraceWarning("Background update check failed: {0}", exception);
             else Fail(exception, "Не удалось проверить обновления. Проверьте интернет и повторите попытку. Можно продолжать работу с журналом.");
         }
-        finally { _lastCheckCompleted = _timeProvider.GetTimestamp(); IsBusy = false; OnPropertyChanged(nameof(CurrentVersion)); }
+        finally
+        {
+            // Отменённая фоновая проверка не откладывает возобновление после переключения настройки.
+            if (!quiet || !cancellationToken.IsCancellationRequested) _lastCheckCompleted = _timeProvider.GetTimestamp();
+            IsBusy = false;
+            OnPropertyChanged(nameof(CurrentVersion));
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanDownload), IncludeCancelCommand = true)]

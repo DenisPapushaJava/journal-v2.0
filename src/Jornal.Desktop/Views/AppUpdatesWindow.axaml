@@ -12,6 +12,9 @@
     </Border>
     <Grid Grid.Row="1" Margin="24,16" RowDefinitions="Auto,12,Auto,12,Auto,12,*,12,Auto">
       <StackPanel Spacing="4">
+        <CheckBox x:Name="AutomaticUpdatesCheckBox" Content="Проверять обновления автоматически"
+                  ToolTip.Tip="Обращаться к GitHub при запуске и раз в 6 часов. Можно отключить и проверять вручную. Скачивание и установка всегда по вашей команде."
+                  IsChecked="{Binding CheckAutomatically, Mode=TwoWay}" IsEnabled="{Binding !IsApplying}" />
         <CheckBox x:Name="PreviewUpdatesCheckBox" Content="Получать тестовые версии"
                   ToolTip.Tip="Включает alpha, beta и rc. Выбор сохраняется между запусками; установка всегда по вашей команде."
                   IsChecked="{Binding IncludePreview, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}" />

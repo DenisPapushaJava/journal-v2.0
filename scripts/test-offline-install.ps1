@@ -38,6 +38,7 @@ try {
     Invoke-Setup (Join-Path $root 'reject-data-directory.log') @(('/JOURNALDIR="' + $root + '"')) $false
     if (Test-Path (Join-Path $root 'Update.exe')) { throw 'Установщик принял папку с пользовательскими данными.' }
     Invoke-Setup (Join-Path $root 'reject-drive-root.log') @(('/JOURNALDIR="' + [IO.Path]::GetPathRoot($root) + '"')) $false
+    Invoke-Setup (Join-Path $root 'reject-program-files.log') @(('/JOURNALDIR="' + (Join-Path $env:ProgramFiles 'Journal per-user test') + '"')) $false
     foreach ($attempt in 1..2) {
         $log = Join-Path $root "setup-$attempt.log"
         # Первый запуск получает выбранную папку, второй находит её в регистрации Velopack.
@@ -66,6 +67,16 @@ try {
     if ($app.MainWindowHandle -eq 0) { throw 'Главное окно установленного приложения не открылось.' }
     if (-not $app.CloseMainWindow() -or -not $app.WaitForExit(10000)) { throw 'Приложение не завершилось обычным закрытием окна.' }
     $app = $null
+    $diagnostic = Join-Path $root 'journal-diagnostics.json'
+    & "$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File ./scripts/Get-JournalDiagnostics.ps1 -InstallDirectory $installed -OutputPath $diagnostic
+    if ($LASTEXITCODE -ne 0) { throw 'Диагностический скрипт не выполнился в Windows PowerShell 5.1.' }
+    $diagnosticReport = Get-Content -LiteralPath $diagnostic -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($diagnosticReport.Version -ne 1 -or $diagnosticReport.Files.Count -eq 0) { throw 'Диагностический отчёт не содержит файлов установленной программы.' }
+    foreach ($relative in @('Jornal.Desktop.exe', 'Update.exe', 'current\Jornal.Desktop.exe', 'current\AccessHost\Jornal.AccessHost.exe')) {
+        if (-not @($diagnosticReport.Files | Where-Object { $_.RelativePath -eq $relative -and $_.SHA256.Length -eq 64 -and $_.SignatureStatus }).Count) {
+            throw "Диагностика не проверила подпись/хеш $relative."
+        }
+    }
     $remove = Start-Process (Join-Path $installed 'Update.exe') -ArgumentList @('uninstall', '--silent') -Wait -PassThru
     if ($remove.ExitCode -ne 0) { throw "Uninstall failed: $($remove.ExitCode)." }
     if ((Get-FileHash $fixture).Hash -ne $fixtureHash -or (Get-FileHash $profile).Hash -ne $profileHash) { throw 'Внешняя MDB/профиль изменились при удалении.' }
