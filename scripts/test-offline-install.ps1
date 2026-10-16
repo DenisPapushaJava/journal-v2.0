@@ -5,7 +5,7 @@ $root = Join-Path ([IO.Path]::GetTempPath()) ('journal-offline-test-' + [Guid]::
 New-Item -ItemType Directory -Path $root | Out-Null
 $setup = @(Get-ChildItem artifacts/release -Filter '*-OfflineSetup.exe')
 if ($setup.Count -ne 1) { throw 'Ожидается один полный установщик.' }
-$installed = Join-Path $root 'installed'
+$installed = Join-Path $root 'Журнал заявок'
 $fixture = Join-Path $root 'synthetic.mdb'
 & "$env:WINDIR/SysWOW64/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File tests/Fixtures/New-AccessFixture.ps1 -Destination $fixture -RequireProvider
 if ($LASTEXITCODE -ne 0) { throw 'Не удалось подготовить искусственную MDB.' }
@@ -17,16 +17,31 @@ if (Test-Path $profile) { throw 'Тест не должен заменять с�
 [IO.File]::WriteAllText($profile, '{"Version":1,"DatabasePath":null}', [Text.UTF8Encoding]::new($false))
 $profileHash = (Get-FileHash $profile).Hash
 $app = $null
+function Invoke-Setup([string] $log, [string[]] $extra, [bool] $expectSuccess) {
+    $process = Start-Process $setup[0].FullName -ArgumentList (@('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', ('/LOG="' + $log + '"')) + $extra) -PassThru
+    if (-not $process.WaitForExit(180000)) { Stop-Process -Id $process.Id -Force; throw "Installer timeout. Logs: $root" }
+    $process.Refresh()
+    $success = $process.ExitCode -in @(0, 3010)
+    if ($success -ne $expectSuccess) {
+        Get-Content $log -ErrorAction SilentlyContinue | Write-Host
+        throw "Unexpected installer result: $($process.ExitCode), expected success: $expectSuccess. Logs: $root"
+    }
+    if ((Get-FileHash $fixture).Hash -ne $fixtureHash -or (Get-FileHash $profile).Hash -ne $profileHash) { throw 'Внешняя MDB/профиль изменились при установке.' }
+}
 try {
+    # Папка с искусственной MDB должна быть отклонена до установки зависимостей/приложения.
+    Invoke-Setup (Join-Path $root 'reject-data-directory.log') @(('/JOURNALDIR="' + $root + '"')) $false
+    if (Test-Path (Join-Path $root 'Update.exe')) { throw 'Установщик принял папку с пользовательскими данными.' }
+    Invoke-Setup (Join-Path $root 'reject-drive-root.log') @(('/JOURNALDIR="' + [IO.Path]::GetPathRoot($root) + '"')) $false
     foreach ($attempt in 1..2) {
         $log = Join-Path $root "setup-$attempt.log"
-        $process = Start-Process $setup[0].FullName -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', ('/JOURNALDIR="' + $installed + '"'), ('/LOG="' + $log + '"')) -Wait -PassThru
-        if ($process.ExitCode -notin @(0, 3010)) {
-            Get-Content $log -ErrorAction SilentlyContinue | Write-Host
-            throw "Offline installer failed: $($process.ExitCode). Logs: $root"
-        }
-        if ((Get-FileHash $fixture).Hash -ne $fixtureHash -or (Get-FileHash $profile).Hash -ne $profileHash) { throw 'Внешняя MDB/профиль изменились при установке.' }
+        # Первый запуск получает выбранную папку, второй находит её в регистрации Velopack.
+        $directoryArgument = if ($attempt -eq 1) { @(('/JOURNALDIR="' + $installed + '"')) } else { @() }
+        Invoke-Setup $log $directoryArgument $true
+        $registered = Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/DenisPapusha.Journal'
+        if ($registered.InstallLocation.TrimEnd('\') -ne $installed) { throw 'Velopack зарегистрировал неверную папку.' }
     }
+    Invoke-Setup (Join-Path $root 'reject-second-location.log') @(('/JOURNALDIR="' + (Join-Path $root 'another-location') + '"')) $false
     $hostPath = Join-Path $installed 'current/AccessHost/Jornal.AccessHost.exe'
     & $hostPath --probe
     if ($LASTEXITCODE -ne 0) { throw 'Установленный модуль Jet x86 не запускается.' }
@@ -49,7 +64,7 @@ try {
     $remove = Start-Process (Join-Path $installed 'Update.exe') -ArgumentList @('uninstall', '--silent') -Wait -PassThru
     if ($remove.ExitCode -ne 0) { throw "Uninstall failed: $($remove.ExitCode)." }
     if ((Get-FileHash $fixture).Hash -ne $fixtureHash -or (Get-FileHash $profile).Hash -ne $profileHash) { throw 'Внешняя MDB/профиль изменились при удалении.' }
-    Write-Host 'Офлайн-комплект: установка, повторная установка, Jet x86 из x64, запуск/закрытие окна и удаление прошли. MDB и профиль сохранены.'
+    Write-Host 'Офлайн-комплект: выбранная папка с пробелами/кириллицей, повторная установка без параметров, защита чужой папки, Jet x86 из x64, запуск/закрытие окна и удаление прошли. MDB и профиль сохранены.'
     Write-Host "Полный установщик: $([Math]::Round($setup[0].Length / 1MB, 2)) МиБ. Диагностика: $root"
 }
 finally {

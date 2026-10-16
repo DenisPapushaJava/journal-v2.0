@@ -1,6 +1,5 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Avalonia.Media;
 using Jornal.Core.Orders;
 
 namespace Jornal.Desktop.ViewModels;
@@ -48,16 +47,13 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
         _ => "neutral"
     };
 
-    public IBrush ColorMark => _order.Color is int color && color != OrderColors.None
-        ? new SolidColorBrush(Avalonia.Media.Color.FromUInt32(unchecked((uint)color)))
-        : Brushes.Transparent;
+    public bool HasStandardStatus => _order.Color is OrderColors.Work or OrderColors.Ready or OrderColors.Shipped;
 
     public string StatusText => _order.Color switch
     {
         OrderColors.Work => "В работе",
         OrderColors.Ready => "Готово",
         OrderColors.Shipped => "Отгружено",
-        OrderColors.None or null => "Без отметки",
-        _ => "Своя отметка"
+        _ => ""
     };
 }

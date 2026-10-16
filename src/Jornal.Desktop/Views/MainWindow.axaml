@@ -247,10 +247,7 @@
                 <DataGridTemplateColumn Header="Статус" Width="128" MinWidth="128" SortMemberPath="StatusText">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:OrderRowViewModel">
-                      <Grid ColumnDefinitions="3,*">
-                        <Border Background="{Binding ColorMark}" Margin="0,4" />
-                        <ui:StatusBadge Grid.Column="1" Status="{Binding StatusKey}" Text="{Binding StatusText}" />
-                      </Grid>
+                      <ui:StatusBadge IsVisible="{Binding HasStandardStatus}" Status="{Binding StatusKey}" Text="{Binding StatusText}" />
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

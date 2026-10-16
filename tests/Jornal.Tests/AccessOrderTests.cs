@@ -35,7 +35,8 @@ public sealed class AccessOrderTests
         Assert.Equal(340, order.PunchCount);
         Assert.Equal("2", order.MaterialId);
         Assert.Equal("N2", order.CuttingGas);
-        Assert.Equal("Своя отметка", new OrderRowViewModel(order).StatusText);
+        Assert.Empty(new OrderRowViewModel(order).StatusText);
+        Assert.False(new OrderRowViewModel(order).HasStandardStatus);
     }
 
     [Theory]
@@ -66,7 +67,8 @@ public sealed class AccessOrderTests
         Assert.Null(order.CutLengthMeters); Assert.Null(order.Color); Assert.Null(order.Coefficient);
         var row = new OrderRowViewModel(order);
         Assert.Equal("—", row.DateText); Assert.Equal("—", row.ThicknessText); Assert.Equal("Не рассчитана", row.StoredPriceText);
-        Assert.Equal("Без отметки", row.StatusText);
+        Assert.Empty(row.StatusText);
+        Assert.False(row.HasStandardStatus);
         values["Стоимость"] = 0m; values["Толщина"] = 0d; values["Ход"] = 0;
         var zero = AccessOrderMapper.Map(values);
         Assert.Equal(0, zero.StoredCuttingPrice); Assert.Equal(0, zero.ThicknessMillimeters); Assert.Equal(0, zero.CutLengthMeters);
