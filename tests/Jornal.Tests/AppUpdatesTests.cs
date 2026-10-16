@@ -91,7 +91,7 @@ public sealed class AppUpdatesTests
 
     internal sealed class FakeUpdater : IAppUpdater
     {
-        public string CurrentVersion => "2026.9.1";
+        public string CurrentVersion { get; init; } = "2026.9.1";
         public bool IsInstalled { get; init; } = true;
         public AppUpdate? Update { get; set; } = new("2026.10.0", "Исправлен импорт длинных названий.\nСохранены привычные действия журнала.", 1234);
         public Exception? CheckError { get; set; }

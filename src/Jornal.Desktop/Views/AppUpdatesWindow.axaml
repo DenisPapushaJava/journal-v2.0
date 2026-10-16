@@ -11,8 +11,13 @@
       </StackPanel>
     </Border>
     <Grid Grid.Row="1" Margin="24,16" RowDefinitions="Auto,12,Auto,12,Auto,12,*,12,Auto">
-      <CheckBox x:Name="PreviewUpdatesCheckBox" Content="Получать тестовые версии в этом сеансе"
-                IsChecked="{Binding IncludePreview, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}" />
+      <StackPanel Spacing="4">
+        <CheckBox x:Name="PreviewUpdatesCheckBox" Content="Получать тестовые версии"
+                  ToolTip.Tip="Включает alpha, beta и rc. Выбор сохраняется между запусками; установка всегда по вашей команде."
+                  IsChecked="{Binding IncludePreview, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}" />
+        <TextBlock x:Name="UpdatePreferencesWarning" Text="{Binding PreferencesWarning}" IsVisible="{Binding HasPreferencesWarning}"
+                   TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" AutomationProperties.LiveSetting="Polite" />
+      </StackPanel>
       <StackPanel Grid.Row="2" Spacing="6">
         <TextBlock x:Name="UpdateStatus" Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
         <ProgressBar x:Name="UpdateProgress" IsVisible="{Binding IsDownloading}" Value="{Binding DownloadProgress}" Minimum="0" Maximum="100" Height="6"

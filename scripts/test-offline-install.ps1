@@ -13,9 +13,13 @@ $fixtureHash = (Get-FileHash $fixture).Hash
 $profileRoot = Join-Path $env:LOCALAPPDATA 'Journal'
 New-Item -ItemType Directory -Force -Path $profileRoot | Out-Null
 $profile = Join-Path $profileRoot 'data-source.json'
+$updatePreferences = Join-Path $profileRoot 'update-settings.json'
 if (Test-Path $profile) { throw 'Тест не должен заменять существующий профиль.' }
+if (Test-Path $updatePreferences) { throw 'Тест не должен заменять настройки обновлений.' }
 [IO.File]::WriteAllText($profile, '{"Version":1,"DatabasePath":null}', [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText($updatePreferences, '{"Version":1,"IncludePreview":true}', [Text.UTF8Encoding]::new($false))
 $profileHash = (Get-FileHash $profile).Hash
+$updatePreferencesHash = (Get-FileHash $updatePreferences).Hash
 $app = $null
 function Invoke-Setup([string] $log, [string[]] $extra, [bool] $expectSuccess) {
     $process = Start-Process $setup[0].FullName -ArgumentList (@('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', ('/LOG="' + $log + '"')) + $extra) -PassThru
@@ -27,6 +31,7 @@ function Invoke-Setup([string] $log, [string[]] $extra, [bool] $expectSuccess) {
         throw "Unexpected installer result: $($process.ExitCode), expected success: $expectSuccess. Logs: $root"
     }
     if ((Get-FileHash $fixture).Hash -ne $fixtureHash -or (Get-FileHash $profile).Hash -ne $profileHash) { throw 'Внешняя MDB/профиль изменились при установке.' }
+    if ((Get-FileHash $updatePreferences).Hash -ne $updatePreferencesHash) { throw 'Канал обновлений изменился при установке.' }
 }
 try {
     # Папка с искусственной MDB должна быть отклонена до установки зависимостей/приложения.
@@ -64,6 +69,7 @@ try {
     $remove = Start-Process (Join-Path $installed 'Update.exe') -ArgumentList @('uninstall', '--silent') -Wait -PassThru
     if ($remove.ExitCode -ne 0) { throw "Uninstall failed: $($remove.ExitCode)." }
     if ((Get-FileHash $fixture).Hash -ne $fixtureHash -or (Get-FileHash $profile).Hash -ne $profileHash) { throw 'Внешняя MDB/профиль изменились при удалении.' }
+    if ((Get-FileHash $updatePreferences).Hash -ne $updatePreferencesHash) { throw 'Канал обновлений изменился при запуске/удалении.' }
     Write-Host 'Офлайн-комплект: выбранная папка с пробелами/кириллицей, повторная установка без параметров, защита чужой папки, Jet x86 из x64, запуск/закрытие окна и удаление прошли. MDB и профиль сохранены.'
     Write-Host "Полный установщик: $([Math]::Round($setup[0].Length / 1MB, 2)) МиБ. Диагностика: $root"
 }
@@ -72,6 +78,7 @@ finally {
     Remove-Item Env:JOURNAL_ACCESS_HOST -ErrorAction SilentlyContinue
     Remove-Item Env:JOURNAL_SYNTHETIC_MDB -ErrorAction SilentlyContinue
     if (Test-Path $profile) { Remove-Item $profile }
+    if (Test-Path $updatePreferences) { Remove-Item $updatePreferences }
     New-Item -ItemType Directory -Force artifacts/installer-logs | Out-Null
     Copy-Item (Join-Path $root '*.log') artifacts/installer-logs -ErrorAction SilentlyContinue
 }
