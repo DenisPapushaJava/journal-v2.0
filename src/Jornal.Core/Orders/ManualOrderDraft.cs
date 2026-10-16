@@ -22,9 +22,12 @@ public sealed record ManualOrderDraft(
     string CuttingGas)
 {
     public int InitialColor { get; init; } = OrderColors.None;
+    public int? PartCount { get; init; }
+    public int? PunchCount { get; init; }
     public CuttingPriceQuote? ExpectedQuote { get; init; }
     [JsonIgnore] public CuttingPriceRequest PriceRequest => new(CuttingType, ThicknessMillimeters, CutLengthMeters, Coefficient, MaterialId);
-    [JsonIgnore] public string StoredCoefficient => Coefficient.ToString(CultureInfo.InvariantCulture) + "|-1|-1|" +
+    [JsonIgnore] public string StoredCoefficient => Coefficient.ToString(CultureInfo.InvariantCulture) + "|" +
+        (PartCount?.ToString(CultureInfo.InvariantCulture) ?? "-1") + "|" + (PunchCount?.ToString(CultureInfo.InvariantCulture) ?? "-1") + "|" +
         (string.IsNullOrEmpty(MaterialId) ? "-1" : MaterialId) + "|" + (string.IsNullOrEmpty(CuttingGas) ? "-1" : CuttingGas);
 
     public void Validate()
@@ -34,7 +37,7 @@ public sealed record ManualOrderDraft(
             OrderDate.Year < 100 || MaterialName.Any(char.IsWhiteSpace) || MaterialId is null || CuttingGas is null ||
             MaterialId.Length > 255 || CuttingGas.Length > 255 ||
             MaterialId.Any(c => char.IsControl(c) || c == '|') || CuttingGas.Any(c => char.IsControl(c) || c == '|') ||
-            StoredCoefficient.Length > 255)
+            StoredCoefficient.Length > 255 || PartCount is < 1 || PunchCount is < 0)
             throw new OrderWriteException(OrderWriteFailure.NotSaved, "Проверьте обязательные поля, дату и формат ID/газа. Текстовые поля MDB — не более 255 символов.");
         _ = CuttingPriceCalculator.SelectTable(PriceRequest);
     }
@@ -50,7 +53,8 @@ public sealed record ManualOrderDraft(
         CustomerName, CuttingType, MaterialName, ThicknessMillimeters, price, InitialColor)
     {
         SheetSize = SheetSize, SheetCount = SheetCount, CutLengthMeters = CutLengthMeters, WeightKilograms = WeightKilograms,
-        Coefficient = Coefficient, MaterialId = MaterialId == "-1" ? "" : MaterialId, CuttingGas = CuttingGas == "-1" ? "" : CuttingGas,
+        Coefficient = Coefficient, PartCount = PartCount, PunchCount = PunchCount,
+        MaterialId = MaterialId == "-1" ? "" : MaterialId, CuttingGas = CuttingGas == "-1" ? "" : CuttingGas,
         StoredOrderDateTime = OrderDate.ToDateTime(TimeOnly.MinValue), StoredCoefficient = StoredCoefficient
     };
 }

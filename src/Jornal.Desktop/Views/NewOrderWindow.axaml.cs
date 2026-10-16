@@ -37,8 +37,12 @@ public partial class NewOrderWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _importLifetime.Cancel();
+        _importLifetime.Dispose();
         if (_viewModel is not null)
         {
+            _viewModel.CancelImportRead();
+            _viewModel.ReplaceImportCommand.Cancel();
             _viewModel.CalculatePriceCommand.Cancel();
             _viewModel.Saved -= OnSaved;
         }

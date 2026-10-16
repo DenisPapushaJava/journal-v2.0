@@ -36,14 +36,7 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBa
         lock (_gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var order = new OrderSummary(++_lastIssuedId, draft.OrderDate,
-                draft.SpecificationNumber, draft.ManagerName, draft.CustomerName, draft.CuttingType,
-                draft.MaterialName, draft.ThicknessMillimeters, null, -1)
-            {
-                SheetSize = draft.SheetSize, SheetCount = draft.SheetCount,
-                CutLengthMeters = draft.CutLengthMeters, WeightKilograms = draft.WeightKilograms,
-                Coefficient = draft.Coefficient, MaterialId = draft.MaterialId, CuttingGas = draft.CuttingGas
-            };
+            var order = draft.ToOrder(++_lastIssuedId, null);
             _orders.Insert(0, order);
             return Task.FromResult(order);
         }

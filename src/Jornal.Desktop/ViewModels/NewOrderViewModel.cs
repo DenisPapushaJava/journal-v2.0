@@ -47,15 +47,14 @@ public partial class NewOrderViewModel : ObservableObject
     partial void OnPriceErrorChanged(string? value) { if (value is null && SaveError is null) AccessHostHelp.ShowFor(null); }
     partial void OnSaveErrorChanged(string? value) { if (value is null && PriceError is null) AccessHostHelp.ShowFor(null); }
     public bool HasPricing => _creator is IPriceReader;
-    public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning;
+    public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning || IsImporting;
     [ObservableProperty] private string _priceText = "Не рассчитана";
     [ObservableProperty] private string _priceBreakdown = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPriceError))] private string? _priceError;
     public bool HasPriceError => PriceError is not null;
     public string WindowTitle => IsLocalCopy ? "Новая заявка · Локальная копия" : IsDatabase ? "Новая заявка · MDB" : "Новая заявка · Деморежим";
-    public string StorageDescription => IsLocalCopy ? "Ручной ввод · Локальная тестовая копия — изменения сохраняются между запусками" :
-        IsDatabase ? "Ручной ввод · Сохранение в подключённую MDB" :
-        "Ручной ввод · Деморежим — данные доступны до закрытия программы";
+    public string StorageDescription => (HasImport ? "Из спецификации · " : "Ручной ввод · ") + (IsLocalCopy ? "Локальная тестовая копия — изменения сохраняются между запусками" :
+        IsDatabase ? "Сохранение в подключённую MDB" : "Деморежим — данные доступны до закрытия программы");
     public string SaveDescription => IsLocalCopy ? "Добавление в локальную копию; исходная MDB не меняется" :
         IsDatabase ? "Новая заявка будет добавлена в MDB с расчётом по её прайсу" : "Добавление только в деможурнал текущего сеанса";
     public string SaveLabel => IsLocalCopy || IsDatabase ? "Добавить заявку" : "Добавить в деможурнал";
@@ -98,9 +97,9 @@ public partial class NewOrderViewModel : ObservableObject
         SaveError = "Ввод восстановлен. Перед повторным добавлением проверьте список: предыдущая заявка могла сохраниться.";
     }
 
-    private bool CanSave() => !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning;
+    private bool CanSave() => !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning && !IsImporting && !HasPendingImport;
 
-    private bool CanCalculatePrice() => HasPricing && !IsSaved && !SaveCommand.IsRunning;
+    private bool CanCalculatePrice() => HasPricing && !IsSaved && !SaveCommand.IsRunning && !IsImporting && !HasPendingImport;
 
     [RelayCommand(CanExecute = nameof(CanCalculatePrice))]
     private async Task CalculatePriceAsync(CancellationToken cancellationToken)
@@ -141,7 +140,8 @@ public partial class NewOrderViewModel : ObservableObject
         var draft = new ManualOrderDraft(date, SpecificationNumber.Value.Trim(), Manager.Value.Trim(),
             Customer.Value.Trim(), CuttingType.Value, Material.Value.Trim(), thickness, SheetSize.Value.Trim(),
             SheetCount.Value.Trim(), length, Weight.Value.Trim(), coefficient,
-            IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "") { ExpectedQuote = _quote };
+            IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "")
+            { ExpectedQuote = _quote, PartCount = ImportPreview?.PartCount, PunchCount = ImportPreview?.PunchCount };
         try
         {
             CreatedOrder = await _creator.CreateAsync(draft);

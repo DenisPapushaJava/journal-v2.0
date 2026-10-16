@@ -11,5 +11,7 @@
               PlaceholderText="Выберите вид резки" AutomationProperties.Name="{Binding Label}" />
     <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" TextWrapping="Wrap"
                Foreground="{DynamicResource JournalDangerForeground}" FontSize="12" />
+    <TextBlock Text="{Binding ImportHint}" IsVisible="{Binding HasImportHint}" ToolTip.Tip="{Binding ImportEvidence}"
+               Classes="muted" FontSize="11" TextWrapping="Wrap" />
   </StackPanel>
 </UserControl>

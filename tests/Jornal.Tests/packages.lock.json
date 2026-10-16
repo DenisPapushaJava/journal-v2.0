@@ -408,6 +408,7 @@
           "CommunityToolkit.Mvvm": "[8.4.2, )",
           "Jornal.Core": "[2026.1.0-dev, )",
           "Jornal.Infrastructure": "[2026.1.0-dev, )",
+          "Jornal.Parsing": "[2026.1.0-dev, )",
           "Svg.Controls.Avalonia": "[12.0.0.17, )",
           "Velopack": "[1.2.0, )"
         }

@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     public MainWindow(IUiPreferencesStore preferencesStore, IUpdateRestartStore? restartStore = null)
     {
         InitializeComponent();
+        ConfigureSpecificationDrop();
         _restartStore = restartStore;
         _customization = new MainWindowCustomization(this, preferencesStore);
         DataContextChanged += (_, _) => ConnectViewModel();
@@ -95,6 +96,8 @@ public partial class MainWindow : Window
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (_viewModel?.IsImportingSpecification == true && e.Key == Key.Escape)
+        { _specificationImportCancellation?.Cancel(); e.Handled = true; return; }
         if (_viewModel?.IsCustomizing == true)
         {
             if (e.Key == Key.Escape)
@@ -143,6 +146,7 @@ public partial class MainWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(MainWindowViewModel.IsImportingSpecification)) UpdateSpecificationFocus();
         if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme))
         { UpdateTheme(); _customization.ThemeChanged(); }
     }
@@ -152,11 +156,15 @@ public partial class MainWindow : Window
 
     private async void OnNewOrderClick(object? sender, RoutedEventArgs e)
     {
-        if (_viewModel?.CreateOrderForm() is not { } form) return;
+        if (OwnedWindows.Count > 0 || _viewModel?.CreateOrderForm() is not { } form) return;
+        await ShowNewOrderAsync(form);
+    }
+    private async Task ShowNewOrderAsync(NewOrderViewModel form)
+    {
         var dialog = new NewOrderWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
         var order = await dialog.ShowDialog<OrderSummary?>(this);
         if (order is null) return;
-        _viewModel.AcceptCreatedOrder(order);
+        _viewModel!.AcceptCreatedOrder(order);
         OrdersGrid.SelectedItem = _viewModel.Orders.FirstOrDefault(row => row.Id == order.Id);
         OrdersGrid.ScrollIntoView(OrdersGrid.SelectedItem, OrdersGrid.Columns[2]);
     }
