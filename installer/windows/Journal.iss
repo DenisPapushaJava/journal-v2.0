@@ -15,6 +15,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64os
 MinVersion=10.0.19045
 SetupMutex=DenisPapusha.Journal.OfflineSetup
+AppMutex=Local\DenisPapusha.Journal.Running
 OutputBaseFilename=Journal-{#JournalVersion}-win-x64-OfflineSetup
 SetupIconFile=..\..\docs\design\assets\journal-icon.ico
 WizardStyle=modern

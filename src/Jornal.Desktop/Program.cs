@@ -8,6 +8,8 @@ internal static class Program
     public static void Main(string[] args)
     {
         Velopack.VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
+        using var installerGuard = OperatingSystem.IsWindows()
+            ? new Mutex(initiallyOwned: false, @"Local\DenisPapusha.Journal.Running") : null;
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
