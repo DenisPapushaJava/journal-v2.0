@@ -14,14 +14,17 @@ public static class BlockSpecificationNormalizer
         ArgumentNullException.ThrowIfNull(parsed);
         if (parsed.Profile != BlockHtmlSpecificationParser.Profile || !parsed.IsComplete)
             throw new ArgumentException("Спецификация неполна или содержит неоднозначные поля. Проверьте сообщения разбора.", nameof(parsed));
-        var dimensions = parsed.Dimensions!.Value;
+        var dimensions = parsed.SheetLayouts.Select(layout => layout.Value.Dimensions).Distinct().ToArray();
         var header = parsed.Header!.Value;
         return new(header.OrderDate, header.JournalNumber, parsed.CuttingType!.Value, parsed.Material!.Value,
-            dimensions.ThicknessMillimeters, Number(dimensions.WidthMillimeters) + "x" + Number(dimensions.LengthMillimeters),
+            dimensions[0].ThicknessMillimeters, SheetSizes(dimensions),
             Number(parsed.SheetCount!.Value), LegacyCutLengthMeters(parsed.CutLengthMillimeters!.Value),
             Number(parsed.WeightKilograms!.Value), parsed.PartCount!.Value, parsed.PunchCount!.Value,
             CuttingPriceCalculator.CalculatePunchCoefficient(parsed.PartCount.Value, parsed.PunchCount.Value));
     }
+
+    internal static string SheetSizes(IEnumerable<SheetDimensions> dimensions) => string.Join(", ", dimensions
+        .Select(size => Number(size.WidthMillimeters) + "x" + Number(size.LengthMillimeters)).Distinct(StringComparer.Ordinal));
 
     public static int LegacyCutLengthMeters(decimal millimeters)
     {

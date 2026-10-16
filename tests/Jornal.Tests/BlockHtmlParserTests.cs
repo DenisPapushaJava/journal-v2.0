@@ -21,12 +21,32 @@ public sealed class BlockHtmlParserTests
             var before = System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(item.Path, TestContext.Current.CancellationToken));
             var document = await new DocumentReader().ReadAsync(item.Path, TestContext.Current.CancellationToken);
             var parsed = new BlockHtmlSpecificationParser().Parse(document, TestContext.Current.CancellationToken);
-            Assert.True(parsed.IsComplete, item.Id + ": " + Messages(parsed));
-            Assert.Equal(item.Expected, BlockSpecificationNormalizer.Normalize(parsed));
+            if (item.Expected is not null)
+            {
+                Assert.True(parsed.IsComplete, item.Id + ": " + Messages(parsed));
+                Assert.Equal(item.Expected, BlockSpecificationNormalizer.Normalize(parsed));
+            }
+            else
+            {
+                Assert.False(parsed.IsComplete);
+                Assert.Equal(item.ExpectedErrors, parsed.Issues.Where(issue => issue.Severity == SpecificationIssueSeverity.Error).Select(issue => issue.Code));
+            }
+            if (item.Layouts is not null) Assert.Equal(item.Layouts, parsed.SheetLayouts.Select(layout => layout.Value));
+            if (item.Raw is { } raw)
+            {
+                Assert.Equal(raw.OrderDate, parsed.Header!.Value.OrderDate); Assert.Equal(raw.Number, parsed.Header.Value.JournalNumber);
+                Assert.Equal(raw.CuttingType, parsed.CuttingType!.Value); Assert.Equal(raw.Material, parsed.Material!.Value);
+                Assert.Equal(raw.SheetCount, parsed.SheetCount!.Value); Assert.Equal(raw.CutLengthMillimeters, parsed.CutLengthMillimeters!.Value);
+                Assert.Equal(raw.WeightKilograms, parsed.WeightKilograms!.Value); Assert.Equal(raw.PartCount, parsed.PartCount!.Value);
+                Assert.Equal(raw.PunchCount, parsed.PunchCount!.Value); Assert.Equal(raw.DurationSeconds, parsed.CuttingDuration is null ? null : (long?)parsed.CuttingDuration.Value.TotalSeconds);
+            }
             Assert.Equal(before, System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(item.Path, TestContext.Current.CancellationToken)));
         }
     }
-    private sealed record CorpusCase(string Id, string Path, NormalizedBlockSpecification Expected);
+    private sealed record CorpusCase(string Id, string Path, NormalizedBlockSpecification? Expected, string[]? ExpectedErrors = null,
+        SheetLayout[]? Layouts = null, RawExpectation? Raw = null);
+    private sealed record RawExpectation(DateOnly OrderDate, string Number, string CuttingType, string Material,
+        int SheetCount, decimal CutLengthMillimeters, decimal WeightKilograms, int PartCount, int PunchCount, long? DurationSeconds);
 
     [Fact]
     public async Task UsesHeaderSheetAndOrderTotalsWithEvidenceAndLegacyNormalization()
@@ -221,6 +241,63 @@ public sealed class BlockHtmlParserTests
         Assert.False(parsed.IsComplete); Assert.Contains(parsed.Issues, issue => issue.Code == "LengthOutOfRange");
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => new BlockHtmlSpecificationParser().Parse(new(DocumentKind.Html, "", [], []), cancellation.Token));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MultipleSheetSizesBecomeOneCommaSeparatedMdbValueWithTheOrderTotals(bool oneCell)
+    {
+        var sizes = oneCell ? "<td>6x4000x1500 1шт; 6x3000x1000 2шт</td>" : "<td>6x4000x1500 1шт</td><td>6x3000x1000 2шт</td>";
+        var parsed = await Parse(Html().Replace("<td>6.0x4000x1500</td>", sizes));
+        Assert.True(parsed.IsComplete, Messages(parsed)); Assert.Null(parsed.Dimensions);
+        Assert.Equal(new[] { new SheetLayout(new(6, 4000, 1500), 1), new SheetLayout(new(6, 3000, 1000), 2) }, parsed.SheetLayouts.Select(layout => layout.Value));
+        Assert.Equal(3, parsed.SheetCount!.Value); Assert.Equal(32500.5m, parsed.CutLengthMillimeters!.Value);
+        Assert.Empty(parsed.Issues);
+        var actual = BlockSpecificationNormalizer.Normalize(parsed);
+        Assert.Equal(BlockSpecificationNormalizer.Normalize(await Parse(Html())) with { SheetSize = "1500x4000, 1000x3000" }, actual);
+        Assert.All(parsed.SheetLayouts, layout => Assert.NotEmpty(layout.Sources));
+    }
+
+    [Fact]
+    public async Task AnExtraSizeWithoutAQuantityIsAlsoDetectedAndDeclaredCountsAreChecked()
+    {
+        var parsed = await Parse(Html().Replace("<td>6.0x4000x1500</td>", "<td>6x4000x1500</td><td>6x3000x1000</td>"));
+        Assert.Equal(2, parsed.SheetLayouts.Count); Assert.True(parsed.IsComplete, Messages(parsed));
+        Assert.Equal("1500x4000, 1000x3000", BlockSpecificationNormalizer.Normalize(parsed).SheetSize);
+        parsed = await Parse(Html().Replace("6.0x4000x1500", "6x4000x1500 2шт"));
+        Assert.False(parsed.IsComplete); Assert.Contains(parsed.Issues, issue => issue.Code == "SheetCountMismatch");
+        parsed = await Parse(Html().Replace("6.0x4000x1500", "6x4000x1500 3шт"));
+        Assert.True(parsed.IsComplete, Messages(parsed));
+    }
+
+    [Fact]
+    public async Task RepeatedLayoutsDoNotDuplicateTheStoredSizeAndDifferentThicknessesCannotShareAnMdbRow()
+    {
+        var parsed = await Parse(Html().Replace("<td>6.0x4000x1500</td>", "<td>6x4000x1500</td><td>6x3000x1000</td><td>6x4000x1500</td>"));
+        Assert.True(parsed.IsComplete, Messages(parsed)); Assert.Equal(3, parsed.SheetLayouts.Count);
+        Assert.Equal("1500x4000, 1000x3000", BlockSpecificationNormalizer.Normalize(parsed).SheetSize);
+        parsed = await Parse(Html().Replace("<td>6.0x4000x1500</td>", "<td>6x4000x1500</td><td>8x3000x1000</td>"));
+        Assert.False(parsed.IsComplete); Assert.Contains(parsed.Issues, issue => issue.Code == "ConflictingThickness");
+        Assert.Throws<ArgumentException>(() => BlockSpecificationNormalizer.Normalize(parsed));
+    }
+
+    [Fact]
+    public async Task AnOversizedSizeListKeepsEverySourceAndNeverSilentlyTruncatesTheMdbText()
+    {
+        var sizes = string.Concat(Enumerable.Range(1000, 30).Select(length => $"<td>6x{length}x1000</td>"));
+        var parsed = await Parse(Html().Replace("<td>6.0x4000x1500</td>", sizes));
+        Assert.False(parsed.IsComplete); Assert.Equal(30, parsed.SheetLayouts.Count);
+        var issue = Assert.Single(parsed.Issues); Assert.Equal("SheetSizeTooLong", issue.Code); Assert.Equal(30, issue.Sources!.Count);
+        Assert.Throws<ArgumentException>(() => BlockSpecificationNormalizer.Normalize(parsed));
+    }
+
+    [Fact]
+    public async Task MissingClosingRowTagsInGeneratedReportsStillKeepWeightAndDurationSeparate()
+    {
+        var parsed = await Parse(Html().Replace("</td></tr>", "</td>"));
+        Assert.True(parsed.IsComplete, Messages(parsed));
+        Assert.Equal(48.2m, parsed.WeightKilograms!.Value); Assert.Equal(TimeSpan.FromMinutes(36 * 60 + 47), parsed.CuttingDuration!.Value);
     }
 
     [Fact]

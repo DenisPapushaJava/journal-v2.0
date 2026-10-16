@@ -72,12 +72,27 @@ public sealed partial class BlockHtmlSpecificationParser
 
         var headerValue = Resolve<SpecificationHeader>(SpecificationField.Header, headers, TryHeader, issues);
         var cuttingType = Resolve<string>(SpecificationField.CuttingType, headers, TryCuttingType, issues);
-        var dimensionsValue = Resolve<SheetDimensions>(SpecificationField.Dimensions, dimensions, BlockValueParser.Dimensions, issues);
+        var layouts = ReadLayouts(dimensions, issues);
+        var uniqueDimensions = layouts.Select(layout => layout.Value.Dimensions).Distinct().ToArray();
+        SpecificationValue<SheetDimensions>? dimensionsValue = uniqueDimensions.Length == 1
+            ? new(uniqueDimensions[0], layouts.SelectMany(layout => layout.Sources).ToArray()) : null;
+        if (uniqueDimensions.Select(size => size.ThicknessMillimeters).Distinct().Count() > 1)
+            issues.Add(new(SpecificationField.Dimensions, "ConflictingThickness",
+                "В спецификации разные толщины листа. Одна заявка MDB хранит одну толщину; требуется проверка документа.",
+                Sources: layouts.SelectMany(layout => layout.Sources).ToArray()));
+        if (BlockSpecificationNormalizer.SheetSizes(uniqueDimensions).Length > 255)
+            issues.Add(new(SpecificationField.Dimensions, "SheetSizeTooLong",
+                "Перечень размеров превышает 255 символов поля MDB. Значение не сокращено; требуется проверка.",
+                Sources: layouts.SelectMany(layout => layout.Sources).ToArray()));
         var materialValue = Resolve<string>(SpecificationField.Material, materials, TryMaterialName, issues);
-        if (dimensionsValue is not null && materials.Any(pair => TryMaterial(pair.Text, out var material) &&
-            material.Thickness is { } thickness && thickness != dimensionsValue.Value.ThicknessMillimeters))
+        if (materials.Any(pair => TryMaterial(pair.Text, out var material) && material.Thickness is { } thickness &&
+            uniqueDimensions.Any(size => size.ThicknessMillimeters != thickness)))
             issues.Add(new(SpecificationField.Material, "MaterialThicknessMismatch", "Толщина в материале отличается от габаритов листа. Проверьте документ."));
         var sheetValue = Resolve<int>(SpecificationField.SheetCount, sheets, PositiveInteger, issues);
+        if (sheetValue is not null && layouts.Count > 0 && layouts.All(layout => layout.Value.SheetCount.HasValue) && uniqueDimensions.Length == layouts.Count &&
+            layouts.Sum(layout => (long)layout.Value.SheetCount!.Value) != sheetValue.Value)
+            issues.Add(new(SpecificationField.SheetCount, "SheetCountMismatch", "Количество листов по размерам не совпадает с общим количеством. Проверьте документ.",
+                Sources: layouts.SelectMany(layout => layout.Sources).Concat(sheetValue.Sources).ToArray()));
         var length = Resolve<decimal>(SpecificationField.CutLength, summary[SpecificationField.CutLength]
             .Select(ConvertLength), BlockValueParser.Number, issues);
         var weight = Resolve<decimal>(SpecificationField.Weight, summary[SpecificationField.Weight], BlockValueParser.Number, issues);
@@ -90,7 +105,33 @@ public sealed partial class BlockHtmlSpecificationParser
             catch (ArgumentOutOfRangeException) { issues.Add(new(SpecificationField.CutLength, "LengthOutOfRange", "Длина реза не помещается в прежнее поле метров MDB.")); }
         }
         return new(Profile, headerValue, cuttingType, materialValue,
-            dimensionsValue, sheetValue, length, weight, parts, punches, duration, issues);
+            dimensionsValue, sheetValue, length, weight, parts, punches, duration, issues) { SheetLayouts = layouts };
+    }
+
+    private static IReadOnlyList<SpecificationValue<SheetLayout>> ReadLayouts(IReadOnlyList<Pair> pairs, List<SpecificationIssue> issues)
+    {
+        var layouts = new List<SpecificationValue<SheetLayout>>();
+        if (pairs.Count == 0) issues.Add(new(SpecificationField.Dimensions, "MissingField", "Не найдено поле: габариты листа."));
+        foreach (var pair in pairs)
+        {
+            var source = new HtmlValueSource(pair.Value.Table, pair.Value.Row, pair.Value.Column, pair.Label.Raw, pair.Value.Raw);
+            var matches = SheetLayoutPattern().Matches(pair.Text);
+            var residue = SheetLayoutPattern().Replace(pair.Text, "").Trim(' ', '\t', '\r', '\n', ';');
+            var valid = matches.Count > 0 && residue.Length == 0;
+            foreach (Match match in matches)
+            {
+                if (!BlockValueParser.Dimensions(match.Groups["dimensions"].Value, out var size)) { valid = false; continue; }
+                int? count = null;
+                if (match.Groups["count"].Success)
+                {
+                    if (!PositiveInteger(match.Groups["count"].Value, out var number)) { valid = false; continue; }
+                    count = number;
+                }
+                layouts.Add(new(new(size, count), [source]));
+            }
+            if (!valid) issues.Add(new(SpecificationField.Dimensions, "InvalidValue", "Некорректное значение: габариты листа. Проверьте исходные ячейки.", Sources: [source]));
+        }
+        return layouts;
     }
 
     private static SpecificationParseResult Unsupported(string message) => new(Profile, null, null, null, null, null, null, null, null, null, null,
@@ -133,8 +174,11 @@ public sealed partial class BlockHtmlSpecificationParser
             {
                 var next = row.Skip(index + 1).FirstOrDefault(item => item.Text.Length > 0);
                 // Подпись не поглощает следующую подпись при пропущенном значении.
-                yield return next is null || next.Text.Contains(':') && Field(next.Text) is not null
-                    ? new(cell, cell, "") : new(cell, next, next.Text, Unit(cell.Text));
+                var pair = next is null || next.Text.Contains(':') && Field(next.Text) is not null
+                    ? new Pair(cell, cell, "") : new Pair(cell, next, next.Text, Unit(cell.Text));
+                yield return pair;
+                if (field == SpecificationField.Dimensions && next is not null)
+                    foreach (var extra in FollowingLayouts(row, pair)) yield return extra;
                 continue;
             }
             var separator = cell.Text.IndexOf(':');
@@ -148,8 +192,20 @@ public sealed partial class BlockHtmlSpecificationParser
                     if (Field(label) != field) { yield return new(cell, cell, ""); continue; }
                     text = text[(end + 1)..].Trim();
                 }
-                yield return new(cell, cell, text, Unit(label));
+                var pair = new Pair(cell, cell, text, Unit(label));
+                yield return pair;
+                if (field == SpecificationField.Dimensions)
+                    foreach (var extra in FollowingLayouts(row, pair)) yield return extra;
             }
+        }
+    }
+
+    private static IEnumerable<Pair> FollowingLayouts(Cell[] row, Pair first)
+    {
+        foreach (var cell in row.Where(cell => cell.Column > first.Value.Column && cell.Text.Length > 0))
+        {
+            if (!DimensionsPrefix().IsMatch(cell.Text)) yield break;
+            yield return new(first.Label, cell, cell.Text);
         }
     }
 
@@ -243,4 +299,8 @@ public sealed partial class BlockHtmlSpecificationParser
     private static partial Regex MaterialPattern();
     [GeneratedRegex(@"\s*([:()])\s*", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
     private static partial Regex LabelPunctuation();
+    [GeneratedRegex(@"(?<dimensions>[0-9]+(?:[.,][0-9]+)?\s*[xXхХ×]\s*[0-9]+(?:[.,][0-9]+)?\s*[xXхХ×]\s*[0-9]+(?:[.,][0-9]+)?)(?:\s*(?:мм|mm))?(?:\s+(?<count>[0-9]+)\s*шт\.?)?", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.NonBacktracking)]
+    private static partial Regex SheetLayoutPattern();
+    [GeneratedRegex(@"^[0-9]+(?:[.,][0-9]+)?\s*[xXхХ×]", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
+    private static partial Regex DimensionsPrefix();
 }

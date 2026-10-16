@@ -17,6 +17,7 @@ public sealed record SpecificationValue<T>(T Value, IReadOnlyList<HtmlValueSourc
 
 public sealed record SpecificationHeader(DateOnly OrderDate, string OriginalIdentifier, string JournalNumber, string OrderName);
 public sealed record SheetDimensions(decimal ThicknessMillimeters, decimal LengthMillimeters, decimal WidthMillimeters);
+public sealed record SheetLayout(SheetDimensions Dimensions, int? SheetCount);
 
 public sealed record SpecificationParseResult(
     string Profile,
@@ -32,8 +33,10 @@ public sealed record SpecificationParseResult(
     SpecificationValue<TimeSpan>? CuttingDuration,
     IReadOnlyList<SpecificationIssue> Issues)
 {
+    public IReadOnlyList<SpecificationValue<SheetLayout>> SheetLayouts { get; init; } = [];
     public bool HasErrors => Issues.Any(issue => issue.Severity == SpecificationIssueSeverity.Error);
     public bool IsComplete => !HasErrors && Header is not null && CuttingType is not null && Material is not null &&
-        Dimensions is not null && SheetCount is not null && CutLengthMillimeters is not null && WeightKilograms is not null &&
+        SheetLayouts.Count > 0 && SheetLayouts.Select(layout => layout.Value.Dimensions.ThicknessMillimeters).Distinct().Count() == 1 &&
+        SheetCount is not null && CutLengthMillimeters is not null && WeightKilograms is not null &&
         PartCount is not null && PunchCount is not null;
 }
