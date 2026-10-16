@@ -18,6 +18,7 @@ public partial class MainWindow : Window
 {
     private MainWindowViewModel? _viewModel;
     private readonly IUpdateRestartStore? _restartStore;
+    private readonly CancellationTokenSource _updateChecksLifetime = new();
 
     private readonly MainWindowCustomization _customization;
 
@@ -45,7 +46,7 @@ public partial class MainWindow : Window
         if (_viewModel is not null)
         {
             await _viewModel.ReloadCommand.ExecuteAsync(null);
-            if (IsVisible) await _viewModel.Updates.CheckAtStartupAsync();
+            if (IsVisible) await _viewModel.Updates.RunAutomaticChecksAsync(_updateChecksLifetime.Token);
         }
     }
 
@@ -57,6 +58,8 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _updateChecksLifetime.Cancel();
+        _updateChecksLifetime.Dispose();
         _customization.Close();
         if (_viewModel is not null)
         {
