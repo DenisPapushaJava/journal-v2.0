@@ -2,6 +2,7 @@ using System.Data.OleDb;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using Jornal.Core.Orders;
+using Jornal.Core.Pricing;
 using Jornal.Infrastructure.Access;
 using Xunit;
 
@@ -10,6 +11,42 @@ namespace Jornal.Access.Tests;
 [SupportedOSPlatform("windows")]
 public sealed class NativeAccessTests
 {
+    [Fact]
+    public async Task ReadsOnlyFirstPriceRowPreservingNullZeroAndAllDatabaseBytes()
+    {
+        using var database = Database.Create();
+        var orders = await database.Read();
+        var bytes = SHA256.HashData(File.ReadAllBytes(database.Path));
+        foreach (var name in PriceTables.All)
+        {
+            var table = await OleDbPriceReader.ReadAsync(database.Path, name, TestContext.Current.CancellationToken);
+            Assert.True(table.HasRow);
+            Assert.Equal(name, table.Name);
+            table.Validate();
+        }
+        var plasma = await OleDbPriceReader.ReadAsync(database.Path, PriceTables.Plasma, TestContext.Current.CancellationToken);
+        Assert.Equal(87, plasma.Rates.Single(rate => rate.ThicknessMillimeters == 1.5m).RublesPerMeter);
+        Assert.Null(plasma.Rates.Single(rate => rate.ThicknessMillimeters == 2.5m).RublesPerMeter);
+        Assert.Equal(0, plasma.Rates.Single(rate => rate.ThicknessMillimeters == 3m).RublesPerMeter);
+        Assert.Equal(2750m, CuttingPriceCalculator.Calculate(new("Плазма", 2m, 25, 1.1m), plasma).StoredPrice);
+        Assert.Equal(bytes, SHA256.HashData(File.ReadAllBytes(database.Path)));
+        Assert.Equal(orders, await database.Read());
+    }
+
+    [Fact]
+    public async Task EmptyMissingAndAmbiguousPriceTablesGiveExplicitErrors()
+    {
+        using var database = Database.Create();
+        database.Execute("DELETE FROM [PriceLL500]");
+        var empty = await OleDbPriceReader.ReadAsync(database.Path, PriceTables.Laser, TestContext.Current.CancellationToken);
+        Assert.False(empty.HasRow);
+        Assert.All(empty.Rates, rate => Assert.Null(rate.RublesPerMeter));
+        database.Execute("DROP TABLE [PriceHL_id2]");
+        await Assert.ThrowsAsync<PriceReadException>(() => OleDbPriceReader.ReadAsync(database.Path, PriceTables.HansLaserId2, TestContext.Current.CancellationToken));
+        database.Execute("ALTER TABLE [PriceG] ADD COLUMN [02,50] LONG");
+        await Assert.ThrowsAsync<PriceReadException>(() => OleDbPriceReader.ReadAsync(database.Path, PriceTables.GasOxygen, TestContext.Current.CancellationToken));
+    }
+
     [Theory]
     [InlineData("Journal's copy & test ")]
     [InlineData("Journal copy;Mode=Share Exclusive ")]
