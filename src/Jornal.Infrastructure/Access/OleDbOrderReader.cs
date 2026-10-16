@@ -14,7 +14,10 @@ public static class OleDbOrderReader
 
     public static string? FindProvider()
     {
-        foreach (var provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0", "Microsoft.Jet.OLEDB.4.0" })
+        var providers = Environment.Is64BitProcess
+            ? new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" }
+            : ["Microsoft.Jet.OLEDB.4.0", "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0"];
+        foreach (var provider in providers)
             if ((provider != "Microsoft.Jet.OLEDB.4.0" || !Environment.Is64BitProcess) && Type.GetTypeFromProgID(provider) is not null)
                 return provider;
         return null;

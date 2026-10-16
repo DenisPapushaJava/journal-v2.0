@@ -25,7 +25,8 @@ public sealed class AccessOrderReader(string path) : IOrderReader
                     throw new OrderReadException("Файл не является поддерживаемой базой Jet MDB либо повреждён.");
             }
             IReadOnlyList<OrderSummary> orders;
-            if (OperatingSystem.IsWindows()) orders = await OleDbOrderReader.ReadAsync(path, cancellationToken);
+            if (AccessHostClient.IsBundled) orders = await new AccessHostClient(path).ReadAsync(cancellationToken);
+            else if (OperatingSystem.IsWindows()) orders = await OleDbOrderReader.ReadAsync(path, cancellationToken);
             else if (OperatingSystem.IsLinux()) orders = await new MdbToolsOrderReader().ReadAsync(path, cancellationToken);
             else throw new OrderReadException("Чтение MDB реализовано для Windows и Linux.");
             if (orders.Select(order => order.Id).Distinct().Count() != orders.Count)

@@ -84,7 +84,8 @@ public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, 
     }
     public OrderSource Create(string? path) => path is null ? new(null, _demo, _demo, _demo) :
         new(System.IO.Path.GetFullPath(path), readerFactory?.Invoke(path) ?? new AccessOrderReader(path),
-            Editor: editorFactory is not null ? editorFactory(path) : readerFactory is null && OperatingSystem.IsWindows() ? new OleDbOrderBatchEditor(path) : null);
+            Editor: editorFactory is not null ? editorFactory(path) : readerFactory is null && OperatingSystem.IsWindows()
+                ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderBatchEditor(path) : null);
     public void Save(OrderSource source) => settingsStore.Save(new(DatabasePath: source.Path));
 
     private sealed class UnavailableReader(string error) : IOrderReader
