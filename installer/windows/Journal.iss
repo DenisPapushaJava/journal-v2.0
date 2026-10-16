@@ -73,7 +73,7 @@ end;
 
 procedure InitializeWizard;
 var
-  DefaultRoot, Description: String;
+  DefaultRoot, RequestedRoot, Description: String;
 begin
   ExistingRoot := RegisteredRoot;
   DefaultRoot := ExistingRoot;
@@ -84,7 +84,9 @@ begin
   DirectoryPage := CreateInputDirPage(wpWelcome, 'Папка установки',
     'Где установить Journal?', Description, False, 'Journal');
   DirectoryPage.Add('Папка приложения:');
-  DirectoryPage.Values[0] := ExpandConstant('{param:JOURNALDIR|' + DefaultRoot + '}');
+  RequestedRoot := ExpandConstant('{param:JOURNALDIR|}');
+  if RequestedRoot = '' then RequestedRoot := DefaultRoot;
+  DirectoryPage.Values[0] := RequestedRoot;
   DirectoryPage.Edits[0].Enabled := ExistingRoot = '';
   DirectoryPage.Buttons[0].Enabled := ExistingRoot = '';
 end;

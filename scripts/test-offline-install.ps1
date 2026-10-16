@@ -5,7 +5,7 @@ $root = Join-Path ([IO.Path]::GetTempPath()) ('journal-offline-test-' + [Guid]::
 New-Item -ItemType Directory -Path $root | Out-Null
 $setup = @(Get-ChildItem artifacts/release -Filter '*-OfflineSetup.exe')
 if ($setup.Count -ne 1) { throw 'Ожидается один полный установщик.' }
-$installed = Join-Path $root 'Журнал заявок'
+$installed = Join-Path $root 'Журнал заявок {app}'
 $fixture = Join-Path $root 'synthetic.mdb'
 & "$env:WINDIR/SysWOW64/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File tests/Fixtures/New-AccessFixture.ps1 -Destination $fixture -RequireProvider
 if ($LASTEXITCODE -ne 0) { throw 'Не удалось подготовить искусственную MDB.' }
