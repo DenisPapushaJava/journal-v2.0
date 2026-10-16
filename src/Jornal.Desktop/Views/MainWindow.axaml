@@ -289,6 +289,18 @@
       <TextBlock Text="{Binding UpdatedText}" Classes="muted" TextTrimming="CharacterEllipsis" />
       <TextBlock Grid.Column="1" Text="{Binding SourceDescription}" Classes="muted" />
     </Grid>
+    <Border x:Name="SpecificationOverlay" Grid.RowSpan="5" ZIndex="100" IsVisible="{Binding ShowSpecificationOverlay}"
+            Background="#66000000" Padding="40" AutomationProperties.LiveSetting="Polite">
+      <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalAccent}" BorderThickness="2"
+              CornerRadius="16" Padding="40" MaxWidth="700" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+        <StackPanel Spacing="20">
+          <TextBlock Text="{Binding SpecificationOverlayTitle}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Center" />
+          <TextBlock Text="{Binding SpecificationOverlayDescription}" Classes="muted" TextWrapping="Wrap" TextAlignment="Center" />
+          <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsImportingSpecification}" Height="4" />
+          <ui:JournalButton x:Name="CancelSpecificationImportButton" Label="Отменить разбор" Icon="x" Click="OnCancelSpecificationImport" IsVisible="{Binding IsImportingSpecification}" HorizontalAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </Border>
     <Canvas x:Name="LayoutOverlay" Grid.RowSpan="5" IsHitTestVisible="False" ClipToBounds="True">
       <Border x:Name="DropGuide" IsVisible="False" Height="3" CornerRadius="2" Background="{DynamicResource JournalAccent}" />
       <Border x:Name="DragPreview" IsVisible="False" Padding="12,8" CornerRadius="6"

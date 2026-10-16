@@ -233,6 +233,7 @@
           "CommunityToolkit.Mvvm": "[8.4.2, )",
           "Jornal.Core": "[2026.1.0-dev, )",
           "Jornal.Infrastructure": "[2026.1.0-dev, )",
+          "Jornal.Parsing": "[2026.1.0-dev, )",
           "Svg.Controls.Avalonia": "[12.0.0.17, )",
           "Velopack": "[1.2.0, )"
         }
@@ -243,6 +244,20 @@
           "Jornal.Core": "[2026.1.0-dev, )",
           "System.Data.OleDb": "[10.0.13, )"
         }
+      },
+      "jornal.parsing": {
+        "type": "Project",
+        "dependencies": {
+          "AngleSharp": "[1.8.5, )",
+          "Jornal.Core": "[2026.1.0-dev, )",
+          "PdfPig": "[0.1.16, )"
+        }
+      },
+      "AngleSharp": {
+        "type": "CentralTransitive",
+        "requested": "[1.8.5, )",
+        "resolved": "1.8.5",
+        "contentHash": "BUgFIpmkjwMPi6QneHUHaprjUOGSXoWEF/xi/2seHCpnI8XMHACNiC09rn9qL8jbxrP8jWyJ3DnOjsGvXWNGmw=="
       },
       "Avalonia": {
         "type": "CentralTransitive",
@@ -301,6 +316,12 @@
         "requested": "[8.4.2, )",
         "resolved": "8.4.2",
         "contentHash": "WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg=="
+      },
+      "PdfPig": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.16, )",
+        "resolved": "0.1.16",
+        "contentHash": "qQcbsNMYVY+K5ELptax2S8thNMk0+rSQq3H/KdYj3LLcko8yTCz8y5KIvsKxIyAuTN0ZYNnfsZkM+0EvxTwHVA=="
       },
       "Svg.Controls.Avalonia": {
         "type": "CentralTransitive",

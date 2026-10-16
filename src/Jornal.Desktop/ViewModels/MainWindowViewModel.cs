@@ -37,7 +37,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
 
     private void NotifyJournalAvailability()
     {
-        foreach (var name in new[] { nameof(CanUseJournal), nameof(CanCreateOrder), nameof(CanSelectOrders),
+        foreach (var name in new[] { nameof(CanUseJournal), nameof(CanCreateOrder), nameof(CanImportSpecification), nameof(CanSelectOrders),
             nameof(CanCheckUpdates), nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
             nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult), nameof(CanConfigureSource),
             nameof(CanEditOrder), nameof(CanTrashOrder), nameof(CanOpenTrash), nameof(MaintenanceHint), nameof(TrashOrderHint) })
@@ -47,9 +47,9 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPreferencesError))] private string? _preferencesError;
     public bool HasPreferencesError => !string.IsNullOrEmpty(PreferencesError);
-    public bool CanUseJournal => !IsCustomizing && !IsUpdatingOrders && !IsLoadingOrders;
+    public bool CanUseJournal => !IsCustomizing && !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification;
     public bool CanConfigureScreen => CanUseJournal;
-    public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders;
+    public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification;
     public bool CanSelectOrders => !HasNoOrders && CanUseJournal;
 
     [ObservableProperty]
@@ -73,9 +73,9 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public ObservableCollection<OrderRowViewModel> Orders { get; } = [];
     private NewOrderViewModel? _pendingCreationForm;
     public bool CanCreateOrder => orderCreator is not null && CanUseJournal && !RequiresReload;
-    public NewOrderViewModel? CreateOrderForm()
+    public NewOrderViewModel? CreateOrderForm(bool forImport = false)
     {
-        if (!CanCreateOrder) return null;
+        if (!CanCreateOrder || forImport && _pendingCreationForm is not null) return null;
         if (_pendingCreationForm is { } pending)
         {
             _pendingCreationForm = null;

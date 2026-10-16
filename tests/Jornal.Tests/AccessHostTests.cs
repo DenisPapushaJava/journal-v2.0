@@ -172,7 +172,8 @@ public sealed class AccessHostTests
             Assert.Null(saved.DeliveryNumber);
             Assert.Equal(saved, (await client.ReadAsync(TestContext.Current.CancellationToken)).Single(row => row.Id == 42));
             var history = await client.ReadAsync(TestContext.Current.CancellationToken);
-            var draft = Draft() with { InitialColor = OrderColors.Work };
+            var draft = Draft() with { InitialColor = OrderColors.Work, PartCount = 14, PunchCount = 31,
+                SheetSize = "1500x3000, 1000x2000" };
             var quote = await new CuttingPriceService(client).CalculateAsync(draft.PriceRequest, TestContext.Current.CancellationToken);
             var mismatch = await Assert.ThrowsAsync<OrderPriceChangedException>(() => client.CreateAsync(draft with {
                 ExpectedQuote = quote with { RublesPerMeter = 1, StoredPrice = 57m } }, TestContext.Current.CancellationToken));

@@ -25,6 +25,8 @@
       <StackPanel Spacing="4">
         <TextBlock Text="Новая заявка" FontSize="20" FontWeight="SemiBold" />
         <TextBlock Text="{Binding StorageDescription}" Classes="muted" TextWrapping="Wrap" />
+        <TextBlock x:Name="ImportAttention" Text="Есть замечания к разбору. Проверьте поля и пояснения справа."
+                   IsVisible="{Binding HasImportDiagnostics}" TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" />
       </StackPanel>
     </Border>
     <Grid Grid.Row="1" Margin="24,16" ColumnDefinitions="*,24,260">
@@ -75,11 +77,32 @@
                      Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
           <Border Height="1" Background="{DynamicResource JournalBorder}" Margin="0,8" />
           <TextBlock Text="Из спецификации" Classes="section" />
-          <TextBlock Text="Импорт HTML, PDF и текста будет добавлен следующим этапом." Classes="muted" TextWrapping="Wrap" />
-          <ui:JournalButton Label="Выбрать спецификацию" Classes="outline" IsEnabled="False"
-                            ToolTip.Tip="Импорт пока недоступен" />
+          <TextBlock Text="Выберите HTML БЛОК/Wintech или перетащите его на главное окно. Проверьте поля перед добавлением."
+                     Classes="muted" TextWrapping="Wrap" />
+          <ui:JournalButton x:Name="BrowseSpecificationButton" Label="Выбрать HTML" Classes="outline" IsEnabled="{Binding !IsBusy}"
+                            Click="OnBrowseSpecification" ToolTip.Tip="Прочитать спецификацию без записи в журнал" />
+          <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsImporting}" Height="4" />
+          <ui:JournalButton Label="Отменить чтение" Click="OnCancelFormImport" IsVisible="{Binding IsImporting}" />
+          <Border IsVisible="{Binding HasPendingImport}" Background="{DynamicResource JournalAccentSoft}" Padding="12" CornerRadius="6">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Заменить параметры спецификации? Менеджер и заказчик сохранятся." TextWrapping="Wrap" />
+              <TextBlock Text="{Binding PendingImportName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PendingImportName}" />
+              <ui:JournalButton Label="Заменить параметры" Command="{Binding ReplaceImportCommand}" />
+              <ui:JournalButton Label="Оставить прежние" Command="{Binding CancelImportReplacementCommand}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Text="{Binding ImportError}" IsVisible="{Binding HasImportError}" TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" />
+          <StackPanel IsVisible="{Binding HasImport}" Spacing="12">
+            <TextBlock x:Name="ImportFileName" Text="{Binding ImportPreview.FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ImportPreview.FileName}" FontWeight="Medium" />
+            <TextBlock Text="{Binding ImportPreview.Counts}" Classes="muted" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding ImportPreview.Duration}" Classes="muted" TextWrapping="Wrap" />
+            <TextBlock Text="Длительность справочная и пока не сохраняется в журнале." Classes="muted" TextWrapping="Wrap" FontSize="12" />
+            <TextBlock Text="{Binding ImportPreview.Diagnostics}" IsVisible="{Binding HasImportDiagnostics}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource JournalDangerForeground}" />
+            <TextBlock Text="Пустые поля заполните вручную. Источник значения доступен в подсказке под полем." Classes="muted" TextWrapping="Wrap" />
+          </StackPanel>
           <ui:JournalButton Label="Вставить текст" Classes="outline" IsEnabled="False"
-                            ToolTip.Tip="Импорт пока недоступен" />
+                            ToolTip.Tip="Профили PDF и текста будут добавлены отдельно" />
         </StackPanel>
         </ScrollViewer>
       </Border>
