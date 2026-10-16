@@ -5,10 +5,25 @@ using Jornal.Desktop.Updates;
 
 namespace Jornal.Desktop.ViewModels;
 
-public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? timeProvider = null) : ObservableObject
+public partial class AppUpdatesViewModel : ObservableObject
 {
     public static readonly TimeSpan AutomaticCheckInterval = TimeSpan.FromHours(6);
-    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly IAppUpdater _updater;
+    private readonly TimeProvider _timeProvider;
+    private readonly IAppUpdatePreferencesStore? _preferencesStore;
+
+    public AppUpdatesViewModel(IAppUpdater updater, TimeProvider? timeProvider = null, IAppUpdatePreferencesStore? preferencesStore = null)
+    {
+        _updater = updater;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _preferencesStore = preferencesStore;
+        var loaded = preferencesStore?.Load();
+        _preferencesWarning = loaded?.Error;
+        // Явный выбор важнее установленной версии. Первый запуск alpha/beta продолжает её канал.
+        _includePreview = loaded?.Preferences?.IncludePreview ?? (loaded?.Error is null && updater.IsInstalled &&
+            Velopack.SemanticVersion.TryParse(updater.CurrentVersion, out var version) && version.IsPrerelease);
+        if (preferencesStore is not null && loaded is { Preferences: null, Error: null }) SavePreferences();
+    }
     private AppUpdate? _update;
     private readonly object _progressLock = new();
     private int _downloadOperation;
@@ -18,13 +33,14 @@ public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? time
     private Action _prepareRestart = () => { };
     private Action _closeApplication = () => { };
     public bool CheckAutomatically { get; init; }
-    public string CurrentVersion => updater.CurrentVersion;
-    public bool IsInstalled => updater.IsInstalled;
+    public string CurrentVersion => _updater.CurrentVersion;
+    public bool IsInstalled => _updater.IsInstalled;
     public string InstallationHint => OperatingSystem.IsWindows()
         ? "Для установки со всеми необходимыми компонентами используйте OfflineSetup.exe из раздела выпусков."
         : "Для обновления из программы запустите Journal из AppImage из раздела выпусков.";
     [ObservableProperty] private string _status = "Проверьте, появилась ли новая версия Journal.";
     [ObservableProperty] private string? _error;
+    [ObservableProperty] private string? _preferencesWarning;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isApplying;
     [ObservableProperty] private bool _restartScheduled;
@@ -36,6 +52,7 @@ public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? time
     [ObservableProperty] private string _releaseNotes = "";
     public string NotificationText => HasUpdate ? $"Доступна новая версия Journal {AvailableVersion}" : "Обновления Journal";
     public bool HasError => Error is not null;
+    public bool HasPreferencesWarning => PreferencesWarning is not null;
     public bool CanCheck => IsInstalled && !IsBusy;
     public bool CanDownload => HasUpdate && !IsDownloaded && !IsBusy;
     public bool CanInstall => HasUpdate && IsDownloaded && !IsBusy;
@@ -43,6 +60,7 @@ public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? time
     public void ConfigureRestart(Func<bool> canRestart, Action prepare, Action close)
     { _canRestart = canRestart; _prepareRestart = prepare; _closeApplication = close; }
     partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
+    partial void OnPreferencesWarningChanged(string? value) => OnPropertyChanged(nameof(HasPreferencesWarning));
     partial void OnIsBusyChanged(bool value) => NotifyCommands();
     partial void OnHasUpdateChanged(bool value) { OnPropertyChanged(nameof(NotificationText)); NotifyCommands(); }
     partial void OnAvailableVersionChanged(string value) => OnPropertyChanged(nameof(NotificationText));
@@ -51,6 +69,17 @@ public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? time
     {
         _update = null; HasUpdate = false; IsDownloaded = false; ReleaseNotes = ""; AvailableVersion = ""; Error = null;
         Status = "Канал изменён. Нажмите «Проверить обновления».";
+        SavePreferences();
+    }
+    private void SavePreferences()
+    {
+        if (_preferencesStore is null) return;
+        try { _preferencesStore.Save(new(IncludePreview: IncludePreview)); PreferencesWarning = null; }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceWarning("Update preferences could not be saved: {0}", exception);
+            PreferencesWarning = "Не удалось сохранить канал обновлений. Выбор действует до закрытия программы. Проверьте доступ к папке профиля.";
+        }
     }
     private void NotifyCommands()
     {
@@ -92,7 +121,7 @@ public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? time
         if (!quiet) { Error = null; Status = "Проверяем выпуски на GitHub…"; }
         try
         {
-            var update = await updater.CheckAsync(IncludePreview, cancellationToken);
+            var update = await _updater.CheckAsync(IncludePreview, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             _update = update;
             Error = null;
@@ -120,7 +149,7 @@ public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? time
         lock (_progressLock) { operation = ++_downloadOperation; IsDownloading = true; DownloadProgress = 0; }
         try
         {
-            await updater.DownloadAsync(_update, new Progress<int>(value =>
+            await _updater.DownloadAsync(_update, new Progress<int>(value =>
             {
                 lock (_progressLock)
                     if (operation == _downloadOperation && IsDownloading && !cancellationToken.IsCancellationRequested)
@@ -144,7 +173,7 @@ public partial class AppUpdatesViewModel(IAppUpdater updater, TimeProvider? time
         try
         {
             _prepareRestart();
-            updater.ScheduleRestart(_update);
+            _updater.ScheduleRestart(_update);
             RestartScheduled = true;
             _closeApplication();
         }

@@ -66,9 +66,11 @@ public sealed class UpdateWindowTests
             dialog.Width = 600; dialog.Height = 540;
             updates.ReleaseNotes = string.Join('\n', Enumerable.Repeat("Длинное описание новой версии с подробностями исправлений", 80));
             updates.Error = "Проверка сообщения: соединение недоступно. Повторите попытку или продолжите работу."; Pump();
+            updates.PreferencesWarning = "Не удалось сохранить канал обновлений. Выбор действует до закрытия программы. Проверьте доступ к папке профиля."; Pump();
+            Assert.Equal("Получать тестовые версии", dialog.FindControl<CheckBox>("PreviewUpdatesCheckBox")!.Content);
             Assert.False(dialog.FindControl<JournalButton>("InstallUpdateButton")!.IsVisible);
             Assert.True(dialog.FindControl<JournalButton>("DownloadUpdateButton")!.IsEffectivelyEnabled);
-            foreach (var name in new[] { "CheckUpdatesButton", "DownloadUpdateButton", "CloseUpdatesButton", "UpdateError" }) AssertInside(dialog, name);
+            foreach (var name in new[] { "CheckUpdatesButton", "DownloadUpdateButton", "CloseUpdatesButton", "UpdateError", "PreviewUpdatesCheckBox", "UpdatePreferencesWarning" }) AssertInside(dialog, name);
             Screenshot(dialog, "update-available-" + (dark ? "dark" : "light"));
             Click(dialog, "DownloadUpdateButton"); Pump();
             Assert.True(dialog.FindControl<JournalButton>("InstallUpdateButton")!.IsEffectivelyEnabled);
