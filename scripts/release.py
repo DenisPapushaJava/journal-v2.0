@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import zipfile
 
@@ -77,7 +78,32 @@ def create_archive(publish_dir, output_dir, version, runtime, commit):
     return archive, checksum
 
 
-def package(version, runtime):
+def update_channel(version, runtime):
+    # Канал в feed разделён по ОС/архитектуре; stable/preview фильтруется признаком GitHub prerelease.
+    return runtime
+
+
+def package_updates(dotnet, staging, output_dir, version, runtime):
+    if (runtime.startswith("win") and os.name != "nt") or (runtime.startswith("linux") and sys.platform != "linux"):
+        raise ValueError("Velopack packaging must run on the target OS")
+    subprocess.run([dotnet, "tool", "restore"], cwd=ROOT, check=True)
+    command = [dotnet, "tool", "run", "vpk", "pack", "--packId", "DenisPapusha.Journal",
+        "--packTitle", "Journal", "--packAuthors", "DenisPapusha",
+        "--packVersion", version.version, "--packDir", str(staging),
+        "--mainExe", "Jornal.Desktop.exe" if runtime.startswith("win") else "Jornal.Desktop",
+        "--runtime", runtime, "--channel", update_channel(version, runtime),
+        "--outputDir", str(output_dir), "--releaseNotes", str(ROOT / "docs/release-notes.md")]
+    if runtime.startswith("win"):
+        command += ["--framework", "net10.0-x64-runtime", "--icon", str(ROOT / "docs/design/assets/journal-icon.ico")]
+    else:
+        command += ["--icon", str(ROOT / "docs/design/assets/journal-icon.png"), "--categories", "Office"]
+    subprocess.run(command, cwd=ROOT, check=True)
+    for path in output_dir.iterdir():
+        if path.is_file() and path.suffix != ".sha256":
+            path.with_name(path.name + ".sha256").write_text(hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n", encoding="utf-8")
+
+
+def package(version, runtime, with_updates=False):
     dotnet = shutil.which("dotnet")
     if not dotnet:
         candidate = Path.home() / ".dotnet" / ("dotnet.exe" if os.name == "nt" else "dotnet")
@@ -99,6 +125,11 @@ def package(version, runtime):
         ], cwd=ROOT, check=True)
         for path in create_archive(staging, work_dir / "release", version, runtime, commit):
             print(path.relative_to(ROOT))
+        if with_updates:
+            updates_dir = work_dir / "updates" / runtime
+            package_updates(dotnet, staging, updates_dir, version, runtime)
+            for asset in updates_dir.iterdir():
+                if asset.is_file(): shutil.copy2(asset, work_dir / "release" / asset.name)
 
 
 def main():
@@ -110,6 +141,7 @@ def main():
     build = commands.add_parser("package")
     build.add_argument("--version", required=True)
     build.add_argument("--runtime", choices=["win-x64", "linux-x64"], required=True)
+    build.add_argument("--updates", action="store_true", help="Also build installer/AppImage and Velopack update feed")
     args = parser.parse_args()
     try:
         version = parse_version(args.version)
@@ -120,7 +152,7 @@ def main():
                     output.write(f"version={version.version}\ntag={version.tag}\n")
                     output.write(f"prerelease={str(version.prerelease).lower()}\n")
         else:
-            package(version, args.runtime)
+            package(version, args.runtime, args.updates)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Release error: {error}\n")
 

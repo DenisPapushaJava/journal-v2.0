@@ -12,17 +12,23 @@
   <Grid RowDefinitions="52,Auto,Auto,*,32">
     <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
             BorderThickness="0,0,0,1" Padding="24,0">
-      <Grid ColumnDefinitions="Auto,24,*,Auto,8,Auto,8,Auto">
+      <Grid ColumnDefinitions="Auto,24,*,Auto,8,Auto,8,Auto,8,Auto">
         <TextBlock Text="Журнал заявок" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
         <TextBlock x:Name="SourceDescriptionText" Grid.Column="2" Text="{Binding SourceDescription}" ToolTip.Tip="{Binding SourceDetails}"
                    Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-        <ToggleButton Grid.Column="3" x:Name="ThemeButton" Theme="{StaticResource JournalThemeSwitch}"
+        <Grid Grid.Column="3" VerticalAlignment="Center">
+          <ui:JournalButton x:Name="UpdatesButton" Label="{Binding Updates.NotificationText}" Icon="bell" IconOnly="True" Width="32" Height="32" Padding="0"
+                            Click="OnUpdatesClick" IsEnabled="{Binding CanCheckUpdates}" ToolTip.Tip="{Binding Updates.NotificationText}" />
+          <Ellipse x:Name="UpdateBadge" Width="7" Height="7" Fill="{DynamicResource JournalAccent}" IsVisible="{Binding Updates.HasUpdate}"
+                   HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False" />
+        </Grid>
+        <ToggleButton Grid.Column="5" x:Name="ThemeButton" Theme="{StaticResource JournalThemeSwitch}"
                       IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" VerticalAlignment="Center"
                       ToolTip.Tip="{Binding ThemeActionLabel}" AutomationProperties.Name="{Binding ThemeActionLabel}" />
-        <ui:JournalButton Grid.Column="5" x:Name="PersonalizeButton" Label="Настроить экран" Icon="panels-top-left"
+        <ui:JournalButton Grid.Column="7" x:Name="PersonalizeButton" Label="Настроить экран" Icon="panels-top-left"
                           IconOnly="True" Width="32" Height="32" Padding="0" Click="OnCustomizeClick" IsEnabled="{Binding CanConfigureScreen}"
                           ToolTip.Tip="Настроить расположение панелей и столбцы" VerticalAlignment="Center" />
-        <ui:JournalButton x:Name="DatabaseSettingsButton" Grid.Column="7" Label="База данных" Icon="settings-2" IsEnabled="{Binding CanConfigureSource}"
+        <ui:JournalButton x:Name="DatabaseSettingsButton" Grid.Column="9" Label="База данных" Icon="settings-2" IsEnabled="{Binding CanConfigureSource}"
                           Click="OnDatabaseSettingsClick" ToolTip.Tip="Выбрать файл базы или демонстрационный журнал" VerticalAlignment="Center" />
       </Grid>
     </Border>

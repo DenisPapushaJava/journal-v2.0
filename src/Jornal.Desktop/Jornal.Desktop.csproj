@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <ApplicationIcon>../../docs/design/assets/journal-icon.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
   <ItemGroup>
@@ -10,12 +11,14 @@
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Svg.Controls.Avalonia" />
     <PackageReference Include="Avalonia.Controls.DataGrid" />
+    <PackageReference Include="Velopack" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <ProjectReference Include="../Jornal.Core/Jornal.Core.csproj" />
     <ProjectReference Include="../Jornal.Infrastructure/Jornal.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
     <AvaloniaResource Include="../../docs/design/assets/lucide/*.svg" Link="Assets/Icons/%(Filename)%(Extension)" />
+    <Content Include="../../docs/licenses/Velopack.txt" Link="Licenses/Velopack.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../docs/design/assets/lucide/LICENSE" Link="Licenses/Lucide.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <!-- Native NuGet assets include large PDBs even when managed DebugType=None. -->

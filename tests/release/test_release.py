@@ -27,6 +27,13 @@ class ReleaseTests(unittest.TestCase):
         for label in ["alpha", "beta", "rc"]:
             self.assertTrue(release.parse_version(f"2026.1.0-{label}.1").prerelease)
 
+    def test_update_feeds_are_separate_per_platform_and_filter_preview_on_github(self):
+        stable = release.parse_version("2026.1.0")
+        preview = release.parse_version("2026.2.0-beta.1")
+        self.assertEqual(release.update_channel(stable, "win-x64"), "win-x64")
+        self.assertEqual(release.update_channel(preview, "win-x64"), "win-x64")
+        self.assertEqual(release.update_channel(stable, "linux-x64"), "linux-x64")
+
     def test_invalid_versions_cannot_reach_packaging(self):
         for value in ["2026.41", "2026.0.0", "2026.01.0", "2026.1.01", "2026.1.0-alpha.0", "2026.65535.0", "2026.1.65535", "2026.1.0; echo unsafe", "2026.1.0\nother=value"]:
             with self.subTest(value=value), self.assertRaises(ValueError):

@@ -147,11 +147,12 @@ public sealed class MainWindowCustomization
         foreach (var column in _table.Columns.Skip(1)) column.PropertyChanged -= OnColumnChanged;
     }
 
-    public void Flush()
+    public bool Flush()
     {
         _saveTimer.Stop();
-        if (!_dirty || !_initialized || _beforeEdit is not null) return;
+        if (!_dirty || !_initialized || _beforeEdit is not null) return true;
         if (Write(Capture())) _dirty = false;
+        return !_dirty;
     }
 
     private bool Write(ScreenLayout layout)
