@@ -67,7 +67,7 @@ public sealed class DatabaseWindowTests
                 Assert.Equal(order.StoredCuttingPrice, row.StoredCuttingPrice); Assert.Equal(order.Color, row.Color);
                 Assert.Equal(order.DeliveryNumber ?? "", row.DeliveryNumber);
             }
-            Assert.False(model.CanCreateOrder);
+            Assert.Equal(OperatingSystem.IsWindows(), model.CanCreateOrder);
             var table = window.FindControl<DataGrid>("OrdersGrid")!;
             table.SelectAll(); Pump(); Click(window, "AddResultButton");
             Assert.False(model.HasResultError, model.ResultMessage);

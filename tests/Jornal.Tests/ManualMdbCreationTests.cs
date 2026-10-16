@@ -10,14 +10,6 @@ namespace Jornal.Tests;
 public sealed class ManualMdbCreationTests
 {
     [Fact]
-    public void DefaultMdbSourceEnablesCreationOnlyOnWindows()
-    {
-        var source = new OrderSourceManager(new OrderSourceTests.MemorySettings()).Create(OrderSourceTests.DatabasePath);
-        Assert.Equal(OperatingSystem.IsWindows(), source.Creator is not null);
-        if (OperatingSystem.IsWindows()) Assert.IsAssignableFrom<IPriceReader>(source.Creator);
-    }
-
-    [Fact]
     public async Task ReviewedPriceChangeKeepsAllFieldsAndRequiresAnotherExplicitSave()
     {
         var creator = new PricedCreator(); var form = Filled(creator);

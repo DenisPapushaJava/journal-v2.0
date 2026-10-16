@@ -152,7 +152,9 @@ public sealed class LocalCopyWindowTests
             await Assert.ThrowsAsync<OrderReadException>(() => local.Reader.ReadAsync(TestContext.Current.CancellationToken));
         }
         var mdb = new OrderSourceManager(new OrderSourceTests.MemorySettings()).Create(OrderSourceTests.DatabasePath);
-        Assert.False(mdb.IsLocalCopy); Assert.Null(mdb.Creator);
+        Assert.False(mdb.IsLocalCopy);
+        Assert.Equal(OperatingSystem.IsWindows(), mdb.Creator is not null);
+        Assert.False(mdb.Creator is LocalJournalStore);
         Assert.Equal(OperatingSystem.IsWindows(), mdb.Editor is not null);
     }
 
