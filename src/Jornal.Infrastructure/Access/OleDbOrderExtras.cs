@@ -36,7 +36,15 @@ public sealed class OleDbOrderExtras(string path) : IOrderDurationInitializer
             // Копирование при исключительном доступе: активных транзакций клиентов в этой базе нет.
             var backup = Path.GetFullPath(path) + ".before-journal-extras-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) +
                 "-" + Guid.NewGuid().ToString("N") + ".bak";
-            File.Copy(path, backup, overwrite: false);
+            var partial = backup + ".partial";
+            try
+            {
+                File.Copy(path, partial, overwrite: false);
+                using (var flush = new FileStream(partial, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) flush.Flush(flushToDisk: true);
+                cancellationToken.ThrowIfCancellationRequested();
+                File.Move(partial, backup);
+            }
+            finally { if (File.Exists(partial)) File.Delete(partial); }
             cancellationToken.ThrowIfCancellationRequested();
             using (var create = Command(connection, null))
             {

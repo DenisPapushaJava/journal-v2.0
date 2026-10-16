@@ -15,7 +15,7 @@ public sealed record OrderSummary(
 {
     public OrderCuttingTime? CuttingTime { get; init; }
     [System.Text.Json.Serialization.JsonIgnore] public long? CuttingDurationMinutes =>
-        CuttingTime is { } time && time.Matches(this) ? time.Minutes : null;
+        CuttingTime is { Minutes: >= 0 } time && time.Minutes <= OrderCuttingTime.MaximumMinutes && time.Matches(this) ? time.Minutes : null;
     [System.Text.Json.Serialization.JsonIgnore] public bool CuttingTimeNeedsReview => CuttingTime is not null && CuttingDurationMinutes is null;
     public string SheetSize { get; init; } = string.Empty;
     public string SheetCount { get; init; } = string.Empty;

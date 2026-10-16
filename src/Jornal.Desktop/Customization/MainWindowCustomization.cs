@@ -14,7 +14,7 @@ namespace Jornal.Desktop.Customization;
 public sealed class MainWindowCustomization
 {
     private static readonly string[] ColumnIds = ["date", "specification", "manager", "customer", "cutting",
-        "material", "thickness", "sheet-size", "sheet-count", "cut-length", "weight", "price", "delivery", "status"];
+        "material", "thickness", "sheet-size", "sheet-count", "cut-length", "weight", "price", "cutting-time", "delivery", "status"];
     private static readonly Dictionary<string, double> MinimumWidths = new()
         { ["orders"] = 312, ["clipboard"] = 430, ["status"] = 428 };
     private readonly MainWindow _window;

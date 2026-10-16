@@ -177,6 +177,18 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             if (request.Operation == AccessHostOperation.CreateOrder && (response.Orders!.Length != 1 ||
                 response.Orders[0] is not { Id: > 0, StoredCuttingPrice: not null }))
                 throw new InvalidDataException("Модуль Access не подтвердил новую заявку.");
+            if (response.Orders is { } orders)
+            {
+                try
+                {
+                    foreach (var order in orders)
+                    {
+                        if (order is null) throw new InvalidDataException("Пустая строка в ответе модуля Access.");
+                        order.CuttingTime?.Validate();
+                    }
+                }
+                catch (OrderWriteException exception) { throw new InvalidDataException("Некорректное время в ответе модуля Access.", exception); }
+            }
             if (request.Operation == AccessHostOperation.CreateOrder && response.Orders![0] is { } created &&
                 created != request.Draft!.ToOrder(created.Id, created.StoredCuttingPrice))
                 throw new InvalidDataException("Поля созданной заявки не соответствуют запросу.");

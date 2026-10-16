@@ -14,7 +14,7 @@ internal static class OleDbAccessConnection
         var builder = new OleDbConnectionStringBuilder
         { Provider = provider, DataSource = Path.GetFullPath(path), PersistSecurityInfo = false };
         // Jet принимает Read для чтения и DB_MODE_READWRITE | DB_MODE_SHARE_DENY_NONE для записи.
-        builder["Mode"] = exclusive ? 15 : writable ? 19 : "Read";
+        builder["Mode"] = exclusive ? "Share Exclusive" : writable ? 19 : "Read";
         builder["OLE DB Services"] = -2;
         return new(builder.ConnectionString);
     }

@@ -7,10 +7,12 @@ namespace Jornal.Desktop.ViewModels;
 public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
 {
     private OrderSummary _order = order;
+    private long? _cuttingDurationMinutes = order.CuttingDurationMinutes;
     internal void Update(OrderSummary replacement)
     {
         if (replacement.Id != Id) throw new ArgumentException("Нельзя заменить идентификатор строки.", nameof(replacement));
         _order = replacement;
+        _cuttingDurationMinutes = replacement.CuttingDurationMinutes;
         OnPropertyChanged(string.Empty);
     }
 
@@ -23,6 +25,11 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
     public decimal? ThicknessMillimeters => _order.ThicknessMillimeters;
     public decimal? StoredCuttingPrice => _order.StoredCuttingPrice;
     public int? CutLengthMeters => _order.CutLengthMeters;
+    public long? CuttingDurationMinutes => _cuttingDurationMinutes;
+    public string CuttingTimeText => CuttingDurationMinutes is { } minutes ? CuttingDuration.Format(minutes) : "—";
+    public string CuttingTimeHint => _order.CuttingTime is not null && CuttingDurationMinutes is null
+        ? "Параметры заявки изменились. Проверьте время в редактировании."
+        : CuttingDurationMinutes is null ? "Время резки не задано" : "Длительность резки, часы:минуты. Часы могут превышать 24.";
 
     public string DateText => _order.OrderDate?.ToString("dd.MM.yyyy", DisplayCulture) ?? "—";
     public string SpecificationNumber => _order.SpecificationNumber;

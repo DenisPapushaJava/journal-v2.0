@@ -24,6 +24,16 @@ public sealed partial class NativeAccessTests
     }
 
     [Fact]
+    public async Task BusyDatabaseDoesNotStartBackupOrChangeItsSchema()
+    {
+        using var database = Database.Create(); var schema = database.Schema();
+        using var occupied = database.Connection();
+        await Assert.ThrowsAsync<OrderWriteException>(() => new OleDbOrderExtras(database.Path).PrepareCuttingTimeAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(Directory.GetFiles(System.IO.Path.GetDirectoryName(database.Path)!, "*.before-journal-extras-*.bak"));
+        Assert.Equal(schema, database.Schema());
+    }
+
+    [Fact]
     public async Task TimeRoundTripsWithoutExtendingCoefficientAndLegacyWritesKeepWorking()
     {
         using var database = Database.Create(); var schema = database.Schema();

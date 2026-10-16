@@ -264,6 +264,14 @@
                 <DataGridTextColumn Header="Рез, м" Binding="{ReflectionBinding CutLengthText}" SortMemberPath="CutLengthMeters" Width="76" MinWidth="64" />
                 <DataGridTextColumn Header="Вес, кг" Binding="{ReflectionBinding WeightText}" Width="74" MinWidth="68" />
                 <DataGridTextColumn Header="Стоимость" Binding="{ReflectionBinding StoredPriceText}" SortMemberPath="StoredCuttingPrice" Width="112" MinWidth="112" />
+                <DataGridTemplateColumn Header="Время резки" SortMemberPath="CuttingDurationMinutes" Width="128" MinWidth="112">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:OrderRowViewModel">
+                      <TextBlock Text="{Binding CuttingTimeText}" ToolTip.Tip="{Binding CuttingTimeHint}" Margin="12,0"
+                                 VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="БЛЦБ" Binding="{ReflectionBinding DeliveryNumber}" Width="144" MinWidth="128" />
                 <DataGridTemplateColumn Header="Статус" Width="128" MinWidth="128" SortMemberPath="StatusText">
                   <DataGridTemplateColumn.CellTemplate>

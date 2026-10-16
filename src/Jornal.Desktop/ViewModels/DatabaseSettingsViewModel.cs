@@ -23,7 +23,7 @@ public partial class DatabaseSettingsViewModel(string? currentPath, Func<string?
     public AccessHostHelpViewModel AccessHostHelp { get; } = new();
     partial void OnErrorChanged(string? value) => AccessHostHelp.ShowFor(null);
     public string DatabaseCapabilities => OperatingSystem.IsWindows()
-        ? "В MDB доступны поиск, фильтры, результат для письма, создание заявки с расчётом цены, изменение статусов и БЛЦБ. Редактирование и импорт спецификаций ещё переносятся."
+        ? "В MDB доступны создание, редактирование, импорт, корзина, статусы и БЛЦБ. При первом подключении приложение подготовит хранение времени и создаст резервную копию. На время первой подготовки закройте программы на остальных ПК."
         : "На Linux MDB доступна только для чтения: поиск, фильтры и результат для письма. Создание с расчётом, статусы и БЛЦБ доступны в локальной копии или через MDB на Windows.";
     public event EventHandler? Connected;
     partial void OnDatabasePathChanged(string value) => Error = null;
