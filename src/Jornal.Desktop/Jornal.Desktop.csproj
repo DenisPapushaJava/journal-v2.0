@@ -20,6 +20,7 @@
     <ProjectReference Include="../Jornal.Infrastructure/Jornal.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <AvaloniaResource Include="../../docs/design/assets/journal-icon.png" Link="Assets/Journal.png" />
     <AvaloniaResource Include="../../docs/design/assets/lucide/*.svg" Link="Assets/Icons/%(Filename)%(Extension)" />
     <Content Include="../../docs/licenses/Velopack.txt" Link="Licenses/Velopack.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../docs/design/assets/lucide/LICENSE" Link="Licenses/Lucide.txt" CopyToOutputDirectory="PreserveNewest" />

@@ -2,6 +2,8 @@
         xmlns:svg="clr-namespace:Avalonia.Svg;assembly=Svg.Controls.Avalonia"
         xmlns:ui="using:Jornal.Desktop.Controls">
   <Styles.Resources>
+    <ui:OrderRowBrushConverter x:Key="OrderRowBackground" />
+    <ui:OrderRowBrushConverter x:Key="OrderRowForeground" Foreground="True" />
     <ControlTheme x:Key="JournalCommandButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Template">
         <ControlTemplate>
@@ -144,6 +146,7 @@
     <Setter Property="Focusable" Value="False" />
   </Style>
   <Style Selector="Window">
+    <Setter Property="Icon" Value="avares://Jornal.Desktop/Assets/Journal.png" />
     <Setter Property="FontFamily" Value="{StaticResource JournalFont}" />
     <Setter Property="FontSize" Value="13" />
     <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
@@ -321,9 +324,37 @@
   <Style Selector="DataGridColumnHeader TextBlock">
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
-  <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
-    <Setter Property="Fill" Value="{DynamicResource JournalSelection}" />
-    <Setter Property="Opacity" Value="1" />
+  <Style Selector="DataGridRow">
+    <Setter Property="Background">
+      <MultiBinding Converter="{StaticResource OrderRowBackground}">
+        <ReflectionBinding Path="Color" />
+        <Binding Path="IsSelected" RelativeSource="{RelativeSource Self}" />
+        <Binding Path="IsPointerOver" RelativeSource="{RelativeSource Self}" />
+        <Binding Path="IsKeyboardFocusWithin" RelativeSource="{RelativeSource Self}" />
+        <Binding Path="ActualThemeVariant" RelativeSource="{RelativeSource Self}" />
+      </MultiBinding>
+    </Setter>
+    <Setter Property="Foreground">
+      <MultiBinding Converter="{StaticResource OrderRowForeground}">
+        <ReflectionBinding Path="Color" />
+        <Binding Path="IsSelected" RelativeSource="{RelativeSource Self}" />
+        <Binding Path="IsPointerOver" RelativeSource="{RelativeSource Self}" />
+        <Binding Path="IsKeyboardFocusWithin" RelativeSource="{RelativeSource Self}" />
+        <Binding Path="ActualThemeVariant" RelativeSource="{RelativeSource Self}" />
+      </MultiBinding>
+    </Setter>
+  </Style>
+  <Style Selector="DataGridRow /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="DataGridCell:focus /template/ Grid#FocusVisual">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="CheckBox.row-selection /template/ Border#NormalRectangle">
+    <Setter Property="BorderBrush" Value="{ReflectionBinding $parent[DataGridRow].Foreground}" />
+  </Style>
+  <Style Selector="CheckBox.row-selection:unchecked /template/ Border#NormalRectangle">
+    <Setter Property="Background" Value="Transparent" />
   </Style>
   <Style Selector="DataGridCell TextBlock">
     <Setter Property="VerticalAlignment" Value="Center" />

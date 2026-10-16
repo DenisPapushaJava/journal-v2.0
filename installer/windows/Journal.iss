@@ -46,14 +46,115 @@ Source: "{#AppSetup}"; DestDir: "{tmp}"; DestName: "Journal-AppSetup.exe"; Flags
 Filename: "{code:LaunchPath}"; Description: "Запустить Journal"; Flags: postinstall nowait skipifsilent
 
 [Code]
+const
+  JournalUninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\DenisPapusha.Journal';
+
 var
   RuntimeRestartRequired: Boolean;
+  DirectoryPage: TInputDirWizardPage;
+  ExistingRoot: String;
+
+function NormalizeRoot(Value: String): String;
+begin
+  Result := RemoveBackslashUnlessRoot(ExpandFileName(Trim(Value)));
+end;
+
+function RegisteredRoot: String;
+var
+  Candidate: String;
+begin
+  Result := '';
+  if not RegQueryStringValue(HKCU64, JournalUninstallKey, 'InstallLocation', Candidate) then
+    RegQueryStringValue(HKCU32, JournalUninstallKey, 'InstallLocation', Candidate);
+  if (Candidate <> '') and FileExists(AddBackslash(Candidate) + 'Update.exe') and
+    FileExists(AddBackslash(Candidate) + 'Jornal.Desktop.exe') then
+    Result := NormalizeRoot(Candidate);
+end;
+
+procedure InitializeWizard;
+var
+  DefaultRoot, RequestedRoot, Description: String;
+begin
+  ExistingRoot := RegisteredRoot;
+  DefaultRoot := ExistingRoot;
+  if DefaultRoot = '' then DefaultRoot := ExpandConstant('{localappdata}\DenisPapusha.Journal');
+  Description := 'Выберите отдельную пустую папку для приложения. Файл OrderDB.mdb остаётся на прежнем месте и выбирается после установки.';
+  if ExistingRoot <> '' then
+    Description := 'Journal уже установлен. Повторная установка использует прежнюю папку. Для переноса сначала удалите Journal через параметры Windows, затем установите заново; база и личные настройки хранятся отдельно.';
+  DirectoryPage := CreateInputDirPage(wpWelcome, 'Папка установки',
+    'Где установить Journal?', Description, False, 'Journal');
+  DirectoryPage.Add('Папка приложения:');
+  RequestedRoot := ExpandConstant('{param:JOURNALDIR|}');
+  if RequestedRoot = '' then RequestedRoot := DefaultRoot;
+  DirectoryPage.Values[0] := RequestedRoot;
+  DirectoryPage.Edits[0].Enabled := ExistingRoot = '';
+  DirectoryPage.Buttons[0].Enabled := ExistingRoot = '';
+end;
 
 function InstallRoot: String;
 begin
-  Result := ExpandConstant('{param:JOURNALDIR|{localappdata}\DenisPapusha.Journal}');
-  if (Pos('"', Result) > 0) or (ExtractFileDrive(Result) = '') then
-    RaiseException('Некорректная папка установки Journal.');
+  Result := NormalizeRoot(DirectoryPage.Values[0]);
+end;
+
+function DirectoryError: String;
+var
+  Value: String;
+  Entry: TFindRec;
+begin
+  Result := 'Выберите отдельную папку на локальном диске, например D:\Journal.';
+  Value := Trim(DirectoryPage.Values[0]);
+  Log('Проверка папки установки: [' + Value + ']');
+  if (Length(Value) < 4) or (Copy(Value, 2, 2) <> ':\') then begin
+    Log('Ожидается абсолютный путь с буквой диска.');
+    Exit;
+  end;
+  if PathHasInvalidCharacters(Value, True) then begin
+    Log('В пути обнаружены недопустимые символы или компоненты.');
+    Exit;
+  end;
+  Value := InstallRoot;
+  Log('Нормализованная папка: [' + Value + ']');
+  if Length(Value) <= 3 then begin Log('Нельзя устанавливать в корень диска.'); Exit; end;
+  if FileExists(Value) then begin Log('Вместо папки указан файл.'); Exit; end;
+  if (ExistingRoot <> '') and (CompareText(Value, ExistingRoot) <> 0) then begin
+    Result := 'Повторная установка должна использовать прежнюю папку: ' + ExistingRoot;
+    Exit;
+  end;
+  Result := '';
+  if (ExistingRoot = '') and FindFirst(AddBackslash(Value) + '*', Entry) then begin
+    try
+      repeat
+        if (Entry.Name <> '.') and (Entry.Name <> '..') then begin
+          Result := 'Эта папка уже содержит файлы. Выберите отдельную пустую папку, чтобы сохранить прежнюю программу и данные.';
+          Break;
+        end;
+      until not FindNext(Entry);
+    finally
+      FindClose(Entry);
+    end;
+  end;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Error: String;
+begin
+  Result := True;
+  if CurPageID <> DirectoryPage.ID then Exit;
+  Error := DirectoryError;
+  Result := Error = '';
+  if not Result then begin
+    Log(Error);
+    SuppressibleMsgBox(Error, mbError, MB_OK, IDOK);
+  end;
+end;
+
+function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo,
+  MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
+begin
+  Result := 'Папка приложения:' + NewLine + Space + InstallRoot + NewLine + NewLine +
+    'Компоненты:' + NewLine + Space + 'Journal x64, модуль MDB x86, .NET Runtime x64/x86' + NewLine + NewLine +
+    'База данных:' + NewLine + Space + 'Существующий файл выбирается в приложении; установка его не меняет.';
 end;
 
 function LaunchPath(Param: String): String;
@@ -109,7 +210,17 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Code: Integer;
+  ProbePath: String;
 begin
+  Result := DirectoryError;
+  if Result <> '' then Exit;
+  ProbePath := GenerateUniqueName(InstallRoot, '.tmp');
+  if not ForceDirectories(InstallRoot) or not SaveStringToFile(ProbePath, '', False) then begin
+    Result := 'Нет прав записи в выбранную папку. Выберите доступную вам папку, например в профиле пользователя.';
+    Exit;
+  end;
+  DeleteFile(ProbePath);
+  Log('Папка приложения: ' + InstallRoot);
   Result := EnsureRuntime('x64');
   if Result <> '' then Exit;
   Result := EnsureRuntime('x86');
@@ -124,8 +235,11 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Code: Integer;
+  Error: String;
 begin
   if CurStep = ssPostInstall then begin
+    Error := DirectoryError;
+    if Error <> '' then RaiseException(Error);
     ExtractTemporaryFile('Journal-AppSetup.exe');
     if not Exec(ExpandConstant('{tmp}\Journal-AppSetup.exe'), '--silent --installto "' + InstallRoot + '"', '', SW_SHOW, ewWaitUntilTerminated, Code) then
       RaiseException('Не удалось запустить установку Journal. Код: ' + IntToStr(Code));

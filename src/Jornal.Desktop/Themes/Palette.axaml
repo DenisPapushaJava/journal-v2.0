@@ -16,6 +16,7 @@
       <SolidColorBrush x:Key="JournalControlPressed" Color="#DCE6F2" />
       <SolidColorBrush x:Key="JournalAccentSoft" Color="#E9EFF6" />
       <SolidColorBrush x:Key="JournalSelection" Color="#E9F0F8" />
+      <SolidColorBrush x:Key="JournalRowHover" Color="#F0F4F8" />
       <SolidColorBrush x:Key="WorkBackground" Color="#F3EFE4" />
       <SolidColorBrush x:Key="WorkForeground" Color="#75613C" />
       <SolidColorBrush x:Key="ReadyBackground" Color="#E8F0EB" />
@@ -42,6 +43,7 @@
       <SolidColorBrush x:Key="JournalControlPressed" Color="#35485F" />
       <SolidColorBrush x:Key="JournalAccentSoft" Color="#2A394C" />
       <SolidColorBrush x:Key="JournalSelection" Color="#2C3E54" />
+      <SolidColorBrush x:Key="JournalRowHover" Color="#2B3542" />
       <SolidColorBrush x:Key="WorkBackground" Color="#39342A" />
       <SolidColorBrush x:Key="WorkForeground" Color="#DAC89F" />
       <SolidColorBrush x:Key="ReadyBackground" Color="#293930" />
