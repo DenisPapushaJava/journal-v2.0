@@ -90,6 +90,7 @@ public sealed class AccessHostTests
         Assert.Equal(7, (int)AccessHostOperation.UpdateOrder);
         Assert.Equal(8, (int)AccessHostOperation.DeleteOrder);
         Assert.Equal(9, (int)AccessHostOperation.RestoreOrder);
+        Assert.Equal(10, (int)AccessHostOperation.PrepareCuttingTime);
         var record = OrderMaintenanceTests.Record();
         Assert.Equal(record, JsonSerializer.Deserialize<AccessHostResponse>(JsonSerializer.Serialize(new AccessHostResponse(1, Record: record, MaintenanceCompleted: true)))!.Record);
         var draft = Draft() with { ExpectedQuote = new(PriceTables.Laser, "2,5", 17, 25, 2.3m, 977m) };
@@ -148,6 +149,7 @@ public sealed class AccessHostTests
         {
             var client = new AccessHostClient(path, host);
             var original = await client.ReadAsync(TestContext.Current.CancellationToken);
+            await client.PrepareCuttingTimeAsync(TestContext.Current.CancellationToken);
             var first = original.Single(row => row.Id == 42);
             Assert.Equal(1234.5678m, first.StoredCuttingPrice);
             Assert.Equal("БЛЦБ-000042", first.DeliveryNumber);
@@ -173,7 +175,7 @@ public sealed class AccessHostTests
             Assert.Equal(saved, (await client.ReadAsync(TestContext.Current.CancellationToken)).Single(row => row.Id == 42));
             var history = await client.ReadAsync(TestContext.Current.CancellationToken);
             var draft = Draft() with { InitialColor = OrderColors.Work, PartCount = 14, PunchCount = 31,
-                SheetSize = "1500x3000, 1000x2000" };
+                SheetSize = "1500x3000, 1000x2000", CuttingDurationMinutes = 1786 };
             var quote = await new CuttingPriceService(client).CalculateAsync(draft.PriceRequest, TestContext.Current.CancellationToken);
             var mismatch = await Assert.ThrowsAsync<OrderPriceChangedException>(() => client.CreateAsync(draft with {
                 ExpectedQuote = quote with { RublesPerMeter = 1, StoredPrice = 57m } }, TestContext.Current.CancellationToken));
@@ -183,6 +185,13 @@ public sealed class AccessHostTests
             Assert.Equal(draft.ToOrder(created.Id, 977m), created);
             Assert.Equal(created, (await client.ReadAsync(TestContext.Current.CancellationToken)).Single(row => row.Id == created.Id));
             Assert.Equal(history, (await client.ReadAsync(TestContext.Current.CancellationToken)).Where(row => row.Id != created.Id));
+            Assert.Equal(1786L, created.CuttingDurationMinutes);
+            var timed = (await client.ReadRecordAsync(created.Id, TestContext.Current.CancellationToken))!;
+            var timedValues = timed with { CuttingTime = OrderCuttingTime.For(timed.ToSummary(), 1787) };
+            var timedSaved = await client.UpdateAsync(new(timed, timedValues), TestContext.Current.CancellationToken);
+            Assert.Equal(1787L, timedSaved.ToSummary().CuttingDurationMinutes);
+            await client.DeleteAsync(timedSaved, TestContext.Current.CancellationToken);
+            Assert.Equal(timedSaved, await client.RestoreAsync(timedSaved, TestContext.Current.CancellationToken));
             var raw = (await client.ReadRecordAsync(42, TestContext.Current.CancellationToken))!;
             var changed = await client.UpdateAsync(new(raw, raw with { Customer = "Правка через x86 'А'" }), TestContext.Current.CancellationToken);
             Assert.Equal(raw with { Customer = "Правка через x86 'А'", Price = 659m }, changed);
