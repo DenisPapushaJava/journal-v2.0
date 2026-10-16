@@ -184,7 +184,10 @@
           </Grid>
         </Grid>
         <Border x:Name="LoadErrorPanel" Grid.Row="2" IsVisible="{Binding HasError}" Background="{DynamicResource JournalDangerBackground}" CornerRadius="6" Padding="12" Margin="0,0,0,12">
-          <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
+          <StackPanel Spacing="8">
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            <ui:WindowsSecurityHelp DataContext="{Binding AccessHostHelp}" />
+          </StackPanel>
         </Border>
         <Border x:Name="TablePanel" Grid.Row="3" Classes="panel" ClipToBounds="True">
           <Grid>

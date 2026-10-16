@@ -3,6 +3,18 @@ $ErrorActionPreference = 'Stop'
 if (-not $env:CI) { throw 'Сценарий установки/удаления разрешён только на изолированной CI-машине.' }
 $root = Join-Path ([IO.Path]::GetTempPath()) ('journal-offline-test-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $root | Out-Null
+$compiler = Join-Path (Get-Location) 'artifacts/installer-dependencies/inno-6.7.3/ISCC.exe'
+& $compiler /Qp ('/O' + $root) tests/Fixtures/InstallerDiagnostics.iss
+if ($LASTEXITCODE -ne 0) { throw 'Не удалось собрать проверку диагностики установщика.' }
+$diagnosticsLog = Join-Path $root 'installer-diagnostics.log'
+$diagnostics = Start-Process (Join-Path $root 'journal-installer-diagnostics-test.exe') -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', ('/LOG="' + $diagnosticsLog + '"')) -PassThru
+if (-not $diagnostics.WaitForExit(30000)) { Stop-Process -Id $diagnostics.Id -Force; throw 'Зависла проверка диагностики установщика.' }
+New-Item -ItemType Directory -Force -Path artifacts/installer-logs | Out-Null
+Copy-Item $diagnosticsLog artifacts/installer-logs/installer-diagnostics.log
+if (-not (Select-String -Path $diagnosticsLog -SimpleMatch 'JOURNAL_INSTALLER_DIAGNOSTICS_OK' -Quiet)) {
+    Get-Content $diagnosticsLog -ErrorAction SilentlyContinue | Write-Host
+    throw 'Не пройдена проверка сообщений установщика о блокировке.'
+}
 $setup = @(Get-ChildItem artifacts/release -Filter '*-OfflineSetup.exe')
 if ($setup.Count -ne 1) { throw 'Ожидается один полный установщик.' }
 $installed = Join-Path $root 'Журнал заявок {app}'

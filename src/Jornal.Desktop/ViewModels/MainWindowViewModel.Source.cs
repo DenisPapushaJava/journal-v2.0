@@ -61,6 +61,7 @@ public partial class MainWindowViewModel
             return null;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (OrderReadException) { throw; }
         catch (Exception exception)
         {
             Trace.TraceError("Order source connection failed: {0}", exception);

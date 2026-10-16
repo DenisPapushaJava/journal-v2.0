@@ -56,6 +56,7 @@
                    Classes="muted" TextWrapping="Wrap" />
         <TextBlock x:Name="DatabaseConnectionError" Text="{Binding Error}" IsVisible="{Binding HasError}"
                    Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+        <ui:WindowsSecurityHelp DataContext="{Binding AccessHostHelp}" />
         <Grid ColumnDefinitions="*,12,Auto,8,Auto">
         <TextBlock Text="Подключение…" IsVisible="{Binding ConnectCommand.IsRunning}" Classes="muted" VerticalAlignment="Center" />
         <TextBlock Text="Создание копии…" IsVisible="{Binding IsImporting}" Classes="muted" VerticalAlignment="Center" />

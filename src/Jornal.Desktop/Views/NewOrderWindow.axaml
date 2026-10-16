@@ -100,6 +100,8 @@
           <ui:JournalButton x:Name="SaveButton" Label="{Binding SaveLabel}" Classes="primary" MinHeight="38"
                             Command="{Binding SaveCommand}" Click="OnSaveClick" IsDefault="True" />
         </StackPanel>
+        <ui:WindowsSecurityHelp x:Name="OrderSecurityHelp" Grid.Row="1" Grid.ColumnSpan="3" Margin="0,8,0,0"
+                                DataContext="{Binding AccessHostHelp}" />
       </Grid>
     </Border>
   </Grid>

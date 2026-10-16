@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Jornal.Infrastructure.Local;
+using Jornal.Core.Orders;
 
 namespace Jornal.Desktop.ViewModels;
 
@@ -19,6 +20,8 @@ public partial class DatabaseSettingsViewModel(string? currentPath, Func<string?
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _error;
     [ObservableProperty] private bool _isConnected;
     public bool HasError => !string.IsNullOrEmpty(Error);
+    public AccessHostHelpViewModel AccessHostHelp { get; } = new();
+    partial void OnErrorChanged(string? value) => AccessHostHelp.ShowFor(null);
     public string DatabaseCapabilities => OperatingSystem.IsWindows()
         ? "В MDB доступны поиск, фильтры, результат для письма, создание заявки с расчётом цены, изменение статусов и БЛЦБ. Редактирование и импорт спецификаций ещё переносятся."
         : "На Linux MDB доступна только для чтения: поиск, фильтры и результат для письма. Создание с расчётом, статусы и БЛЦБ доступны в локальной копии или через MDB на Windows.";
@@ -91,6 +94,11 @@ public partial class DatabaseSettingsViewModel(string? currentPath, Func<string?
             Connected?.Invoke(this, EventArgs.Empty);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (OrderReadException exception)
+        {
+            Error = exception.Message;
+            AccessHostHelp.ShowFor(exception);
+        }
         finally { IsConnecting = false; }
     }
 }

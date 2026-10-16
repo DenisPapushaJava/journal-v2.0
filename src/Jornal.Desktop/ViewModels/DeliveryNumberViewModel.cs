@@ -15,12 +15,14 @@ public partial class DeliveryNumberViewModel : ObservableObject
     private readonly Func<bool>? _canRetry;
 
     public DeliveryNumberViewModel(IReadOnlyList<OrderSummary> orders, Func<string, Task<bool>> save,
-        string storageDescription = "Деморежим · до закрытия программы", Func<string?>? saveError = null, Func<bool>? canRetry = null)
+        string storageDescription = "Деморежим · до закрытия программы", Func<string?>? saveError = null, Func<bool>? canRetry = null,
+        AccessHostHelpViewModel? accessHostHelp = null)
     {
         if (orders.Count == 0) throw new ArgumentException("Не выбраны заявки.", nameof(orders));
         _save = save;
         _saveError = saveError;
         _canRetry = canRetry;
+        AccessHostHelp = accessHostHelp ?? new();
         StorageDescription = storageDescription;
         var values = orders.Select(order => order.DeliveryNumber ?? "").Distinct().ToArray();
         HasDifferentNumbers = values.Length > 1;
@@ -31,6 +33,7 @@ public partial class DeliveryNumberViewModel : ObservableObject
     }
 
     public bool HasDifferentNumbers { get; }
+    public AccessHostHelpViewModel AccessHostHelp { get; }
     public string StorageDescription { get; }
     public string SelectionDescription { get; }
     public IReadOnlyList<string> Specifications { get; }
