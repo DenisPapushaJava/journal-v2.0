@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Jornal.Desktop.ViewModels;
@@ -26,7 +25,7 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static Window CreateMainWindow()
+    private static MainWindow CreateMainWindow()
     {
         var sources = new OrderSourceManager(new JsonOrderSourceSettingsStore(JsonOrderSourceSettingsStore.DefaultPath));
         var source = sources.Load();
@@ -35,7 +34,6 @@ public partial class App : Application
         var model = new MainWindowViewModel(source.Reader, source.Creator, source.Editor, sources, updates);
         model.InitializeSource(source);
         var restartStore = new JsonUpdateRestartStore(JsonUpdateRestartStore.DefaultPath);
-        model.RestoreUpdateDraft(restartStore);
         return new MainWindow(new JsonUiPreferencesStore(JsonUiPreferencesStore.DefaultPath), restartStore)
         {
             DataContext = model

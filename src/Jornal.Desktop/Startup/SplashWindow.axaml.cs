@@ -38,6 +38,9 @@ public partial class SplashWindow : Window
         CloseSplashButton.Focus();
     }
 
+    public void ShowLoadingOrders() => LaunchStatus.Text = "Загружаем заявки…";
+    public void ShowOpeningJournal() => LaunchStatus.Text = "Открываем журнал…";
+
     private static Bitmap? LoadOptionalBitmap(Uri resource)
     {
         try
