@@ -39,8 +39,14 @@ public sealed class OleDbOrderExtras(string path) : IOrderDurationInitializer
             var partial = backup + ".partial";
             try
             {
-                File.Copy(path, partial, overwrite: false);
-                using (var flush = new FileStream(partial, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) flush.Flush(flushToDisk: true);
+                // File.Copy запрещает уже открытую запись Jet своим FileShare.Read. Разрешаем
+                // существующий дескриптор Jet; исключительный Mode по-прежнему закрывает доступ клиентам БД.
+                using (var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var destination = new FileStream(partial, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    source.CopyTo(destination);
+                    destination.Flush(flushToDisk: true);
+                }
                 cancellationToken.ThrowIfCancellationRequested();
                 File.Move(partial, backup);
             }
@@ -80,6 +86,7 @@ public sealed class OleDbOrderExtras(string path) : IOrderDurationInitializer
         if (names.Length != Names.Length || !names.ToHashSet(StringComparer.Ordinal).SetEquals(Names) ||
             Names.Where((name, i) => reader.GetFieldType(reader.GetOrdinal(name)) != types[i]).Any())
             throw new OrderReadException("Таблица JournalOrderExtras имеет неизвестную структуру. Она не изменена.");
+        reader.Close();
         var columns = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Columns, [null, null, TableName, null]);
         var primary = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Primary_Keys, [null, null, TableName]);
         if (primary is null || primary.Rows.Count != 1 || (string)primary.Rows[0]["COLUMN_NAME"] != "OrderId")
