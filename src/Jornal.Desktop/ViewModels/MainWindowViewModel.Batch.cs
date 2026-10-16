@@ -38,7 +38,7 @@ public partial class MainWindowViewModel
         var expected = selected.Select(row => row.Source).ToArray();
         return new DeliveryNumberViewModel(expected, number =>
             UpdateOrdersAsync(ids, () => orderEditor!.SetDeliveryNumberAsync(expected, number), $"БЛЦБ обновлён · заявок: {ids.Length}"),
-            BatchStorageDescription, () => ErrorMessage, () => !RequiresReload);
+            BatchStorageDescription, () => ErrorMessage, () => !RequiresReload, AccessHostHelp);
     }
 
     private async Task<bool> UpdateOrdersAsync(IReadOnlyCollection<int> ids,
@@ -83,6 +83,7 @@ public partial class MainWindowViewModel
             RequiresReload = writeCompleted || exception is OrderWriteException { RequiresReload: true };
             ErrorMessage = writeCompleted ? "Изменения сохранены, но не удалось обновить экран. Закройте форму БЛЦБ, если она открыта, и обновите список (F5)." :
                 exception is OrderWriteException ? exception.Message : "Не удалось изменить заявки. Список и выбор сохранены — попробуйте ещё раз.";
+            AccessHostHelp.ShowFor(exception);
             return false;
         }
         finally { IsUpdatingOrders = false; }

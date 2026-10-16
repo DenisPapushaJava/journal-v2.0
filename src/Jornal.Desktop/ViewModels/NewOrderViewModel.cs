@@ -43,6 +43,9 @@ public partial class NewOrderViewModel : ObservableObject
 
     public bool IsLocalCopy { get; }
     public bool IsDatabase { get; }
+    public AccessHostHelpViewModel AccessHostHelp { get; } = new();
+    partial void OnPriceErrorChanged(string? value) { if (value is null && SaveError is null) AccessHostHelp.ShowFor(null); }
+    partial void OnSaveErrorChanged(string? value) { if (value is null && PriceError is null) AccessHostHelp.ShowFor(null); }
     public bool HasPricing => _creator is IPriceReader;
     public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning;
     [ObservableProperty] private string _priceText = "Не рассчитана";
@@ -104,6 +107,7 @@ public partial class NewOrderViewModel : ObservableObject
     {
         if (!CanCalculatePrice()) return;
         PriceError = null;
+        AccessHostHelp.ShowFor(null);
         _quote = null;
         PriceText = "Не рассчитана";
         PriceBreakdown = "";
@@ -118,7 +122,7 @@ public partial class NewOrderViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception) when (exception is PriceCalculationException or PriceReadException or OrderReadException)
-        { PriceError = exception.Message; }
+        { PriceError = exception.Message; AccessHostHelp.ShowFor(exception); }
     }
 
     [RelayCommand(CanExecute = nameof(CanSave))]
@@ -127,6 +131,7 @@ public partial class NewOrderViewModel : ObservableObject
         if (!CanSave()) return;
         _submitted = true;
         SaveError = null;
+        AccessHostHelp.ShowFor(null);
         if (!Validate()) return;
         DateOnly.TryParseExact(OrderDate.Value.Trim(), "dd.MM.yyyy", CultureInfo.InvariantCulture,
             DateTimeStyles.None, out var date);
@@ -152,6 +157,7 @@ public partial class NewOrderViewModel : ObservableObject
             Trace.TraceError("Manual order creation failed: {0}", exception);
             SaveError = exception is PriceCalculationException or OrderWriteException ? exception.Message :
                 "Не удалось добавить заявку. Введённые данные сохранены в форме — попробуйте ещё раз.";
+            AccessHostHelp.ShowFor(exception);
             if (exception is OrderWriteException { RequiresReload: true })
             { RequiresReload = true; ReloadRequired?.Invoke(this, EventArgs.Empty); }
             return;

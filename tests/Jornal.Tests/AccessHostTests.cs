@@ -9,6 +9,63 @@ namespace Jornal.Tests;
 
 public sealed class AccessHostTests
 {
+    [Theory]
+    [InlineData(4551)]
+    [InlineData(1260)]
+    [InlineData(577)]
+    public async Task BlockedLaunchNamesWindowsAndNeverClaimsARequestWasWritten(int code)
+    {
+        var client = new AccessHostClient("unused.mdb", "blocked.exe", _ => throw new System.ComponentModel.Win32Exception(code));
+        var read = await Assert.ThrowsAsync<OrderReadException>(() => client.ReadAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("Windows", read.Message);
+        Assert.Contains(code.ToString(), read.Message);
+        Assert.True(AccessHostBlockedException.Contains(read));
+        var price = await Assert.ThrowsAsync<PriceReadException>(() => client.ReadPriceTableAsync(PriceTables.Laser, TestContext.Current.CancellationToken));
+        Assert.True(AccessHostBlockedException.Contains(price));
+        foreach (var operation in new Func<Task>[] {
+            async () => await client.SetColorAsync([Row()], OrderColors.Work, TestContext.Current.CancellationToken),
+            async () => await client.SetDeliveryNumberAsync([Row()], "номер", TestContext.Current.CancellationToken),
+            async () => await client.CreateAsync(Draft(), TestContext.Current.CancellationToken) })
+        {
+            var write = await Assert.ThrowsAsync<OrderWriteException>(operation);
+            Assert.Equal(OrderWriteFailure.NotSaved, write.Failure);
+            Assert.False(write.RequiresReload);
+            Assert.Contains("не отправлен", write.Message);
+            Assert.True(AccessHostBlockedException.Contains(write));
+        }
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(5)]
+    [InlineData(193)]
+    public async Task OtherLaunchFailuresDoNotClaimASecurityPolicy(int code)
+    {
+        var client = new AccessHostClient("unused.mdb", "missing.exe", _ => throw new System.ComponentModel.Win32Exception(code));
+        var error = await Assert.ThrowsAsync<OrderReadException>(() => client.ReadAsync(TestContext.Current.CancellationToken));
+        Assert.False(AccessHostBlockedException.Contains(error));
+    }
+
+    public static bool RunsOnWindows => OperatingSystem.IsWindows();
+    [Theory(Skip = "Проверка полного Windows exit code через одноразовый дочерний cmd.exe.", SkipUnless = nameof(RunsOnWindows))]
+    [InlineData(-1058471934)]
+    [InlineData(-1073740760)]
+    public async Task SecurityExitKeepsAnAlreadyDispatchedWriteUnconfirmed(int code)
+    {
+        var client = new AccessHostClient("unused.mdb", Path.Combine(Environment.SystemDirectory, "cmd.exe"), process =>
+        {
+            process.StartInfo.ArgumentList.Add("/d"); process.StartInfo.ArgumentList.Add("/c");
+            process.StartInfo.ArgumentList.Add("exit " + code.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            process.Start();
+            Assert.True(process.WaitForExit(10000));
+        });
+        var read = await Assert.ThrowsAsync<OrderReadException>(() => client.ReadAsync(TestContext.Current.CancellationToken));
+        Assert.True(AccessHostBlockedException.Contains(read));
+        var error = await Assert.ThrowsAsync<OrderWriteException>(() => client.SetColorAsync([Row()], OrderColors.Work, TestContext.Current.CancellationToken));
+        Assert.Equal(OrderWriteFailure.OutcomeUnknown, error.Failure);
+        Assert.True(error.RequiresReload); Assert.True(AccessHostBlockedException.Contains(error));
+    }
+
     [Fact]
     public void ProtocolPreservesDecimalsDatesNullsAndUnicode()
     {

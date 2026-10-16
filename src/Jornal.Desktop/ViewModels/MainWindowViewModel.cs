@@ -60,6 +60,8 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(ShowEmptyState))] private string? _errorMessage;
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+    public AccessHostHelpViewModel AccessHostHelp { get; } = new();
+    partial void OnErrorMessageChanged(string? value) => AccessHostHelp.ShowFor(null);
     public bool ShowEmptyState => HasNoOrders && !IsLoadingOrders && !HasError;
     public string ThemeActionLabel => IsDarkTheme ? "Включить светлую тему" : "Включить тёмную тему";
     public bool FilterAll => StatusFilter == OrderStatusFilter.All;
@@ -170,6 +172,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         {
             Trace.TraceError("Order loading failed: {0}", exception);
             ErrorMessage = exception is OrderReadException ? exception.Message : "Не удалось загрузить заявки. Попробуйте обновить список.";
+            AccessHostHelp.ShowFor(exception);
         }
         finally { IsLoadingOrders = false; }
     }

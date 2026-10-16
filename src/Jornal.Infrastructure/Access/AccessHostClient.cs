@@ -9,6 +9,8 @@ namespace Jornal.Infrastructure.Access;
 /// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
 public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IPriceReader
 {
+    private readonly Action<Process> _start = static process => { process.Start(); };
+    internal AccessHostClient(string path, string? executable, Action<Process> start) : this(path, executable) => _start = start;
     public static string DefaultExecutable => System.IO.Path.Combine(AppContext.BaseDirectory, "AccessHost", "Jornal.AccessHost.exe");
     public static bool IsBundled => OperatingSystem.IsWindows() && File.Exists(DefaultExecutable);
 
@@ -71,7 +73,7 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
         Task<string>? error = null;
         try
         {
-            process.Start();
+            _start(process);
             output = process.StandardOutput.ReadToEndAsync(deadline.Token);
             error = process.StandardError.ReadToEndAsync(deadline.Token);
             // После начала отправки записи любой обрыв считается неподтверждённым исходом.
@@ -79,6 +81,8 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(request).AsMemory(), deadline.Token);
             process.StandardInput.Close();
             await process.WaitForExitAsync(deadline.Token);
+            if (AccessHostBlockedException.IsExitCode(process.ExitCode))
+                throw new AccessHostBlockedException(process.ExitCode);
             var response = JsonSerializer.Deserialize<AccessHostResponse>(await output);
             _ = await error;
             if (response is null || response.Protocol != 1 || process.ExitCode != 0)
@@ -126,9 +130,31 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
         }
         catch (OrderReadException) { throw; }
         catch (OrderWriteException) { throw; }
-        catch (Exception exception) when (exception is IOException or System.ComponentModel.Win32Exception or
+        catch (Exception exception) when (exception is AccessHostBlockedException or IOException or System.ComponentModel.Win32Exception or
             InvalidOperationException or JsonException or OperationCanceledException)
         {
+            var blocked = exception as AccessHostBlockedException ??
+                (exception is System.ComponentModel.Win32Exception native && !dispatched && AccessHostBlockedException.IsLaunchCode(native.NativeErrorCode)
+                    ? new AccessHostBlockedException(native.NativeErrorCode, native) : null);
+            // При блокировке DLL процесс может завершиться раньше, чем клиент запишет stdin.
+            if (blocked is null)
+            {
+                try
+                {
+                    if (process.HasExited && AccessHostBlockedException.IsExitCode(process.ExitCode))
+                        blocked = new AccessHostBlockedException(process.ExitCode, exception);
+                }
+                catch (Exception stateError) when (stateError is InvalidOperationException or System.ComponentModel.Win32Exception)
+                { /* Состояние процесса недоступно; сохраняем исходный характер отказа. */ }
+            }
+            if (blocked is not null)
+            {
+                if (write)
+                    throw new OrderWriteException(dispatched ? OrderWriteFailure.OutcomeUnknown : OrderWriteFailure.NotSaved,
+                        blocked.Message + (dispatched ? " Сохранение не подтверждено. Изменения могли примениться; обновите список (F5) перед повтором."
+                            : " Этот запрос на запись в MDB не отправлен."), blocked);
+                throw new OrderReadException(blocked.Message, blocked);
+            }
             if (write)
                 throw new OrderWriteException(dispatched ? OrderWriteFailure.OutcomeUnknown : OrderWriteFailure.NotSaved,
                     dispatched ? "Модуль Access не подтвердил сохранение. Изменения могли примениться. Обновите список (F5) перед повтором."

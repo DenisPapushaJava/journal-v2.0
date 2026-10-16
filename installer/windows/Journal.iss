@@ -47,6 +47,8 @@ Source: "{#AppSetup}"; DestDir: "{tmp}"; DestName: "Journal-AppSetup.exe"; Flags
 Filename: "{code:LaunchPath}"; Description: "Запустить Journal"; Flags: postinstall nowait skipifsilent
 
 [Code]
+#include "AccessHostDiagnostics.iss"
+
 const
   JournalUninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\DenisPapusha.Journal';
 
@@ -54,6 +56,23 @@ var
   RuntimeRestartRequired: Boolean;
   DirectoryPage: TInputDirWizardPage;
   ExistingRoot: String;
+  HostBlockDetected: Boolean;
+  SecuritySettingsButton: TNewButton;
+
+procedure OpenSecuritySettings(Sender: TObject);
+var
+  Code: Integer;
+begin
+  if not ShellExec('open', WindowsSecuritySettingsUri, '', '', SW_SHOWNORMAL, ewNoWait, Code) then begin
+    Log('Не удалось открыть параметры безопасности Windows, код: ' + IntToStr(Code));
+    MsgBox('Не удалось открыть параметры Windows.' + #13#10#13#10 + WindowsSecurityManualPath, mbError, MB_OK);
+  end;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  SecuritySettingsButton.Visible := (CurPageID = wpPreparing) and HostBlockDetected and not WizardSilent;
+end;
 
 function NormalizeRoot(Value: String): String;
 begin
@@ -76,6 +95,15 @@ procedure InitializeWizard;
 var
   DefaultRoot, RequestedRoot, Description: String;
 begin
+  SecuritySettingsButton := TNewButton.Create(WizardForm);
+  SecuritySettingsButton.Parent := WizardForm;
+  SecuritySettingsButton.Left := ScaleX(16);
+  SecuritySettingsButton.Top := WizardForm.CancelButton.Top;
+  SecuritySettingsButton.Width := WizardForm.BackButton.Left - ScaleX(24);
+  SecuritySettingsButton.Height := WizardForm.CancelButton.Height;
+  SecuritySettingsButton.Caption := 'Параметры безопасности';
+  SecuritySettingsButton.OnClick := @OpenSecuritySettings;
+  SecuritySettingsButton.Visible := False;
   ExistingRoot := RegisteredRoot;
   DefaultRoot := ExistingRoot;
   if DefaultRoot = '' then DefaultRoot := ExpandConstant('{localappdata}\DenisPapusha.Journal');
@@ -226,7 +254,10 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Code: Integer;
   ProbePath: String;
+  Started: Boolean;
 begin
+  HostBlockDetected := False;
+  SecuritySettingsButton.Visible := False;
   Result := DirectoryError;
   if Result <> '' then Exit;
   ProbePath := GenerateUniqueName(InstallRoot, '.tmp');
@@ -241,10 +272,14 @@ begin
   Result := EnsureRuntime('x86');
   if Result <> '' then Exit;
   ExtractTemporaryFiles('{tmp}\AccessHost\*');
-  if not Exec(ExpandConstant('{tmp}\AccessHost\Jornal.AccessHost.exe'), '--probe', '', SW_HIDE, ewWaitUntilTerminated, Code) then
-    Code := -1;
-  if Code <> 0 then
-    Result := 'Встроенный компонент Windows для базы MDB недоступен. Journal не установлен. Требуется восстановление компонентов Windows; Office и база не изменены. Код: ' + IntToStr(Code);
+  Started := Exec(ExpandConstant('{tmp}\AccessHost\Jornal.AccessHost.exe'), '--probe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Log('AccessHost --probe: процесс запущен=' + IntToStr(Ord(Started)) + ', код=' + AccessHostCodeText(Code));
+  if not Started then Log('Ошибка запуска AccessHost: ' + SysErrorMessage(Code));
+  if not Started or (Code <> 0) then begin
+    HostBlockDetected := IsAccessHostSecurityFailure(Started, Code);
+    SecuritySettingsButton.Visible := HostBlockDetected and not WizardSilent;
+    Result := AccessHostFailureText(Started, Code);
+  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
