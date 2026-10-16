@@ -23,6 +23,7 @@ public partial class MainWindowViewModel
     public void InitializeSource(OrderSource source)
     {
         _source = source;
+        UpdateTrashBadge([]);
         NotifySourceChanged();
     }
 
@@ -45,11 +46,13 @@ public partial class MainWindowViewModel
             orderCreator = candidate.Creator;
             orderEditor = candidate.Editor;
             _source = candidate;
+            UpdateTrashBadge([]);
             _allOrders = orders;
             RequiresReload = false;
             if (changed)
             {
                 _pendingCreationForm = null;
+                _pendingEdit = null;
                 ResultText = "";
                 _resultOrderIds.Clear();
                 ResetFilters();
@@ -58,6 +61,7 @@ public partial class MainWindowViewModel
             NotifySourceChanged();
             ErrorMessage = null;
             UpdatedText = $"Обновлено в {DateTime.Now:HH:mm} · F5 — обновить";
+            await CleanupTrashAsync();
             return null;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }

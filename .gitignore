@@ -376,6 +376,7 @@ TestResults/
 *.journal-test.json.lock
 Journal-diagnostics-*.json
 journal-diagnostics.json
+*.journal-trash.json
 
 # Release tooling tests are source files, not build output.
 !/tests/release/

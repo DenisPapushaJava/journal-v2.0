@@ -72,6 +72,7 @@ public sealed class JsonOrderSourceSettingsStore(string path) : IOrderSourceSett
 public sealed record OrderSource(string? Path, IOrderReader Reader, IManualOrderCreator? Creator = null, IOrderBatchEditor? Editor = null,
     string? Error = null, bool IsLocalCopy = false)
 {
+    public IOrderMaintenance? Maintenance { get; init; }
     public string Description => Error is not null ? "Источник не подключён" : Path is null ?
         "Деможурнал · до закрытия программы" : IsLocalCopy ? "Локальная тестовая копия · изменения сохраняются" :
             $"{System.IO.Path.GetFileName(Path)} · {(Creator is not null ? "создание, статусы и БЛЦБ" : Editor is null ? "только чтение" : "статусы и БЛЦБ")}";
@@ -89,18 +90,20 @@ public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, 
     }
     public OrderSource Create(string? path)
     {
-        if (path is null) return new(null, _demo, _demo, _demo);
+        if (path is null) return new(null, _demo, _demo, _demo) { Maintenance = _demo.Maintenance };
         if (LocalJournalStore.IsLocalCopyPath(path))
         {
             if (!OperatingSystem.IsLinux()) return new(path, new UnavailableReader("Локальные тестовые копии доступны на Linux. На Windows выберите исходную MDB."));
             var local = new LocalJournalStore(path);
-            return new(System.IO.Path.GetFullPath(path), local, local, local, IsLocalCopy: true);
+            return new(System.IO.Path.GetFullPath(path), local, local, local, IsLocalCopy: true) { Maintenance = local };
         }
         return new(System.IO.Path.GetFullPath(path), readerFactory?.Invoke(path) ?? new AccessOrderReader(path),
             Creator: creatorFactory is not null ? creatorFactory(path) : readerFactory is null && OperatingSystem.IsWindows()
                 ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbManualOrderCreator(path) : null,
             Editor: editorFactory is not null ? editorFactory(path) : readerFactory is null && OperatingSystem.IsWindows()
-                ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderBatchEditor(path) : null);
+                ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderBatchEditor(path) : null)
+            { Maintenance = readerFactory is null && OperatingSystem.IsWindows()
+                ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderMaintenance(path) : null };
     }
     public void Save(OrderSource source) => settingsStore.Save(new(DatabasePath: source.Path));
 

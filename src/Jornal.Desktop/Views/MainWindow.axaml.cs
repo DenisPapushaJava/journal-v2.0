@@ -6,6 +6,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Jornal.Desktop.ViewModels;
 using Jornal.Core.Orders;
 using Jornal.Desktop.Customization;
@@ -53,6 +54,7 @@ public partial class MainWindow : Window
                 _viewModel.RestoreUpdateDraft(_restartStore);
             }
             await LoadInitialOrdersAsync();
+            if (IsVisible) await _viewModel.CleanupTrashAsync();
             if (IsVisible) await _viewModel.Updates.RunAutomaticChecksAsync(_updateChecksLifetime.Token);
         }
     }
@@ -160,6 +162,32 @@ public partial class MainWindow : Window
     }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e) => UpdateSelection();
+    private async void OnEditOrderClick(object? sender, RoutedEventArgs e) => await EditOrderAsync();
+    private async Task EditOrderAsync()
+    {
+        if (_viewModel?.CanEditOrder != true || OwnedWindows.Count > 0) return;
+        if (await _viewModel.CreateEditFormAsync(_updateChecksLifetime.Token) is not { } form || !IsVisible) return;
+        var dialog = new EditOrderWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
+        if (await dialog.ShowDialog<OrderRecord?>(this) is { } row) _viewModel.AcceptEditedOrder(row);
+    }
+    private async void OnOrdersDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is not Control control || control.FindAncestorOfType<DataGridRow>() is null ||
+            control is CheckBox || control.GetVisualAncestors().OfType<CheckBox>().Any()) return;
+        await EditOrderAsync();
+    }
+    private async void OnTrashOrderClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is null || OwnedWindows.Count > 0 || await _viewModel.CreateTrashFormAsync(_updateChecksLifetime.Token) is not { } form || !IsVisible) return;
+        var dialog = new OrderConfirmationWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
+        await dialog.ShowDialog<bool>(this);
+    }
+    private async void OnTrashClick(object? sender, RoutedEventArgs e)
+    {
+        if (OwnedWindows.Count > 0 || _viewModel?.CreateTrashViewModel() is not { } form) return;
+        var dialog = new TrashWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
+        await dialog.ShowDialog(this);
+    }
     private void OnCurrentCellChanged(object? sender, EventArgs e) => UpdateSelection();
     private void UpdateSelection()
     {

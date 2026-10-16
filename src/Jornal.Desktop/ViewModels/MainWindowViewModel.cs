@@ -11,7 +11,8 @@ namespace Jornal.Desktop.ViewModels;
 public enum OrderStatusFilter { All, Work, Ready, Shipped }
 
 public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderCreator? orderCreator = null,
-    IOrderBatchEditor? orderEditor = null, OrderSourceManager? sourceManager = null, AppUpdatesViewModel? appUpdates = null) : ObservableObject
+    IOrderBatchEditor? orderEditor = null, OrderSourceManager? sourceManager = null, AppUpdatesViewModel? appUpdates = null,
+    Jornal.Infrastructure.Trash.ITrashStore? trashStore = null) : ObservableObject
 {
     private IReadOnlyList<OrderSummary> _allOrders = [];
 
@@ -38,7 +39,8 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     {
         foreach (var name in new[] { nameof(CanUseJournal), nameof(CanCreateOrder), nameof(CanSelectOrders),
             nameof(CanCheckUpdates), nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
-            nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult), nameof(CanConfigureSource) })
+            nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult), nameof(CanConfigureSource),
+            nameof(CanEditOrder), nameof(CanTrashOrder), nameof(CanOpenTrash), nameof(MaintenanceHint), nameof(TrashOrderHint) })
             OnPropertyChanged(name);
         ReloadCommand.NotifyCanExecuteChanged();
         SetOrderColorCommand.NotifyCanExecuteChanged();
@@ -130,6 +132,8 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         _activeOrderId = active is not null && visibleIds.Contains(active.Id) ? active.Id : null;
         OnPropertyChanged(nameof(CanAddResult));
         OnPropertyChanged(nameof(CanUpdateSelectedOrders));
+        OnPropertyChanged(nameof(CanEditOrder)); OnPropertyChanged(nameof(CanTrashOrder));
+        OnPropertyChanged(nameof(TrashOrderHint));
         SetOrderColorCommand.NotifyCanExecuteChanged();
         SelectionText = $"Выбрано: {count}";
         ActiveOrderText = count > 1 ? "Выбрано несколько заявок" : active is not null && Orders.Contains(active)

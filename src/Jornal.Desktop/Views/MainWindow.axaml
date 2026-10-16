@@ -12,7 +12,7 @@
   <Grid RowDefinitions="52,Auto,Auto,*,32">
     <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
             BorderThickness="0,0,0,1" Padding="24,0">
-      <Grid ColumnDefinitions="Auto,24,*,Auto,8,Auto,8,Auto,8,Auto">
+      <Grid ColumnDefinitions="Auto,24,*,Auto,8,Auto,8,Auto,8,Auto,8,Auto">
         <TextBlock Text="Журнал заявок" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
         <TextBlock x:Name="SourceDescriptionText" Grid.Column="2" Text="{Binding SourceDescription}" ToolTip.Tip="{Binding SourceDetails}"
                    Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -28,6 +28,14 @@
         <ui:JournalButton Grid.Column="7" x:Name="PersonalizeButton" Label="Настроить экран" Icon="panels-top-left"
                           IconOnly="True" Width="32" Height="32" Padding="0" Click="OnCustomizeClick" IsEnabled="{Binding CanConfigureScreen}"
                           ToolTip.Tip="Настроить расположение панелей и столбцы" VerticalAlignment="Center" />
+        <Grid Grid.Column="11" Width="40" Height="36" VerticalAlignment="Center">
+          <ui:JournalButton x:Name="TrashButton" Label="Корзина" Icon="trash" IconOnly="True" Width="32" Height="32" Padding="0"
+                            IsEnabled="{Binding CanOpenTrash}" Click="OnTrashClick" ToolTip.Tip="{Binding TrashHint}" AutomationProperties.Name="{Binding TrashHint}" VerticalAlignment="Bottom" HorizontalAlignment="Left" />
+          <Border x:Name="TrashBadge" Background="{DynamicResource JournalAccent}" CornerRadius="8" Padding="3,0" MinWidth="16" MaxWidth="28" Height="16"
+                  IsVisible="{Binding HasTrashItems}" HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False">
+            <TextBlock Text="{Binding TrashBadgeText}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource JournalOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </Grid>
         <ui:JournalButton x:Name="DatabaseSettingsButton" Grid.Column="9" Label="База данных" Icon="settings-2" IsEnabled="{Binding CanConfigureSource}"
                           Click="OnDatabaseSettingsClick" ToolTip.Tip="Выбрать файл базы или демонстрационный журнал" VerticalAlignment="Center" />
       </Grid>
@@ -98,8 +106,8 @@
                 <ui:JournalButton x:Name="ReloadButton" Grid.Column="2" Label="Обновить" Icon="refresh-cw" Command="{Binding ReloadCommand}" />
               </Grid>
               <Grid Grid.Row="4" ColumnDefinitions="1.18*,8,*">
-                <ui:JournalButton Label="Редактировать" Icon="pencil" IsEnabled="False" ToolTip.Tip="Функция пока не подключена" />
-                <ui:JournalButton Grid.Column="2" Label="Удалить" Icon="trash" Classes="danger" IsEnabled="False" ToolTip.Tip="Функция пока не подключена" />
+                <ui:JournalButton x:Name="EditOrderButton" Label="Редактировать" Icon="pencil" IsEnabled="{Binding CanEditOrder}" Click="OnEditOrderClick" ToolTip.Tip="{Binding MaintenanceHint}" />
+                <ui:JournalButton x:Name="TrashOrderButton" Grid.Column="2" Label="В корзину" Icon="trash" Classes="danger" IsEnabled="{Binding CanTrashOrder}" Click="OnTrashOrderClick" ToolTip.Tip="{Binding TrashOrderHint}" />
               </Grid>
             </Grid>
           </Border>
@@ -191,7 +199,7 @@
         </Border>
         <Border x:Name="TablePanel" Grid.Row="3" Classes="panel" ClipToBounds="True">
           <Grid>
-            <DataGrid x:Name="OrdersGrid" IsEnabled="{Binding CanInteractWithTable}" ItemsSource="{Binding Orders}" AutoGenerateColumns="False" IsReadOnly="True"
+            <DataGrid DoubleTapped="OnOrdersDoubleTapped" x:Name="OrdersGrid" IsEnabled="{Binding CanInteractWithTable}" ItemsSource="{Binding Orders}" AutoGenerateColumns="False" IsReadOnly="True"
                       SelectionMode="Extended" GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                       RowHeight="32" ColumnHeaderHeight="44" FontSize="13" BorderThickness="0"
                       CanUserResizeColumns="True" CanUserReorderColumns="True" CanUserSortColumns="{Binding CanUseJournal}"

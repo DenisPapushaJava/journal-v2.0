@@ -31,7 +31,8 @@ public partial class App : Application
         var source = sources.Load();
         var updates = new AppUpdatesViewModel(new VelopackAppUpdater(),
             preferencesStore: new JsonAppUpdatePreferencesStore(JsonAppUpdatePreferencesStore.DefaultPath));
-        var model = new MainWindowViewModel(source.Reader, source.Creator, source.Editor, sources, updates);
+        var model = new MainWindowViewModel(source.Reader, source.Creator, source.Editor, sources, updates,
+            new Jornal.Infrastructure.Trash.JsonTrashStore(Path.Combine(Path.GetDirectoryName(JsonUiPreferencesStore.DefaultPath)!, "Trash")));
         model.InitializeSource(source);
         var restartStore = new JsonUpdateRestartStore(JsonUpdateRestartStore.DefaultPath);
         return new MainWindow(new JsonUiPreferencesStore(JsonUiPreferencesStore.DefaultPath), restartStore)
