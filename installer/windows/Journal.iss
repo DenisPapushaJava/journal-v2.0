@@ -99,19 +99,23 @@ end;
 function DirectoryError: String;
 var
   Value: String;
-  Index: Integer;
   Entry: TFindRec;
 begin
   Result := 'Выберите отдельную папку на локальном диске, например D:\Journal.';
   Value := Trim(DirectoryPage.Values[0]);
-  if (Length(Value) < 4) or (Copy(Value, 2, 2) <> ':\') then Exit;
-  { Ord в Inno 6 возвращает Byte: сравниваем Unicode-символ напрямую,
-    иначе часть кириллицы ошибочно принимается за управляющие символы. }
-  for Index := 1 to Length(Value) do
-    if (Pos(Value[Index], '"<>|*?') > 0) or (Value[Index] < #32) then Exit;
+  Log('Проверка папки установки: [' + Value + ']');
+  if (Length(Value) < 4) or (Copy(Value, 2, 2) <> ':\') then begin
+    Log('Ожидается абсолютный путь с буквой диска.');
+    Exit;
+  end;
+  if PathHasInvalidCharacters(Value, True) then begin
+    Log('В пути обнаружены недопустимые символы или компоненты.');
+    Exit;
+  end;
   Value := InstallRoot;
-  if Length(Value) <= 3 then Exit;
-  if FileExists(Value) then Exit;
+  Log('Нормализованная папка: [' + Value + ']');
+  if Length(Value) <= 3 then begin Log('Нельзя устанавливать в корень диска.'); Exit; end;
+  if FileExists(Value) then begin Log('Вместо папки указан файл.'); Exit; end;
   if (ExistingRoot <> '') and (CompareText(Value, ExistingRoot) <> 0) then begin
     Result := 'Повторная установка должна использовать прежнюю папку: ' + ExistingRoot;
     Exit;
