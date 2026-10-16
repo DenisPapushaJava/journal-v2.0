@@ -67,16 +67,49 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public bool FilterReady => StatusFilter == OrderStatusFilter.Ready;
     public bool FilterShipped => StatusFilter == OrderStatusFilter.Shipped;
     public ObservableCollection<OrderRowViewModel> Orders { get; } = [];
-    public bool CanCreateOrder => orderCreator is not null && CanUseJournal;
-    public NewOrderViewModel? CreateOrderForm() => CanCreateOrder ? new NewOrderViewModel(orderCreator!, _source?.IsLocalCopy == true) : null;
+    private NewOrderViewModel? _pendingCreationForm;
+    public bool CanCreateOrder => orderCreator is not null && CanUseJournal && !RequiresReload;
+    public NewOrderViewModel? CreateOrderForm()
+    {
+        if (!CanCreateOrder) return null;
+        if (_pendingCreationForm is { } pending)
+        {
+            _pendingCreationForm = null;
+            pending.ResumeAfterReload();
+            return pending;
+        }
+        var form = new NewOrderViewModel(orderCreator!, _source?.IsLocalCopy == true,
+            isDatabase: _source?.Path is not null && _source.IsLocalCopy == false);
+        form.SaveCommand.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) IsUpdatingOrders = form.SaveCommand.IsRunning;
+        };
+        form.ReloadRequired += (_, _) =>
+        {
+            _pendingCreationForm = form;
+            RequiresReload = true;
+            ErrorMessage = "Добавление не подтверждено. Закройте форму и обновите список (F5). Проверьте, появилась ли заявка. Ввод сохранён: «Новая заявка» восстановит его после обновления.";
+        };
+        return form;
+    }
 
     public void AcceptCreatedOrder(OrderSummary order)
     {
-        _allOrders = new[] { order }.Concat(_allOrders.Where(row => row.Id != order.Id)).ToArray();
-        // Новую строку показываем даже при несовпадающих прежних фильтрах.
-        ResetFilters();
-        ApplySearch();
-        UpdatedText = (_source?.IsLocalCopy == true ? "Заявка добавлена · " : "Демозаявка добавлена · ") + StorageSuffix;
+        _pendingCreationForm = null;
+        try
+        {
+            _allOrders = new[] { order }.Concat(_allOrders.Where(row => row.Id != order.Id)).ToArray();
+            // Новую строку показываем даже при несовпадающих прежних фильтрах.
+            ResetFilters();
+            ApplySearch();
+            UpdatedText = (_source?.Path is not null ? "Заявка добавлена · " : "Демозаявка добавлена · ") + StorageSuffix;
+        }
+        catch (Exception exception)
+        {
+            Trace.TraceError("Created order could not be displayed: {0}", exception);
+            RequiresReload = true;
+            ErrorMessage = $"Заявка сохранена, код {order.Id}, но не удалось обновить экран. Обновите список (F5); повторно добавлять её не нужно.";
+        }
     }
     public IReadOnlyList<string> SearchScopes { get; } =
         ["Все поля", "Менеджер", "Заказчик", "Спецификация", "БЛЦБ", "Материал", "Толщина"];

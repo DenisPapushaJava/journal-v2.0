@@ -67,8 +67,9 @@
         <StackPanel Spacing="16">
           <TextBlock Text="Стоимость" Classes="section" />
           <TextBlock Text="{Binding PriceText}" FontSize="18" FontWeight="Medium" />
+          <TextBlock Text="{Binding PriceBreakdown}" Classes="muted" TextWrapping="Wrap" />
           <TextBlock Text="{Binding PriceDescription}" Classes="muted" TextWrapping="Wrap" />
-          <ui:JournalButton x:Name="CalculatePriceButton" Label="Рассчитать" Icon="refresh-cw" IsVisible="{Binding IsLocalCopy}"
+          <ui:JournalButton x:Name="CalculatePriceButton" Label="Рассчитать" Icon="refresh-cw" IsVisible="{Binding HasPricing}"
                             Command="{Binding CalculatePriceCommand}" />
           <TextBlock Text="{Binding PriceError}" IsVisible="{Binding HasPriceError}"
                      Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />

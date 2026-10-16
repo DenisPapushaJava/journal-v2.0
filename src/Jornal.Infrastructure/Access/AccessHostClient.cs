@@ -7,10 +7,19 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 /// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
-public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor
+public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IPriceReader
 {
     public static string DefaultExecutable => System.IO.Path.Combine(AppContext.BaseDirectory, "AccessHost", "Jornal.AccessHost.exe");
     public static bool IsBundled => OperatingSystem.IsWindows() && File.Exists(DefaultExecutable);
+
+    public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) => ReadPriceTableAsync(tableName, cancellationToken);
+
+    public async Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default)
+    {
+        draft.Validate();
+        var response = await SendAsync(new(1, AccessHostOperation.CreateOrder, System.IO.Path.GetFullPath(path), Draft: draft), cancellationToken);
+        return response.Orders![0];
+    }
 
     public async Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
         (await SendAsync(new(1, AccessHostOperation.Read, path), cancellationToken)).Orders!;
@@ -45,7 +54,7 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
     private async Task<AccessHostResponse> SendAsync(AccessHostRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber;
+        var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder;
         var dispatched = false;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromMinutes(2));
@@ -78,10 +87,25 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             {
                 if (response.Failure is { } failure && !Enum.IsDefined(failure))
                     throw new InvalidDataException("Неизвестный результат записи.");
+                if (response.ChangedQuote is { } quote)
+                {
+                    if (request.Operation != AccessHostOperation.CreateOrder || response.Failure != OrderWriteFailure.NotSaved ||
+                        response.Orders is not null || response.PriceTable is not null)
+                        throw new InvalidDataException("Некорректный ответ об изменении прайса.");
+                    try
+                    {
+                        var calculated = CuttingPriceCalculator.Calculate(request.Draft!.PriceRequest,
+                            new(quote.TableName, true, [new(request.Draft.ThicknessMillimeters, quote.ThicknessColumn, quote.RublesPerMeter)]));
+                        if (calculated != quote) throw new ArgumentException("Цена не соответствует параметрам.");
+                    }
+                    catch (Exception exception) when (exception is ArgumentException or PriceCalculationException)
+                    { throw new InvalidDataException("Некорректная новая цена в ответе модуля Access.", exception); }
+                    throw new OrderPriceChangedException(quote);
+                }
                 if (write) throw new OrderWriteException(response.Failure ?? OrderWriteFailure.OutcomeUnknown, response.Error);
                 throw new OrderReadException(response.Error);
             }
-            if (response.Failure is not null)
+            if (response.Failure is not null || response.ChangedQuote is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");
             if (request.Operation == AccessHostOperation.ReadPriceTable)
             {
@@ -92,6 +116,12 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             }
             else if (response.Orders is null || response.PriceTable is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");
+            if (request.Operation == AccessHostOperation.CreateOrder && (response.Orders!.Length != 1 ||
+                response.Orders[0] is not { Id: > 0, StoredCuttingPrice: not null }))
+                throw new InvalidDataException("Модуль Access не подтвердил новую заявку.");
+            if (request.Operation == AccessHostOperation.CreateOrder && response.Orders![0] is { } created &&
+                created != request.Draft!.ToOrder(created.Id, created.StoredCuttingPrice))
+                throw new InvalidDataException("Поля созданной заявки не соответствуют запросу.");
             return response;
         }
         catch (OrderReadException) { throw; }

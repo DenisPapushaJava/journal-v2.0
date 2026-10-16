@@ -23,6 +23,11 @@ public sealed class AccessHostTests
         roundTrip.Validate();
         Assert.Equal(table.Name, roundTrip.Name);
         Assert.Equal(table.Rates, roundTrip.Rates);
+        Assert.Equal(4, (int)AccessHostOperation.ReadPriceTable);
+        Assert.Equal(5, (int)AccessHostOperation.CreateOrder);
+        var draft = Draft() with { ExpectedQuote = new(PriceTables.Laser, "2,5", 17, 25, 2.3m, 977m) };
+        Assert.Equal(draft, JsonSerializer.Deserialize<AccessHostRequest>(JsonSerializer.Serialize(
+            new AccessHostRequest(1, AccessHostOperation.CreateOrder, @"C:\Orders.mdb", Draft: draft)))!.Draft);
     }
 
     [Fact]
@@ -31,6 +36,7 @@ public sealed class AccessHostTests
         var client = new AccessHostClient("unused.mdb", Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "missing.exe"));
         var error = await Assert.ThrowsAsync<OrderWriteException>(() => client.SetColorAsync([Row()], OrderColors.Work, TestContext.Current.CancellationToken));
         Assert.Equal(OrderWriteFailure.NotSaved, error.Failure);
+        Assert.Equal(OrderWriteFailure.NotSaved, (await Assert.ThrowsAsync<OrderWriteException>(() => client.CreateAsync(Draft(), TestContext.Current.CancellationToken))).Failure);
         await Assert.ThrowsAsync<OrderReadException>(() => client.ReadAsync(TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<PriceReadException>(() => client.ReadPriceTableAsync(PriceTables.Laser, TestContext.Current.CancellationToken));
     }
@@ -44,6 +50,7 @@ public sealed class AccessHostTests
         var error = await Assert.ThrowsAsync<OrderWriteException>(() => client.SetColorAsync([Row()], OrderColors.Work, TestContext.Current.CancellationToken));
         Assert.Equal(OrderWriteFailure.OutcomeUnknown, error.Failure);
         Assert.True(error.RequiresReload);
+        Assert.Equal(OrderWriteFailure.OutcomeUnknown, (await Assert.ThrowsAsync<OrderWriteException>(() => client.CreateAsync(Draft(), TestContext.Current.CancellationToken))).Failure);
     }
 
     [Fact]
@@ -53,6 +60,7 @@ public sealed class AccessHostTests
         var client = new AccessHostClient("unused.mdb", "missing.exe");
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.SetColorAsync([Row()], OrderColors.Work, cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.ReadPriceTableAsync(PriceTables.Laser, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.CreateAsync(Draft(), cancellation.Token));
     }
 
     public static bool HasNativeHost => OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("JOURNAL_ACCESS_HOST") is not null;
@@ -96,9 +104,22 @@ public sealed class AccessHostTests
             saved = Assert.Single(await client.SetDeliveryNumberAsync([saved], "", TestContext.Current.CancellationToken));
             Assert.Null(saved.DeliveryNumber);
             Assert.Equal(saved, (await client.ReadAsync(TestContext.Current.CancellationToken)).Single(row => row.Id == 42));
+            var history = await client.ReadAsync(TestContext.Current.CancellationToken);
+            var draft = Draft() with { InitialColor = OrderColors.Work };
+            var quote = await new CuttingPriceService(client).CalculateAsync(draft.PriceRequest, TestContext.Current.CancellationToken);
+            var mismatch = await Assert.ThrowsAsync<OrderPriceChangedException>(() => client.CreateAsync(draft with {
+                ExpectedQuote = quote with { RublesPerMeter = 1, StoredPrice = 57m } }, TestContext.Current.CancellationToken));
+            Assert.Equal(quote, mismatch.Quote);
+            Assert.Equal(history, await client.ReadAsync(TestContext.Current.CancellationToken));
+            var created = await client.CreateAsync(draft with { ExpectedQuote = quote }, TestContext.Current.CancellationToken);
+            Assert.Equal(draft.ToOrder(created.Id, 977m), created);
+            Assert.Equal(created, (await client.ReadAsync(TestContext.Current.CancellationToken)).Single(row => row.Id == created.Id));
+            Assert.Equal(history, (await client.ReadAsync(TestContext.Current.CancellationToken)).Where(row => row.Id != created.Id));
         }
         finally { Directory.Delete(root, recursive: true); }
     }
 
     private static OrderSummary Row() => new(42, null, "test", "", "", "", "", null, null, null);
+    private static ManualOrderDraft Draft() => new(new(2026, 1, 2), "0102--44", "Имя 'А'", "Клиент", "Лазер", "Амг3", 2.5m,
+        "1500x3000", "2", 25, "38,5", 2.3m, "", "");
 }

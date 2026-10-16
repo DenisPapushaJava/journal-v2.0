@@ -74,12 +74,12 @@ public sealed record OrderSource(string? Path, IOrderReader Reader, IManualOrder
 {
     public string Description => Error is not null ? "Источник не подключён" : Path is null ?
         "Деможурнал · до закрытия программы" : IsLocalCopy ? "Локальная тестовая копия · изменения сохраняются" :
-        $"{System.IO.Path.GetFileName(Path)} · {(Editor is null ? "только чтение" : "статусы и БЛЦБ")}";
+            $"{System.IO.Path.GetFileName(Path)} · {(Creator is not null ? "создание, статусы и БЛЦБ" : Editor is null ? "только чтение" : "статусы и БЛЦБ")}";
     public string Details => Error ?? Path ?? "Вымышленные заявки. Изменения хранятся в памяти текущего сеанса.";
 }
 
 public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, Func<string, IOrderReader>? readerFactory = null,
-    Func<string, IOrderBatchEditor?>? editorFactory = null)
+    Func<string, IOrderBatchEditor?>? editorFactory = null, Func<string, IManualOrderCreator?>? creatorFactory = null)
 {
     private readonly DemoOrderStore _demo = new();
     public OrderSource Load()
@@ -97,6 +97,8 @@ public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, 
             return new(System.IO.Path.GetFullPath(path), local, local, local, IsLocalCopy: true);
         }
         return new(System.IO.Path.GetFullPath(path), readerFactory?.Invoke(path) ?? new AccessOrderReader(path),
+            Creator: creatorFactory is not null ? creatorFactory(path) : readerFactory is null && OperatingSystem.IsWindows()
+                ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbManualOrderCreator(path) : null,
             Editor: editorFactory is not null ? editorFactory(path) : readerFactory is null && OperatingSystem.IsWindows()
                 ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderBatchEditor(path) : null);
     }

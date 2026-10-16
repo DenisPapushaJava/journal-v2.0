@@ -11,17 +11,19 @@ public partial class NewOrderViewModel : ObservableObject
 {
     private readonly IManualOrderCreator _creator;
     private bool _submitted;
+    private CuttingPriceQuote? _quote;
 
-    public NewOrderViewModel(IManualOrderCreator creator, bool isLocalCopy = false)
+    public NewOrderViewModel(IManualOrderCreator creator, bool isLocalCopy = false, bool isDatabase = false)
     {
         _creator = creator;
         IsLocalCopy = isLocalCopy;
+        IsDatabase = isDatabase;
         foreach (var field in Fields) field.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(OrderEntryField.Value)) return;
             if (_submitted) Validate();
-            PriceText = "Не рассчитана";
-            PriceError = null;
+            if (field == CuttingType || field == Thickness || field == CutLength || field == Coefficient || field == MaterialId)
+            { _quote = null; PriceText = "Не рассчитана"; PriceBreakdown = ""; PriceError = null; }
         };
         SaveCommand.PropertyChanged += (_, e) =>
         {
@@ -40,16 +42,22 @@ public partial class NewOrderViewModel : ObservableObject
     }
 
     public bool IsLocalCopy { get; }
+    public bool IsDatabase { get; }
+    public bool HasPricing => _creator is IPriceReader;
     public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning;
     [ObservableProperty] private string _priceText = "Не рассчитана";
+    [ObservableProperty] private string _priceBreakdown = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPriceError))] private string? _priceError;
     public bool HasPriceError => PriceError is not null;
-    public string WindowTitle => IsLocalCopy ? "Новая заявка · Локальная копия" : "Новая заявка · Деморежим";
+    public string WindowTitle => IsLocalCopy ? "Новая заявка · Локальная копия" : IsDatabase ? "Новая заявка · MDB" : "Новая заявка · Деморежим";
     public string StorageDescription => IsLocalCopy ? "Ручной ввод · Локальная тестовая копия — изменения сохраняются между запусками" :
+        IsDatabase ? "Ручной ввод · Сохранение в подключённую MDB" :
         "Ручной ввод · Деморежим — данные доступны до закрытия программы";
-    public string SaveDescription => IsLocalCopy ? "Добавление в локальную копию; исходная MDB не меняется" : "Добавление только в деможурнал текущего сеанса";
-    public string SaveLabel => IsLocalCopy ? "Добавить заявку" : "Добавить в деможурнал";
-    public string PriceDescription => IsLocalCopy ? "При сохранении цена рассчитывается по прайсам, перенесённым из MDB. Существующие суммы не пересчитываются." :
+    public string SaveDescription => IsLocalCopy ? "Добавление в локальную копию; исходная MDB не меняется" :
+        IsDatabase ? "Новая заявка будет добавлена в MDB с расчётом по её прайсу" : "Добавление только в деможурнал текущего сеанса";
+    public string SaveLabel => IsLocalCopy || IsDatabase ? "Добавить заявку" : "Добавить в деможурнал";
+    public string PriceDescription => IsDatabase ? "Тариф проверяется при сохранении. Если он изменился, покажем новую цену." :
+        IsLocalCopy ? "При сохранении цена рассчитывается по прайсам, перенесённым из MDB. Существующие суммы не пересчитываются." :
         "Расчёт появится после подключения прайсов из базы.";
 
     public OrderEntryField OrderDate { get; } = new("Дата *", "ДД.ММ.ГГГГ");
@@ -77,17 +85,28 @@ public partial class NewOrderViewModel : ObservableObject
     public bool HasSaveError => SaveError is not null;
     public OrderSummary? CreatedOrder { get; private set; }
     public event EventHandler? Saved;
+    public event EventHandler? ReloadRequired;
+    [ObservableProperty] private bool _requiresReload;
+    partial void OnRequiresReloadChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
 
-    private bool CanSave() => !IsSaved && !CalculatePriceCommand.IsRunning;
+    public void ResumeAfterReload()
+    {
+        RequiresReload = false;
+        SaveError = "Ввод восстановлен. Перед повторным добавлением проверьте список: предыдущая заявка могла сохраниться.";
+    }
 
-    private bool CanCalculatePrice() => IsLocalCopy && _creator is IPriceReader && !IsSaved && !SaveCommand.IsRunning;
+    private bool CanSave() => !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning;
+
+    private bool CanCalculatePrice() => HasPricing && !IsSaved && !SaveCommand.IsRunning;
 
     [RelayCommand(CanExecute = nameof(CanCalculatePrice))]
     private async Task CalculatePriceAsync(CancellationToken cancellationToken)
     {
         if (!CanCalculatePrice()) return;
         PriceError = null;
+        _quote = null;
         PriceText = "Не рассчитана";
+        PriceBreakdown = "";
         if (!TryDecimal(Thickness.Value, out var thickness) || !TryDecimal(Coefficient.Value, out var coefficient) ||
             !int.TryParse(CutLength.Value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var length))
         { PriceError = "Укажите толщину, целую длину в метрах и коэффициент."; return; }
@@ -95,7 +114,7 @@ public partial class NewOrderViewModel : ObservableObject
         {
             var quote = await new CuttingPriceService((IPriceReader)_creator).CalculateAsync(
                 new(CuttingType.Value, thickness, length, coefficient, IsHansLaser ? MaterialId.Value.Trim() : null), cancellationToken);
-            PriceText = quote.StoredPrice.ToString("N0", CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
+            ShowQuote(quote);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception) when (exception is PriceCalculationException or PriceReadException or OrderReadException)
@@ -105,7 +124,7 @@ public partial class NewOrderViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
-        if (IsSaved || CalculatePriceCommand.IsRunning) return;
+        if (!CanSave()) return;
         _submitted = true;
         SaveError = null;
         if (!Validate()) return;
@@ -117,22 +136,38 @@ public partial class NewOrderViewModel : ObservableObject
         var draft = new ManualOrderDraft(date, SpecificationNumber.Value.Trim(), Manager.Value.Trim(),
             Customer.Value.Trim(), CuttingType.Value, Material.Value.Trim(), thickness, SheetSize.Value.Trim(),
             SheetCount.Value.Trim(), length, Weight.Value.Trim(), coefficient,
-            IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "");
+            IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "") { ExpectedQuote = _quote };
         try
         {
             CreatedOrder = await _creator.CreateAsync(draft);
+        }
+        catch (OrderPriceChangedException exception)
+        {
+            ShowQuote(exception.Quote);
+            SaveError = exception.Message;
+            return;
         }
         catch (Exception exception)
         {
             Trace.TraceError("Manual order creation failed: {0}", exception);
             SaveError = exception is PriceCalculationException or OrderWriteException ? exception.Message :
                 "Не удалось добавить заявку. Введённые данные сохранены в форме — попробуйте ещё раз.";
+            if (exception is OrderWriteException { RequiresReload: true })
+            { RequiresReload = true; ReloadRequired?.Invoke(this, EventArgs.Empty); }
             return;
         }
         IsSaved = true;
         SaveCommand.NotifyCanExecuteChanged();
         CalculatePriceCommand.NotifyCanExecuteChanged();
         Saved?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ShowQuote(CuttingPriceQuote quote)
+    {
+        _quote = quote;
+        var culture = CultureInfo.GetCultureInfo("ru-RU");
+        PriceText = quote.StoredPrice.ToString("N0", culture) + " ₽";
+        PriceBreakdown = $"{quote.RublesPerMeter.ToString("N0", culture)} ₽/м × {quote.CutLengthMeters} м × {quote.Coefficient.ToString(culture)}";
     }
 
     private bool Validate()
