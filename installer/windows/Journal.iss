@@ -105,8 +105,10 @@ begin
   Result := 'Выберите отдельную папку на локальном диске, например D:\Journal.';
   Value := Trim(DirectoryPage.Values[0]);
   if (Length(Value) < 4) or (Copy(Value, 2, 2) <> ':\') then Exit;
+  { Ord в Inno 6 возвращает Byte: сравниваем Unicode-символ напрямую,
+    иначе часть кириллицы ошибочно принимается за управляющие символы. }
   for Index := 1 to Length(Value) do
-    if (Pos(Value[Index], '"<>|*?') > 0) or (Ord(Value[Index]) < 32) then Exit;
+    if (Pos(Value[Index], '"<>|*?') > 0) or (Value[Index] < #32) then Exit;
   Value := InstallRoot;
   if Length(Value) <= 3 then Exit;
   if FileExists(Value) then Exit;
