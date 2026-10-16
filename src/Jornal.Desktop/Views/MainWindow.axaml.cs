@@ -19,6 +19,8 @@ public partial class MainWindow : Window
     private MainWindowViewModel? _viewModel;
     private readonly IUpdateRestartStore? _restartStore;
     private readonly CancellationTokenSource _updateChecksLifetime = new();
+    private Task? _initialOrdersLoad;
+    private bool _updateDraftRestored;
 
     private readonly MainWindowCustomization _customization;
 
@@ -45,9 +47,26 @@ public partial class MainWindow : Window
         _customization.Initialize();
         if (_viewModel is not null)
         {
-            await _viewModel.ReloadCommand.ExecuteAsync(null);
+            if (!_updateDraftRestored && _restartStore is not null)
+            {
+                _updateDraftRestored = true;
+                _viewModel.RestoreUpdateDraft(_restartStore);
+            }
+            await LoadInitialOrdersAsync();
             if (IsVisible) await _viewModel.Updates.RunAutomaticChecksAsync(_updateChecksLifetime.Token);
         }
+    }
+
+    public Task LoadInitialOrdersAsync(CancellationToken cancellationToken = default) =>
+        _initialOrdersLoad ??= LoadInitialOrdersCoreAsync(cancellationToken);
+
+    private async Task LoadInitialOrdersCoreAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_viewModel is not { } model) return;
+        using var registration = cancellationToken.Register(model.ReloadCommand.Cancel);
+        await model.ReloadCommand.ExecuteAsync(null).WaitAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
