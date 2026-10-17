@@ -48,7 +48,7 @@ class ScopeTests(unittest.TestCase):
         for code, packaging in [('false', 'false'), ('true', 'false'), ('true', 'true')]: ci.gate('success', code, packaging)
 
     def test_release_stays_unconditional_and_protected_checks_have_an_explicit_gate(self):
-        workflow = (ROOT / '.github/workflows/modern.yml').read_text()
+        workflow = (ROOT / '.github/workflows/modern.yml').read_text(encoding='utf-8')
         self.assertNotIn('paths-ignore:', workflow); self.assertNotIn('\n  paths:', workflow)
         build = workflow.split('\n  build:', 1)[1]
         self.assertIn('name: Check (${{ matrix.os }})', build)
@@ -58,7 +58,7 @@ class ScopeTests(unittest.TestCase):
         jet = build.split('- name: Test native Access transactions', 1)[1].split('- name:', 1)[0]
         self.assertIn("if: needs.scope.outputs.code == 'true' && runner.os == 'Windows'", jet)
         self.assertIn("JOURNAL_REQUIRE_NATIVE_TESTS: '1'", jet)
-        release = (ROOT / '.github/workflows/release.yml').read_text()
+        release = (ROOT / '.github/workflows/release.yml').read_text(encoding='utf-8')
         self.assertNotIn('needs.scope', release)
         for step in ['Test Windows offline installer and Access host', 'Test native Access transactions',
                      'Test Linux update and restart', 'Test Windows install and restart']:
@@ -83,7 +83,7 @@ class ScopeTests(unittest.TestCase):
             root = Path(directory)
             def git(*args): return ci.git(*args, root=root).decode().strip()
             def commit(path, text):
-                target = root / path; target.parent.mkdir(parents=True, exist_ok=True); target.write_text(text)
+                target = root / path; target.parent.mkdir(parents=True, exist_ok=True); target.write_text(text, encoding='utf-8')
                 git('add', '--all'); git('commit', '-m', 'Проверка'); return git('rev-parse', 'HEAD')
             git('init', '-b', 'main'); git('config', 'user.name', 'Тест'); git('config', 'user.email', 'test@example.invalid')
             base = commit('README.md', 'Описание\n')
