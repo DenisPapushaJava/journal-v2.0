@@ -44,12 +44,13 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             nameof(CanEditOrder), nameof(CanTrashOrder), nameof(CanOpenTrash), nameof(MaintenanceHint), nameof(EditOrderHint),
             nameof(TrashOrderHint), nameof(CanClearSelection), nameof(CanOpenPrices) })
             OnPropertyChanged(name);
+        NotifyClipboardAvailability();
         ReloadCommand.NotifyCanExecuteChanged();
         SetOrderColorCommand.NotifyCanExecuteChanged();
     }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPreferencesError))] private string? _preferencesError;
     public bool HasPreferencesError => !string.IsNullOrEmpty(PreferencesError);
-    public bool CanUseJournal => !IsCustomizing && !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification;
+    public bool CanUseJournal => !IsCustomizing && !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification && !IsCopyingSelection;
     public bool CanConfigureScreen => CanUseJournal;
     public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification;
     public bool CanClearSelection => _selectedCount > 0 && CanUseJournal;
@@ -146,7 +147,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         OnPropertyChanged(nameof(CanUpdateSelectedOrders));
         OnPropertyChanged(nameof(CanEditOrder)); OnPropertyChanged(nameof(CanTrashOrder));
         OnPropertyChanged(nameof(EditOrderHint)); OnPropertyChanged(nameof(CanClearSelection));
-        OnPropertyChanged(nameof(TrashOrderHint));
+        OnPropertyChanged(nameof(TrashOrderHint)); NotifyClipboardAvailability();
         SetOrderColorCommand.NotifyCanExecuteChanged();
         SelectionText = $"Выбрано: {count}";
         ActiveOrderText = count > 1 ? "Выбрано несколько заявок" : Orders.FirstOrDefault(row => row.Id == _activeOrderId) is { } current
