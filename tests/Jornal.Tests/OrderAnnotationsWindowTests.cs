@@ -104,7 +104,7 @@ public sealed class OrderAnnotationsWindowTests
     }
     private static void AssertBendingPosition(Window window, CheckBox bending, TextBox comment)
     {
-        Assert.Equal("Нужна гибка", bending.Content);
+        Assert.Equal("Гибка", bending.Content);
         var point = bending.TranslatePoint(default, window)!.Value;
         var commentPoint = comment.TranslatePoint(default, window)!.Value;
         Assert.Equal(commentPoint.X, point.X, 1);
