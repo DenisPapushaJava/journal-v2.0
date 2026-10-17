@@ -61,17 +61,19 @@ public sealed partial class NativeAccessTests
         Assert.Equal(changed, await database.Read());
     }
 
-    [Fact]
-    public async Task ColorsPersistAcrossConnectionsWithoutChangingAnyOtherFieldOrSchema()
+    [Theory]
+    [InlineData(OrderColors.Ready)]
+    [InlineData(-25089)]
+    public async Task ColorsPersistAcrossConnectionsWithoutChangingAnyOtherFieldOrSchema(int color)
     {
         using var database = Database.Create();
         var before = await database.Read();
         var schema = database.Schema();
         var editor = new OleDbOrderBatchEditor(database.Path);
-        var changed = await editor.SetColorAsync(before, OrderColors.Ready, TestContext.Current.CancellationToken);
-        Assert.Equal(before.Select(row => row with { Color = OrderColors.Ready }), changed);
+        var changed = await editor.SetColorAsync(before, color, TestContext.Current.CancellationToken);
+        Assert.Equal(before.Select(row => row with { Color = color }), changed);
         Assert.Equal(changed, await database.Read());
-        Assert.Equal(changed, await editor.SetColorAsync(changed, OrderColors.Ready, TestContext.Current.CancellationToken));
+        Assert.Equal(changed, await editor.SetColorAsync(changed, color, TestContext.Current.CancellationToken));
         changed = await editor.SetColorAsync([changed[0], changed[1], changed[0]], OrderColors.None, TestContext.Current.CancellationToken);
         Assert.Equal(before.Select(row => row with { Color = OrderColors.None }), changed);
         Assert.Equal(changed, await database.Read());

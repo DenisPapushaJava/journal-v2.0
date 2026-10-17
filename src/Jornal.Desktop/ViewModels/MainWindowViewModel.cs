@@ -84,11 +84,15 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             _pendingCreationForm = null;
             pending.ExistingOrders = _allOrders;
             pending.ResumeAfterReload();
+            pending.Manager.Suggestions = _entrySuggestions.Managers;
+            pending.Customer.Suggestions = _entrySuggestions.Customers;
             return pending;
         }
         var form = new NewOrderViewModel(orderCreator!, _source?.IsLocalCopy == true,
             isDatabase: _source?.Path is not null && _source.IsLocalCopy == false, initialColor: EffectiveNewOrderColor);
         form.ExistingOrders = _allOrders;
+        form.Manager.Suggestions = _entrySuggestions.Managers;
+        form.Customer.Suggestions = _entrySuggestions.Customers;
         form.SaveCommand.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) IsUpdatingOrders = form.SaveCommand.IsRunning;

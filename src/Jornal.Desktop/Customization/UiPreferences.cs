@@ -67,6 +67,7 @@ public sealed record UiPreferences
     public ResultPriceSettings ResultPricing { get; init; } = new();
     [JsonConverter(typeof(NewOrderColorSettingsConverter))]
     public NewOrderColorSettings NewOrderColor { get; init; } = new();
+    public EntrySuggestions EntrySuggestions { get; init; } = new();
 }
 
 public sealed record PreferencesLoadResult(UiPreferences? Preferences, string? Error = null);

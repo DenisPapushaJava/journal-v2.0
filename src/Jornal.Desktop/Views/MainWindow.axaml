@@ -167,10 +167,10 @@
                 <ui:JournalButton x:Name="SetShippedButton" Label="Отгружено" Classes="shipped"
                                   Command="{Binding SetOrderColorCommand}" CommandParameter="{x:Static orders:OrderColors.Shipped}"
                                   />
-                <ui:JournalButton Label="Цвет…" ToolTip.Tip="Другой цвет" Icon="palette" Classes="outline" IsEnabled="False" />
+                <ui:JournalButton x:Name="SetCustomColorButton" Label="Цвет…" Icon="palette" Classes="outline" IsEnabled="{Binding CanUpdateSelectedOrders}" Click="OnSetCustomColorClick" ToolTip.Tip="Цвет выбранных заявок" />
                 <ui:JournalButton x:Name="ClearColorButton" Label="Снять цвет" Command="{Binding SetOrderColorCommand}"
                                   CommandParameter="{x:Static orders:OrderColors.None}" />
-                <ui:JournalButton Label="Код цвета" IsEnabled="False" />
+                <ui:JournalButton x:Name="GetColorCodeButton" Label="Код цвета" Icon="hash" IsEnabled="{Binding CanGetColorCode}" Click="OnGetColorCodeClick" ToolTip.Tip="Выбрать цвет и скопировать код ARGB" />
               </ui:AdaptiveCommandPanel>
             </Grid>
           </Border>

@@ -156,7 +156,7 @@ public partial class MainWindow : Window
         { UpdateTheme(); _customization.AppearanceChanged(); }
         if (e.PropertyName is nameof(MainWindowViewModel.ResultFontSizePoints) or nameof(MainWindowViewModel.ResultTextColor) or
             nameof(MainWindowViewModel.UseResultMinimumPrice) or nameof(MainWindowViewModel.ResultMinimumPrice) or
-            nameof(MainWindowViewModel.UseTechnologistColor) or nameof(MainWindowViewModel.TechnologistColorArgb))
+            nameof(MainWindowViewModel.UseTechnologistColor) or nameof(MainWindowViewModel.TechnologistColorArgb) or nameof(MainWindowViewModel.EntrySuggestionsSummary))
             _customization.AppearanceChanged();
     }
 

@@ -26,7 +26,7 @@ public partial class MainWindowViewModel
         var caption = color switch
         {
             OrderColors.Work => "В работе", OrderColors.Ready => "Готово",
-            OrderColors.Shipped => "Отгружено", OrderColors.None => "Без отметки", _ => "Своя отметка"
+            OrderColors.Shipped => "Отгружено", OrderColors.None => "Без отметки", _ => "Цвет"
         };
         await UpdateOrdersAsync(ids, () => orderEditor!.SetColorAsync(expected, color), $"{caption} · изменено заявок: {ids.Length}");
     }

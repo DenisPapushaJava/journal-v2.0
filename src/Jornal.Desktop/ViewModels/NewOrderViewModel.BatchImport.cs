@@ -90,6 +90,7 @@ public partial class NewOrderViewModel
     private NewOrderViewModel NewBatchForm()
     {
         var form = new NewOrderViewModel(_creator, IsLocalCopy, IsDatabase, InitialColor) { ImportReader = ImportReader, ExistingOrders = ExistingOrders };
+        form.Manager.Suggestions = Manager.Suggestions; form.Customer.Suggestions = Customer.Suggestions;
         form.SetMachines(_machines); return form;
     }
 

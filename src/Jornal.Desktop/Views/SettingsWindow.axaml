@@ -64,6 +64,10 @@
                                 HorizontalAlignment="Left" IsEnabled="{Binding CanCustomize}" Click="OnCustomizeClick" />
             </StackPanel>
             <settings:NewOrderColorPanel DataContext="{Binding Journal}" />
+            <StackPanel Spacing="8">
+              <ui:JournalButton x:Name="EntrySuggestionsButton" Label="Менеджеры и заказчики" Icon="list-plus" Click="OnEntrySuggestionsClick" HorizontalAlignment="Left" IsEnabled="{Binding CanNavigate}" />
+              <TextBlock Text="{Binding Journal.EntrySuggestionsSummary}" Classes="muted" />
+            </StackPanel>
           </StackPanel>
         </ScrollViewer>
       </Grid>

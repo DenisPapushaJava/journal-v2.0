@@ -12,7 +12,7 @@ public partial class SettingsWindow : Window
 {
     private SettingsViewModel? Model => DataContext as SettingsViewModel;
     public bool CustomizeRequested { get; private set; }
-    public bool CanRestart => Model?.CanRestart == true;
+    public bool CanRestart => Model?.CanRestart == true && OwnedWindows.Count == 0;
     public SettingsWindow() => InitializeComponent();
     protected override void OnOpened(EventArgs e)
     {
@@ -60,6 +60,12 @@ public partial class SettingsWindow : Window
         { database.ConnectCommand.Execute(null); e.Handled = true; }
     }
     private void OnMinimumPriceLostFocus(object? sender, RoutedEventArgs e) => Model?.Journal.CommitResultMinimumPrice();
+    private async void OnEntrySuggestionsClick(object? sender, RoutedEventArgs e)
+    {
+        if (Model is not { CanNavigate: true } model || Owner is not MainWindow main || OwnedWindows.Count > 0) return;
+        var form = new EntrySuggestionsViewModel(model.Journal.CaptureEntrySuggestions(), main.SaveEntrySuggestions);
+        await new EntrySuggestionsWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant }.ShowDialog(this);
+    }
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
     private void OnCustomizeClick(object? sender, RoutedEventArgs e)
     {
