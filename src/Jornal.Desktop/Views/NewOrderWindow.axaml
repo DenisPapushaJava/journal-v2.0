@@ -95,7 +95,7 @@
             <TextBlock Text="Спецификация" Classes="section" />
             <TextBlock x:Name="ImportFileName" Text="{Binding ImportPreview.FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ImportPreview.FileName}" FontWeight="Medium" />
             <TextBlock Text="{Binding ImportPreview.Counts}" Classes="muted" TextWrapping="Wrap" />
-            <TextBlock Text="{Binding ImportPreview.Diagnostics}" IsVisible="{Binding HasImportDiagnostics}" TextWrapping="Wrap"
+            <TextBlock Text="{Binding ImportDiagnostics}" IsVisible="{Binding HasImportDiagnostics}" TextWrapping="Wrap"
                        Foreground="{DynamicResource JournalDangerForeground}" />
           </StackPanel>
         </StackPanel>

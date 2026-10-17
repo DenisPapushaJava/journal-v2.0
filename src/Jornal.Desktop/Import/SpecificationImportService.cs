@@ -53,12 +53,13 @@ public sealed record ImportedField(string Value, string Evidence);
 public sealed record SpecificationImportPreview(string FileName, SpecificationParseResult Report,
     IReadOnlyDictionary<string, ImportedField> Fields, int? PartCount, int? PunchCount)
 {
-    public string Diagnostics => string.Join("\n\n", Report.Issues.Select(issue => issue.Message +
+    public string Diagnostics => DiagnosticsFor(true);
+    public string DiagnosticsFor(bool materialNeedsReview) => string.Join("\n\n", Report.Issues.Where(issue => materialNeedsReview || issue.Code != "MaterialNeedsReview").Select(issue => issue.Message +
         (issue.Sources is { Count: > 0 } sources ? "\nВ документе: " + string.Join("; ", sources.Select(source => Short(source.RawText)).Distinct()) : "")));
     public string Duration => Report.CuttingDuration is { } duration
         ? "Время резки: " + CuttingDuration.Format(CuttingDuration.RoundUpMinutes(duration.Value))
         : "Время резки не распознано";
-    public string Counts => $"Детали: {PartCount?.ToString() ?? "не распознано"} · Пробивки: {PunchCount?.ToString() ?? "не распознано"}";
+    public string Counts => Report.Profile == WaterjetPdfSpecificationParser.Profile ? "" : $"Детали: {PartCount?.ToString() ?? "не распознано"} · Пробивки: {PunchCount?.ToString() ?? "не распознано"}";
 
     public static SpecificationImportPreview Create(string fileName, SpecificationParseResult report, SpecificationProfileCatalog? profiles = null)
     {
@@ -101,8 +102,8 @@ public sealed record SpecificationImportPreview(string FileName, SpecificationPa
         Add("Gas", SpecificationField.CuttingGas, report.CuttingGas?.Value, report.CuttingGas?.Sources);
         var parts = !Bad(SpecificationField.PartCount) ? report.PartCount?.Value : null;
         var punches = !Bad(SpecificationField.PunchCount) ? report.PunchCount?.Value : null;
-        fields["Coefficient"] = new(parts is > 0 && punches is >= 0 ? Number(CuttingPriceCalculator.CalculatePunchCoefficient(parts.Value, punches.Value)) : "",
-            "По итогам заказа. Пробивки / детали: " + (punches?.ToString() ?? "?") + " / " + (parts?.ToString() ?? "?"));
+        fields["Coefficient"] = new(report.Profile == WaterjetPdfSpecificationParser.Profile ? "1" : parts is > 0 && punches is >= 0 ? Number(CuttingPriceCalculator.CalculatePunchCoefficient(parts.Value, punches.Value)) : "",
+            report.Profile == WaterjetPdfSpecificationParser.Profile ? "" : "По итогам заказа. Пробивки / детали: " + (punches?.ToString() ?? "?") + " / " + (parts?.ToString() ?? "?"));
         return new(fileName, report, fields, parts, punches);
     }
 

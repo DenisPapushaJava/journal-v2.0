@@ -18,12 +18,14 @@ public sealed class PriceCalculationException(PriceCalculationFailure failure, s
 
 public static class CuttingPriceCalculator
 {
-    public static string SelectTable(CuttingPriceRequest request)
+    public static string SelectTable(CuttingPriceRequest request, CuttingMachine? machine = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.ThicknessMillimeters <= 0 || request.CutLengthMeters < 0 || request.Coefficient <= 0)
             throw new PriceCalculationException(PriceCalculationFailure.InvalidParameters,
                 "Толщина и коэффициент должны быть больше нуля, длина — неотрицательным целым числом метров.");
+        if (machine is not null && (machine.Name != request.CuttingType || CuttingMachine.LegacyNames.Contains(request.CuttingType)))
+            throw new PriceCalculationException(PriceCalculationFailure.UnsupportedCuttingType, "Привязка станка не соответствует виду резки.");
         var (table, minimum, maximum) = request.CuttingType switch
         {
             "Лазер" => (PriceTables.Laser, 0m, 20m),
@@ -33,6 +35,7 @@ public static class CuttingPriceCalculator
             {
                 "1" => PriceTables.HansLaserId1, "2" => PriceTables.HansLaserId2, _ => PriceTables.Laser
             }, 0m, 60m),
+            _ when machine is not null && machine.Name == request.CuttingType => (CustomTable(machine), 0m, decimal.MaxValue),
             _ => throw new PriceCalculationException(PriceCalculationFailure.UnsupportedCuttingType, "Неизвестный вид резки.")
         };
         if (request.ThicknessMillimeters < minimum || request.ThicknessMillimeters > maximum)
@@ -41,9 +44,11 @@ public static class CuttingPriceCalculator
         return table;
     }
 
-    public static CuttingPriceQuote Calculate(CuttingPriceRequest request, PriceTable table)
+    private static string CustomTable(CuttingMachine machine) { machine.Validate(); return machine.TableName; }
+
+    public static CuttingPriceQuote Calculate(CuttingPriceRequest request, PriceTable table, CuttingMachine? machine = null)
     {
-        var selected = SelectTable(request);
+        var selected = SelectTable(request, machine);
         table.Validate();
         if (table.Name != selected)
             throw new ArgumentException("Передан прайс другого вида резки или ID материала.", nameof(table));
@@ -82,12 +87,17 @@ public static class CuttingPriceCalculator
 
 public sealed class CuttingPriceService(IPriceReader reader)
 {
+    public static async Task<CuttingMachine?> ResolveMachineAsync(IPriceReader reader, string name, CancellationToken cancellationToken = default) =>
+        CuttingMachine.LegacyNames.Contains(name) ? null : CuttingMachine.Resolve(name, reader is IMachineCatalogReader catalog
+            ? await catalog.ReadMachinesAsync(cancellationToken) : []);
+
     public async Task<CuttingPriceQuote> CalculateAsync(CuttingPriceRequest request, CancellationToken cancellationToken = default)
     {
-        var name = CuttingPriceCalculator.SelectTable(request);
+        var machine = await ResolveMachineAsync(reader, request.CuttingType, cancellationToken);
+        var name = CuttingPriceCalculator.SelectTable(request, machine);
         cancellationToken.ThrowIfCancellationRequested();
         var table = await reader.ReadAsync(name, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        return CuttingPriceCalculator.Calculate(request, table);
+        return CuttingPriceCalculator.Calculate(request, table, machine);
     }
 }

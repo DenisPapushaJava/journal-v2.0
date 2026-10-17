@@ -3,11 +3,34 @@ using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Demo;
 
-public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor, IManualOrderBatchCreator
+public sealed partial class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor, IManualOrderBatchCreator, IMachineCatalogReader
 {
+    public DemoOrderStore() => Prices = new(this);
+    public PriceAccess Prices { get; }
     private readonly object _gate = new();
     private int _lastIssuedId = 3;
     public IOrderMaintenance Maintenance => new MaintenanceAdapter(this);
+    private readonly Dictionary<string, PriceTable> _prices = PriceTables.All.Append(PriceCatalog.UnusedHansLaser)
+        .ToDictionary(name => name, name => new PriceTable(name, true,
+            new decimal[] { 0.5m, 1, 1.5m, 2, 2.5m, 3, 4, 6, 8, 10, 12, 16, 20, 32, 60, 200 }
+                .Select(t => new PriceRate(t, t.ToString(System.Globalization.CultureInfo.InvariantCulture), 25)).ToArray()));
+
+    public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+        PriceTables.ValidateName(tableName);
+        lock (_gate) { cancellationToken.ThrowIfCancellationRequested(); return Task.FromResult(_prices[tableName]); }
+    }
+
+    public Task<PriceTable> SaveAsync(PriceTableChange change, CancellationToken cancellationToken = default)
+    {
+        var snapshot = change.Snapshot();
+        lock (_gate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!PriceTableChange.Matches(_prices[snapshot.Expected.Name], snapshot.Expected)) throw PriceTableChange.Conflict();
+            _prices[snapshot.Expected.Name] = snapshot.Values; return Task.FromResult(snapshot.Values);
+        }
+    }
     // Только память текущего сеанса. Рабочая MDB здесь никогда не открывается.
     private readonly List<OrderSummary> _orders =
         [
@@ -37,7 +60,9 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBa
         {
             cancellationToken.ThrowIfCancellationRequested();
             draft.Validate();
-            var order = draft.ToOrder(++_lastIssuedId, null);
+            var machine = CuttingMachine.Verify(draft.CuttingType, draft.Machine, _machines);
+            var price = machine is null ? (decimal?)null : draft.Calculate(_prices[machine.TableName], machine).StoredPrice;
+            var order = draft.ToOrder(++_lastIssuedId, price);
             _orders.Insert(0, order);
             return Task.FromResult(order);
         }
@@ -49,7 +74,11 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBa
         lock (_gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var rows = snapshot.Select((draft, index) => draft.ToOrder(checked(_lastIssuedId + index + 1), null)).ToArray();
+            var rows = snapshot.Select((draft, index) =>
+            {
+                var machine = CuttingMachine.Verify(draft.CuttingType, draft.Machine, _machines);
+                return draft.ToOrder(checked(_lastIssuedId + index + 1), machine is null ? null : draft.Calculate(_prices[machine.TableName], machine).StoredPrice);
+            }).ToArray();
             cancellationToken.ThrowIfCancellationRequested();
             _orders.InsertRange(0, rows);
             _lastIssuedId = rows[^1].Id;
@@ -82,25 +111,32 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBa
         }
     }
 
-    private sealed class MaintenanceAdapter(DemoOrderStore store) : IOrderMaintenance
+    // Чтение/правка тарифов отдельно от создания демозаявок с исторически неизвестной ценой.
+    public sealed class PriceAccess(DemoOrderStore store) : IPriceReader, IPriceEditor, IMachineCatalogReader, IMachineCreator
     {
+        public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => store.ReadMachinesAsync(cancellationToken);
+        public Task<CuttingMachine> CreateMachineAsync(MachineCreation creation, CancellationToken cancellationToken = default) => store.CreateMachineAsync(creation, cancellationToken);
+        public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) => store.ReadAsync(tableName, cancellationToken);
+        public Task<PriceTable> SaveAsync(PriceTableChange change, CancellationToken cancellationToken = default) => store.SaveAsync(change, cancellationToken);
+    }
+
+    private sealed class MaintenanceAdapter(DemoOrderStore store) : IOrderMaintenance, IMachineCatalogReader
+    {
+        public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => store.ReadMachinesAsync(cancellationToken);
         private OrderRecord? Find(int id) => store._orders.SingleOrDefault(row => row.Id == id) is { } row ? OrderRecord.FromSummary(row) : null;
         public Task<OrderRecord?> ReadRecordAsync(int id, CancellationToken cancellationToken = default)
         { lock (store._gate) { cancellationToken.ThrowIfCancellationRequested(); return Task.FromResult(Find(id)); } }
-        public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested(); PriceTables.ValidateName(tableName);
-            return Task.FromResult(new PriceTable(tableName, true, new decimal[] { 0.5m, 1, 1.5m, 2, 2.5m, 3, 4, 6, 8, 10, 12, 16, 20, 32, 60, 200 }
-                .Select(t => new PriceRate(t, t.ToString(System.Globalization.CultureInfo.InvariantCulture), 25)).ToArray()));
-        }
+        public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) => store.ReadAsync(tableName, cancellationToken);
         public async Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
         {
-            change.Validate(); var table = await ReadAsync(CuttingPriceCalculator.SelectTable(change.PriceRequest), cancellationToken);
+            change.Validate(); var machine = await CuttingPriceService.ResolveMachineAsync(this, change.PriceRequest.CuttingType, cancellationToken);
+            var table = await ReadAsync(CuttingPriceCalculator.SelectTable(change.PriceRequest, machine), cancellationToken);
             lock (store._gate)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (Find(change.Expected.Id) != change.Expected) throw OrderWriteException.Conflict();
-                var saved = change.Calculate(table);
+                CuttingMachine.Verify(change.PriceRequest.CuttingType, change.Machine, store._machines);
+                var saved = change.Calculate(table, machine);
                 store._orders[store._orders.FindIndex(row => row.Id == saved.Id)] = saved.ToSummary();
                 return saved;
             }

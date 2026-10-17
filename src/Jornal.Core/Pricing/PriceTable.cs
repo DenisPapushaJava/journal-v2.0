@@ -12,7 +12,7 @@ public static class PriceTables
 
     public static void ValidateName(string name)
     {
-        if (!All.Contains(name, StringComparer.Ordinal))
+        if (!All.Contains(name, StringComparer.Ordinal) && name != PriceCatalog.UnusedHansLaser && !CuttingMachine.IsCustomTable(name))
             throw new ArgumentException("Неизвестная таблица прайса.", nameof(name));
     }
 }
@@ -27,7 +27,8 @@ public sealed record PriceTable(string Name, bool HasRow, IReadOnlyList<PriceRat
         PriceTables.ValidateName(Name);
         if (Rates is null || Rates.Any(rate => rate is null || rate.ThicknessMillimeters <= 0 ||
                 string.IsNullOrWhiteSpace(rate.ColumnName) || (!HasRow && rate.RublesPerMeter is not null)) ||
-            Rates.Select(rate => rate.ThicknessMillimeters).Distinct().Count() != Rates.Count)
+            Rates.Select(rate => rate.ThicknessMillimeters).Distinct().Count() != Rates.Count ||
+            Rates.Select(rate => rate.ColumnName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != Rates.Count)
             throw new ArgumentException("Некорректные или неоднозначные данные прайса.");
     }
 }

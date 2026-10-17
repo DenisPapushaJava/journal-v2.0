@@ -374,31 +374,10 @@
     <Setter Property="Theme" Value="{StaticResource JournalCalendarButton}" />
   </Style>
   <Style Selector="DataGrid">
-    <Setter Property="ScrollViewer.AllowAutoHide" Value="False" />
     <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
     <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
     <Setter Property="RowBackground" Value="{DynamicResource JournalSurface}" />
     <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource JournalBorder}" />
-  </Style>
-  <!-- Fluent DataGrid 12.1.2 spans its presenters under the scrollbars by default.
-       The class selector overrides template-local spans without copying the template;
-       these spans also tell DataGrid to reserve space when calculating its viewport. -->
-  <Style Selector="DataGrid.reserved-scrollbars /template/ DataGridColumnHeadersPresenter#PART_ColumnHeadersPresenter">
-    <Setter Property="Grid.ColumnSpan" Value="1" />
-    <Setter Property="ClipToBounds" Value="True" />
-  </Style>
-  <Style Selector="DataGrid.reserved-scrollbars /template/ DataGridRowsPresenter#PART_RowsPresenter">
-    <Setter Property="Grid.ColumnSpan" Value="2" />
-    <Setter Property="Grid.RowSpan" Value="1" />
-    <Setter Property="ClipToBounds" Value="True" />
-  </Style>
-  <Style Selector="DataGrid.reserved-scrollbars /template/ ScrollBar:vertical /template/ Thumb">
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="MinHeight" Value="24" />
-  </Style>
-  <Style Selector="DataGrid.reserved-scrollbars /template/ ScrollBar:horizontal /template/ Thumb">
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="MinWidth" Value="24" />
   </Style>
   <Style Selector="DataGridColumnHeader">
     <Setter Property="ui:TableCellPresentation.Enabled" Value="True" />

@@ -8,7 +8,7 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 /// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
-public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IOrderMaintenance, IOrderDurationInitializer
+public sealed partial class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IPriceEditor, IOrderMaintenance, IOrderDurationInitializer, IMachineCatalogReader, IMachineCreator
 {
     private readonly Action<Process> _start = static process => { process.Start(); };
     internal AccessHostClient(string path, string? executable, Action<Process> start) : this(path, executable) => _start = start;
@@ -43,6 +43,12 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
     }
 
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) => ReadPriceTableAsync(tableName, cancellationToken);
+
+    public async Task<PriceTable> SaveAsync(PriceTableChange change, CancellationToken cancellationToken = default)
+    {
+        var snapshot = change.Snapshot();
+        return (await SendAsync(new(1, AccessHostOperation.UpdatePriceTable, System.IO.Path.GetFullPath(path), PriceChange: snapshot), cancellationToken)).PriceTable!;
+    }
 
     public async Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default)
     {
@@ -92,7 +98,7 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
         request = request with { DiagnosticSessionId = AppDiagnostics.Current?.SessionId ?? Guid.NewGuid().ToString("N"), DiagnosticEventId = Guid.NewGuid().ToString("N") };
         cancellationToken.ThrowIfCancellationRequested();
         var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or
-            AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.PrepareCuttingTime;
+            AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.PrepareCuttingTime or AccessHostOperation.UpdatePriceTable or AccessHostOperation.CreateMachine;
         var dispatched = false;
         var stage = DiagnosticStage.LaunchAccessHost;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -154,7 +160,8 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
                         var priceRequest = request.Operation == AccessHostOperation.CreateOrders ? request.Drafts![response.ChangedDraftIndex!.Value].PriceRequest :
                             request.Draft?.PriceRequest ?? request.Edit!.PriceRequest;
                         var calculated = CuttingPriceCalculator.Calculate(priceRequest,
-                            new(quote.TableName, true, [new(priceRequest.ThicknessMillimeters, quote.ThicknessColumn, quote.RublesPerMeter)]));
+                            new(quote.TableName, true, [new(priceRequest.ThicknessMillimeters, quote.ThicknessColumn, quote.RublesPerMeter)]),
+                            request.Operation == AccessHostOperation.CreateOrders ? request.Drafts![response.ChangedDraftIndex!.Value].Machine : request.Draft?.Machine ?? request.Edit?.Machine);
                         if (calculated != quote) throw new ArgumentException("Цена не соответствует параметрам.");
                     }
                     catch (Exception exception) when (exception is ArgumentException or PriceCalculationException)
@@ -169,6 +176,28 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             }
             if (response.Failure is not null || response.ChangedQuote is not null || response.ChangedDraftIndex is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");
+            if (request.Operation is AccessHostOperation.ReadMachines or AccessHostOperation.CreateMachine)
+            {
+                if (response.Orders is not null || response.Record is not null || response.MaintenanceCompleted is not null || response.CuttingTimePrepared is not null)
+                    throw new InvalidDataException("Посторонние данные в ответе каталога.");
+                if (request.Operation == AccessHostOperation.ReadMachines)
+                {
+                    if (response.Machines is null || response.Machine is not null || response.PriceTable is not null) throw new InvalidDataException("Каталог не передан.");
+                    try { _ = CuttingMachine.Snapshot(response.Machines); }
+                    catch (ArgumentException exception) { throw new InvalidDataException("Некорректный каталог станков.", exception); }
+                }
+                else
+                {
+                    if (response.Machine != request.MachineCreation!.Machine || response.Machines is not null || response.PriceTable is null)
+                        throw new InvalidDataException("Создание станка и его тарифы не подтверждены.");
+                    try { response.PriceTable.Validate(); }
+                    catch (ArgumentException exception) { throw new InvalidDataException("Некорректные тарифы нового станка.", exception); }
+                    if (!PriceTableChange.Matches(response.PriceTable, new(request.MachineCreation.Machine.TableName, true, request.MachineCreation.Rates)))
+                        throw new InvalidDataException("Тарифы станка отличаются от запроса.");
+                }
+                return response;
+            }
+            if (response.Machines is not null || response.Machine is not null) throw new InvalidDataException("Каталог передан для другой операции.");
             if (request.Operation == AccessHostOperation.PrepareCuttingTime)
             {
                 if (response.CuttingTimePrepared != true || response.Orders is not null || response.Record is not null || response.PriceTable is not null || response.MaintenanceCompleted is not null)
@@ -193,12 +222,15 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             }
             if (response.Record is not null || response.MaintenanceCompleted is not null)
                 throw new InvalidDataException("Ответ полной записи передан для другой операции.");
-            if (request.Operation == AccessHostOperation.ReadPriceTable)
+            if (request.Operation is AccessHostOperation.ReadPriceTable or AccessHostOperation.UpdatePriceTable)
             {
-                if (response.PriceTable is null || response.Orders is not null || response.PriceTable.Name != request.PriceTableName)
+                var expectedName = request.PriceChange?.Expected.Name ?? request.PriceTableName;
+                if (response.PriceTable is null || response.Orders is not null || response.PriceTable.Name != expectedName)
                     throw new InvalidDataException("Неполный ответ с прайсом модуля Access.");
                 try { response.PriceTable.Validate(); }
                 catch (ArgumentException exception) { throw new InvalidDataException("Некорректный прайс в ответе модуля Access.", exception); }
+                if (request.Operation == AccessHostOperation.UpdatePriceTable && !PriceTableChange.Matches(response.PriceTable, request.PriceChange!.Values))
+                    throw new InvalidDataException("Сохранённые тарифы не соответствуют запросу.");
             }
             else if (response.Orders is null || response.PriceTable is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");

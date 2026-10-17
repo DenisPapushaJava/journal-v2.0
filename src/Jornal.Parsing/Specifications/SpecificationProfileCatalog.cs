@@ -14,7 +14,7 @@ public interface ISpecificationProfile
 /// <summary>Расширение даёт список кандидатов. Только структура документа выбирает профиль; первый кандидат не побеждает автоматически.</summary>
 public sealed class SpecificationProfileCatalog
 {
-    public static SpecificationProfileCatalog Default { get; } = new([new BlockHtmlSpecificationParser(), new HansPdfSpecificationParser()]);
+    public static SpecificationProfileCatalog Default { get; } = new([new BlockHtmlSpecificationParser(), new HansPdfSpecificationParser(), new WaterjetPdfSpecificationParser()]);
     public IReadOnlyList<ISpecificationProfile> Profiles { get; }
     public IReadOnlyList<string> SupportedExtensions => Profiles.Select(profile => profile.DocumentKind).Distinct()
         .SelectMany(DocumentFormats.Extensions).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();

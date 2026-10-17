@@ -42,7 +42,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             nameof(CanCheckUpdates), nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
             nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult), nameof(CanConfigureSource),
             nameof(CanEditOrder), nameof(CanTrashOrder), nameof(CanOpenTrash), nameof(MaintenanceHint), nameof(EditOrderHint),
-            nameof(TrashOrderHint), nameof(CanClearSelection) })
+            nameof(TrashOrderHint), nameof(CanClearSelection), nameof(CanOpenPrices) })
             OnPropertyChanged(name);
         ReloadCommand.NotifyCanExecuteChanged();
         SetOrderColorCommand.NotifyCanExecuteChanged();

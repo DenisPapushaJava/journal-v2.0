@@ -12,7 +12,7 @@ public partial class EditOrderViewModel
 {
     private CancellationTokenSource? _importCancellation;
     public ISpecificationImportService ImportReader { get; set; } = new SpecificationImportService();
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasImport)), NotifyPropertyChangedFor(nameof(HasImportDiagnostics))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasImport)), NotifyPropertyChangedFor(nameof(HasImportDiagnostics)), NotifyPropertyChangedFor(nameof(ImportDiagnostics))]
     private SpecificationImportPreview? _importPreview;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPendingImport))]
     private SpecificationImportPreview? _pendingImport;
@@ -21,7 +21,8 @@ public partial class EditOrderViewModel
     [ObservableProperty] private bool _isDraggingFiles;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasDropRejection))] private string? _dropRejection;
     public bool HasImport => ImportPreview is not null;
-    public bool HasImportDiagnostics => !string.IsNullOrEmpty(ImportPreview?.Diagnostics);
+    public string ImportDiagnostics => ImportPreview?.DiagnosticsFor(Material.NeedsReview) ?? "";
+    public bool HasImportDiagnostics => !string.IsNullOrEmpty(ImportDiagnostics);
     public bool HasPendingImport => PendingImport is not null;
     public bool HasImportError => ImportError is not null;
     public bool HasDropRejection => DropRejection is not null;
@@ -50,6 +51,7 @@ public partial class EditOrderViewModel
         AppDiagnostics.Current?.Mark(DiagnosticOperation.SpecificationImport);
         try
         {
+            await LoadMachinesAsync(cancellation.Token);
             var preview = await ImportReader.ReadAsync(paths[0], cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             if (!RequiresReload && SavedRecord is null) { ImportError = null; PendingImport = preview; }
@@ -68,11 +70,13 @@ public partial class EditOrderViewModel
     private void ReplaceImport()
     {
         if (PendingImport is not { } preview || IsBusy || RequiresReload || SavedRecord is not null) return;
+        preview = SpecificationMachineBinding.Bind(preview, _machines, CuttingType.Value);
         // Сначала сопоставляем все поля: неполный контракт не должен менять половину формы.
         var mapped = ImportFields.Select(pair => (Field: pair.Value, Value: preview.Fields[pair.Key])).ToArray();
         _populating = true;
         try { foreach (var (field, value) in mapped) field.ApplyImport(value.Value, value.Evidence); }
         finally { _populating = false; }
+        Material.NeedsReview = preview.Report.Issues.Any(issue => issue.Code == "MaterialNeedsReview") && Material.Value.Length > 0;
         ImportPreview = preview; PendingImport = null;
         _timeEdited = true; _quote = null; PriceText = "Не рассчитана"; Error = null; ImportError = null;
         OnPropertyChanged(nameof(IsHansLaser)); OnPropertyChanged(nameof(HasMetadata)); OnPropertyChanged(nameof(MetadataText));

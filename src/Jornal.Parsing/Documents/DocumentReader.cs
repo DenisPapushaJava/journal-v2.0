@@ -4,6 +4,7 @@ using AngleSharp.Html.Parser;
 using System.Text;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
+using UglyToad.PdfPig.Annotations;
 
 namespace Jornal.Parsing.Documents;
 
@@ -75,7 +76,18 @@ public sealed class DocumentReader(DocumentReadLimits? limits = null)
             var words = page.GetWords(NearestNeighbourWordExtractor.Instance).Select(word => new PdfWord(
                 word.Text, word.BoundingBox.Left, word.BoundingBox.Bottom,
                 word.BoundingBox.Right, word.BoundingBox.Top)).ToArray();
-            pages.Add(new PdfPage(page.Number, page.Width, page.Height, words));
+            // FreeText — видимые надписи поверх документа; не смешиваем их с основным
+            // текстом, чтобы они не меняли прежний разбор HansLaser/HTML.
+            var annotations = page.GetAnnotations().Where(annotation => annotation.Type == AnnotationType.FreeText &&
+                (annotation.Flags & (AnnotationFlags.Invisible | AnnotationFlags.Hidden | AnnotationFlags.NoView)) == 0 &&
+                !string.IsNullOrWhiteSpace(annotation.Content)).Take(1001).ToArray();
+            if (annotations.Length > 1000 || annotations.Any(annotation => annotation.Content!.Length > 4096))
+                throw new DocumentRejectedException(DocumentRejection.TooLarge, "В PDF слишком много текстовых пометок.");
+            pages.Add(new PdfPage(page.Number, page.Width, page.Height, words)
+            {
+                TextAnnotations = annotations.Select(annotation => new PdfTextAnnotation(annotation.Content!, annotation.Rectangle.Left,
+                    annotation.Rectangle.Bottom, annotation.Rectangle.Right, annotation.Rectangle.Top)).ToArray()
+            });
         }
 
         return new SourceDocument(DocumentKind.Pdf, null, [], pages);

@@ -21,5 +21,6 @@
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
     <StyleInclude Source="avares://Jornal.Desktop/Themes/Journal.axaml" />
     <StyleInclude Source="avares://Jornal.Desktop/Themes/Inputs.axaml" />
+    <StyleInclude Source="avares://Jornal.Desktop/Themes/Scrollbars.axaml" />
   </Application.Styles>
 </Application>

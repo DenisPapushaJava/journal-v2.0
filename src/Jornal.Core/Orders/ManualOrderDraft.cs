@@ -21,6 +21,7 @@ public sealed record ManualOrderDraft(
     string MaterialId,
     string CuttingGas)
 {
+    public CuttingMachine? Machine { get; init; }
     public long? CuttingDurationMinutes { get; init; }
     public int InitialColor { get; init; } = OrderColors.None;
     public int? PartCount { get; init; }
@@ -37,19 +38,19 @@ public sealed record ManualOrderDraft(
             throw new OrderWriteException(OrderWriteFailure.NotSaved, CuttingDuration.ValidationMessage);
         var required = new[] { SpecificationNumber, ManagerName, CustomerName, MaterialName, SheetSize, SheetCount, WeightKilograms };
         if (required.Any(value => string.IsNullOrWhiteSpace(value) || value.Length > 255 || value.Any(char.IsControl)) ||
-            OrderDate.Year < 100 || MaterialName.Any(char.IsWhiteSpace) || MaterialId is null || CuttingGas is null ||
+            OrderDate.Year < 100 || Machine?.SpecificationProfileId != CuttingMachine.WaterjetProfile && MaterialName.Any(char.IsWhiteSpace) || MaterialId is null || CuttingGas is null ||
             MaterialId.Length > 255 || CuttingGas.Length > 255 ||
             MaterialId.Any(c => char.IsControl(c) || c == '|') || CuttingGas.Any(c => char.IsControl(c) || c == '|') ||
             StoredCoefficient.Length > 255 || PartCount is < 1 || PunchCount is < 0)
             throw new OrderWriteException(OrderWriteFailure.NotSaved, "Проверьте обязательные поля, дату и формат ID/газа. Текстовые поля MDB — не более 255 символов.");
         if (!OrderSheetCount.IsValid(SheetCount))
             throw new OrderWriteException(OrderWriteFailure.NotSaved, OrderSheetCount.ValidationMessage);
-        _ = CuttingPriceCalculator.SelectTable(PriceRequest);
+        _ = CuttingPriceCalculator.SelectTable(PriceRequest, Machine);
     }
 
-    public CuttingPriceQuote Calculate(PriceTable table)
+    public CuttingPriceQuote Calculate(PriceTable table, CuttingMachine? machine = null)
     {
-        var quote = CuttingPriceCalculator.Calculate(PriceRequest, table);
+        var quote = CuttingPriceCalculator.Calculate(PriceRequest, table, machine ?? Machine);
         if (ExpectedQuote is not null && ExpectedQuote != quote) throw new OrderPriceChangedException(quote);
         return quote;
     }
