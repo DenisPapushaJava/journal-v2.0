@@ -31,7 +31,11 @@ public static class OrderCommentFormatter
                 { var index = Array.IndexOf(LegacyOrder, machine.Key); return index < 0 ? int.MaxValue : index; }))
             {
                 if (result.Length > 0 && result[^1] != '\n') result.Append("\n\n");
-                foreach (var order in machine) result.Append("**").Append(Thickness(order)).Append(" мм ").Append(Line(order.MaterialName)).Append("**  \n");
+                foreach (var order in machine.OrderBy(order => !order.ThicknessMillimeters.HasValue)
+                    .ThenBy(order => order.ThicknessMillimeters)
+                    .ThenBy(order => Line(order.MaterialName), StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(order => order.Id))
+                    result.Append(Thickness(order)).Append(" мм ").Append(Line(order.MaterialName)).Append("  \n");
                 result.Length--; // Прежний формат: подпись станка после последней строки группы.
                 var caption = machine.Key switch { "Плазма" => "Плазму", "Газо-кислородная" => "Кристалл резка газом", _ => machine.Key.Length > 0 ? machine.Key : "Станок не указан" };
                 result.Append(" на ").Append(caption);
