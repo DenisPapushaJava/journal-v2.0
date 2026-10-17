@@ -39,8 +39,9 @@ public sealed class LocalJournalImporter(Func<string, IOrderReader>? orderReader
             var orders = await (orderReaderFactory?.Invoke(temporary) ?? new AccessOrderReader(temporary)).ReadAsync(cancellationToken);
             var reader = priceReaderFactory?.Invoke(temporary) ?? new AccessPriceReader(temporary);
             var prices = new List<PriceTable>();
-            foreach (var name in PriceTables.All) prices.Add(await reader.ReadAsync(name, cancellationToken));
-            await LocalJournalStore.InitializeAsync(destinationPath, orders, prices, Path.GetFileName(sourcePath), hash, cancellationToken);
+            var machines = reader is IMachineCatalogReader catalog ? await catalog.ReadMachinesAsync(cancellationToken) : [];
+            foreach (var name in PriceTables.All.Concat(machines.Select(machine => machine.TableName))) prices.Add(await reader.ReadAsync(name, cancellationToken));
+            await LocalJournalStore.InitializeAsync(destinationPath, orders, prices, Path.GetFileName(sourcePath), hash, cancellationToken, machines);
         }
         finally { Directory.Delete(directory, recursive: true); }
     }

@@ -28,9 +28,9 @@ public sealed partial class BatchSpecificationItem : ObservableObject
     public double CardOpacity => IsIncluded ? 1 : 0.65;
     public bool HasFailure => Failure is not null;
     public bool HasWarning => Warning is not null;
-    public bool IsReady => !IsReading && HasParameters && !HasFailure && _validParameters;
+    public bool IsReady => !IsReading && HasParameters && !HasFailure && _validParameters && !Form.Material.NeedsReview;
     public string Status => IsReading ? "Читаем…" : HasFailure ? "Не принят" : IsReady ? "Готово" : "Проверьте поля";
-    public string? Details => Failure ?? Warning ?? Form.ImportPreview?.Diagnostics;
+    public string? Details => Failure ?? Warning ?? Form.ImportDiagnostics;
     public bool CanEdit => _owner.CanEditBatch;
     public IRelayCommand RemoveCommand { get; }
     partial void OnIsIncludedChanged(bool value) { OnPropertyChanged(nameof(CardOpacity)); _owner.NotifyBatchState(); }
@@ -40,7 +40,7 @@ public sealed partial class BatchSpecificationItem : ObservableObject
     partial void OnWarningChanged(string? value) { OnPropertyChanged(nameof(HasWarning)); OnPropertyChanged(nameof(Details)); }
     private void FieldChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(OrderEntryField.Value) && HasParameters)
+        if (e.PropertyName is nameof(OrderEntryField.Value) or nameof(OrderEntryField.NeedsReview) && HasParameters)
         {
             Refresh();
             if (sender == Form.OrderDate || sender == Form.SpecificationNumber || sender == Form.CuttingType) _owner.UpdateDuplicateWarnings();

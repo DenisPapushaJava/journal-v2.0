@@ -22,6 +22,7 @@ public partial class NewOrderViewModel : ObservableObject
         IsDatabase = isDatabase;
         foreach (var field in Fields) field.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName == nameof(OrderEntryField.NeedsReview)) { OnPropertyChanged(nameof(ImportDiagnostics)); OnPropertyChanged(nameof(HasImportDiagnostics)); SaveCommand.NotifyCanExecuteChanged(); NotifyBatchState(); return; }
             if (e.PropertyName != nameof(OrderEntryField.Value)) return;
             if (_submitted) Validate();
             if (IsBatchMode && (field == Manager || field == Customer)) SyncBatchSharedFields();
@@ -40,7 +41,7 @@ public partial class NewOrderViewModel : ObservableObject
         };
         CuttingType.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(OrderEntryField.Value)) OnPropertyChanged(nameof(IsHansLaser));
+            if (e.PropertyName == nameof(OrderEntryField.Value)) { OnPropertyChanged(nameof(IsHansLaser)); OnPropertyChanged(nameof(HasPricing)); CalculatePriceCommand.NotifyCanExecuteChanged(); }
         };
     }
 
@@ -50,7 +51,9 @@ public partial class NewOrderViewModel : ObservableObject
     public AccessHostHelpViewModel AccessHostHelp { get; } = new();
     partial void OnPriceErrorChanged(string? value) { if (value is null && SaveError is null) AccessHostHelp.ShowFor(null); }
     partial void OnSaveErrorChanged(string? value) { if (value is null && PriceError is null) AccessHostHelp.ShowFor(null); }
-    public bool HasPricing => _creator is IPriceReader;
+    private IPriceReader? PriceReader => _creator as IPriceReader ??
+        (SelectedMachine is not null ? (_creator as Jornal.Infrastructure.Demo.DemoOrderStore)?.Prices : null);
+    public bool HasPricing => PriceReader is not null;
     public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning || IsImporting || IsBatchReading;
     [ObservableProperty] private string _priceText = "Не рассчитана";
     [ObservableProperty] private string _priceBreakdown = "";
@@ -100,7 +103,7 @@ public partial class NewOrderViewModel : ObservableObject
         SaveError = IsBatchMode ? "Ввод восстановлен. Перед повторным добавлением проверьте список: пакет мог сохраниться." : "Ввод восстановлен. Перед повторным добавлением проверьте список: предыдущая заявка могла сохраниться.";
     }
 
-    private bool CanSave() => (!IsBatchMode || CanSaveBatch) && !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning && !IsImporting && !HasPendingImport;
+    private bool CanSave() => (!IsBatchMode ? !Material.NeedsReview : CanSaveBatch) && !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning && !IsImporting && !HasPendingImport;
 
     private bool CanCalculatePrice() => (!IsBatchMode || CanSaveBatch) && !RequiresReload && HasPricing && !IsSaved && !SaveCommand.IsRunning && !IsImporting && !HasPendingImport;
 
@@ -127,7 +130,7 @@ public partial class NewOrderViewModel : ObservableObject
         { PriceError = "Укажите толщину, целую длину в метрах и коэффициент."; return; }
         try
         {
-            var quote = await new CuttingPriceService((IPriceReader)_creator).CalculateAsync(
+            var quote = await new CuttingPriceService(PriceReader!).CalculateAsync(
                 new(CuttingType.Value, thickness, length, coefficient, IsHansLaser ? MaterialId.Value.Trim() : null), cancellationToken);
             ShowQuote(quote);
         }
@@ -184,7 +187,7 @@ public partial class NewOrderViewModel : ObservableObject
             Customer.Value.Trim(), CuttingType.Value, Material.Value.Trim(), thickness, SheetSize.Value.Trim(),
             SheetCount.Value.Trim(), length, Weight.Value.Trim(), coefficient,
             IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "")
-            { InitialColor = InitialColor, ExpectedQuote = _quote, PartCount = ImportPreview?.PartCount, PunchCount = ImportPreview?.PunchCount,
+            { Machine = SelectedMachine, InitialColor = InitialColor, ExpectedQuote = _quote, PartCount = ImportPreview?.PartCount, PunchCount = ImportPreview?.PunchCount,
                 CuttingDurationMinutes = CuttingDuration.TryParse(CuttingTime.Value, out var minutes) ? minutes : null };
     }
 
@@ -220,7 +223,9 @@ public partial class NewOrderViewModel : ObservableObject
             OrderDate.Error = "Введите существующую дату: ДД.ММ.ГГГГ.";
         if (CuttingType.Error is null && !CuttingType.Choices!.Contains(CuttingType.Value))
             CuttingType.Error = "Выберите вид резки.";
-        if (Material.Error is null && Material.Value.Trim().Any(char.IsWhiteSpace))
+        if (ImportPreview?.Report.Profile == CuttingMachine.WaterjetProfile && SelectedMachine?.SpecificationProfileId != CuttingMachine.WaterjetProfile)
+            CuttingType.Error = "Выберите станок с профилем AWJC.";
+        if (Material.Error is null && SelectedMachine?.SpecificationProfileId != CuttingMachine.WaterjetProfile && Material.Value.Trim().Any(char.IsWhiteSpace))
             Material.Error = "Название материала должно быть без пробелов.";
         if (SheetCount.Error is null && !OrderSheetCount.IsValid(SheetCount.Value.Trim()))
             SheetCount.Error = OrderSheetCount.ValidationMessage;

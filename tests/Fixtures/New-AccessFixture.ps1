@@ -38,8 +38,10 @@ VALUES (42, #01/02/2026 08:31:42#, 'Менеджер', '0102-42', 'Пример 
     foreach ($table in @('PriceLM500', 'PriceLL500', 'PriceG', 'PriceHL_id1', 'PriceHL_id2')) {
         $null = $connection.Execute("CREATE TABLE [$table] ([Код] COUNTER PRIMARY KEY, [2,5] LONG, [20] LONG, [60] LONG)")
         $null = $connection.Execute("INSERT INTO [$table] ([2,5], [20], [60]) VALUES (17, 20, 60)")
-        $null = $connection.Execute("INSERT INTO [$table] ([2,5], [20], [60]) VALUES (999, 999, 999)")
+        if ($table -ne 'PriceG') { $null = $connection.Execute("INSERT INTO [$table] ([2,5], [20], [60]) VALUES (999, 999, 999)") }
     }
+    $null = $connection.Execute("CREATE TABLE [PriceHL] ([2,5] LONG)")
+    $null = $connection.Execute("INSERT INTO [PriceHL] ([2,5]) VALUES (25)")
     Write-Host "Создана искусственная Jet MDB через $provider."
 }
 finally {

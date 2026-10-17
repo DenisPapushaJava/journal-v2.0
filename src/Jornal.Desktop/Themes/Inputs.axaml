@@ -30,6 +30,10 @@
   <Style Selector="TextBox.invalid /template/ Border#PART_BorderElement, TextBox.invalid:focus /template/ Border#PART_BorderElement, TextBox.invalid:pointerover /template/ Border#PART_BorderElement">
     <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
   </Style>
+  <Style Selector="TextBox.needs-review /template/ Border#PART_BorderElement, TextBox.needs-review:focus /template/ Border#PART_BorderElement, TextBox.needs-review:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource WorkForeground}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
   <Style Selector="ComboBox:pointerover:not(:disabled) /template/ Border#Background, CalendarDatePicker:pointerover:not(:disabled) /template/ Border#Background">
     <Setter Property="Background" Value="{DynamicResource JournalInput}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />

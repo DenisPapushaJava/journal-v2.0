@@ -10,6 +10,8 @@ public sealed class MdbToolsPriceReader(string? executable = null)
         PriceTables.ValidateName(tableName);
         try
         {
+            if (CuttingMachine.IsCustomTable(tableName) && !(await MdbToolsMachineCatalog.ReadAsync(path, cancellationToken)).Any(machine => machine.TableName == tableName))
+                throw new PriceReadException("Прайс отсутствует в каталоге станков.");
             // MDB Tools не экранирует запятые в числовых заголовках (0,5; 2,5).
             // Табуляция разделяет поля без попыток угадать исходные имена колонок.
             return await new MdbToolsTableExport(executable).ReadAsync(path, tableName,

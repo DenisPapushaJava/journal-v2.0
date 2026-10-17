@@ -34,6 +34,7 @@ public static class OleDbPriceReader
     internal static PriceTable Read(OleDbConnection connection, OleDbTransaction? transaction, string tableName, CancellationToken cancellationToken) => DiagnosticStages.Run(DiagnosticStage.ReadPrices, () =>
     {
         PriceTables.ValidateName(tableName);
+        OleDbMachineCatalog.RequireRegistered(connection, transaction, tableName, cancellationToken);
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         // Только имя из фиксированного списка. Никаких имён таблиц/SQL из полей формы.

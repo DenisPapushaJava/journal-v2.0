@@ -250,6 +250,36 @@ public sealed class AccessHostTests
             Assert.Null(await client.ReadRecordAsync(42, TestContext.Current.CancellationToken));
             Assert.Equal(changed, await client.RestoreAsync(changed, TestContext.Current.CancellationToken));
             Assert.Equal(changed, await client.ReadRecordAsync(42, TestContext.Current.CancellationToken));
+            var beforePrices = await client.ReadAsync(TestContext.Current.CancellationToken);
+            var gas = await client.ReadPriceTableAsync(PriceTables.GasOxygen, TestContext.Current.CancellationToken);
+            var gasValues = PriceEditingTests.Replace(gas, "20", 37);
+            Assert.True(PriceTableChange.Matches(gasValues, await client.SaveAsync(new(gas, gasValues), TestContext.Current.CancellationToken)));
+            Assert.True(PriceTableChange.Matches(gasValues, await client.ReadPriceTableAsync(gas.Name, TestContext.Current.CancellationToken)));
+            Assert.Equal(OrderWriteFailure.Conflict, (await Assert.ThrowsAsync<OrderWriteException>(() => client.SaveAsync(new(gas, gas), TestContext.Current.CancellationToken))).Failure);
+            Assert.Equal(beforePrices, await client.ReadAsync(TestContext.Current.CancellationToken));
+            var multiplePrices = await Assert.ThrowsAsync<OrderWriteException>(() => client.SaveAsync(new(plasma, plasma), TestContext.Current.CancellationToken));
+            Assert.Equal(OrderWriteFailure.NotSaved, multiplePrices.Failure);
+            Assert.True((await client.ReadPriceTableAsync(PriceCatalog.UnusedHansLaser, TestContext.Current.CancellationToken)).HasRow);
+            var expandedGas = PriceExpansionTests.Append(gasValues, new PriceRate(28m, "28", 87));
+            Assert.True(PriceTableChange.Matches(expandedGas, await client.SaveAsync(new(gasValues, expandedGas), TestContext.Current.CancellationToken)));
+            Assert.True(PriceTableChange.Matches(expandedGas, await client.ReadPriceTableAsync(gasValues.Name, TestContext.Current.CancellationToken)));
+            Assert.Equal(87m, CuttingPriceCalculator.Calculate(new("Газо-кислородная", 28m, 1, 1), expandedGas).StoredPrice);
+            Assert.Equal(beforePrices, await client.ReadAsync(TestContext.Current.CancellationToken));
+            Assert.Single(Directory.GetFiles(root, "*.before-price-expansion-*.bak"));
+            Assert.Empty(await client.ReadMachinesAsync(TestContext.Current.CancellationToken));
+            var machine = MachineCatalogTests.Machine("Гидроабразив 'А'"); var machineCreation = MachineCatalogTests.Creation(machine);
+            Assert.Equal(machine, await client.CreateMachineAsync(machineCreation, TestContext.Current.CancellationToken));
+            Assert.Equal(machine, Assert.Single(await client.ReadMachinesAsync(TestContext.Current.CancellationToken)));
+            Assert.True(PriceTableChange.Matches(new(machine.TableName, true, machineCreation.Rates),
+                await client.ReadPriceTableAsync(machine.TableName, TestContext.Current.CancellationToken)));
+            Assert.Equal(beforePrices, await client.ReadAsync(TestContext.Current.CancellationToken));
+            var waterjetDraft = MachineCatalogTests.Draft(machine);
+            var waterjetQuote = await new CuttingPriceService(client).CalculateAsync(waterjetDraft.PriceRequest, TestContext.Current.CancellationToken);
+            var waterjetCreated = await client.CreateAsync(waterjetDraft with { ExpectedQuote = waterjetQuote }, TestContext.Current.CancellationToken);
+            Assert.Equal(waterjetDraft.ToOrder(waterjetCreated.Id, 1200m), waterjetCreated);
+            var waterjetOriginal = (await client.ReadRecordAsync(waterjetCreated.Id, TestContext.Current.CancellationToken))!;
+            var waterjetSaved = await client.UpdateAsync(new(waterjetOriginal, waterjetOriginal with { CutLength = 3 }) { Machine = machine }, TestContext.Current.CancellationToken);
+            Assert.Equal(1800m, waterjetSaved.Price);
         }
         finally { Directory.Delete(root, recursive: true); }
     }

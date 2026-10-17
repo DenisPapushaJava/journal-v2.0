@@ -14,7 +14,8 @@ public sealed partial class LocalJournalStore
         return WriteAsync(book =>
         {
             if (Find(book, change.Expected.Id) != change.Expected) throw Conflict();
-            var saved = change.Calculate(book.Prices.Single(table => table.Name == CuttingPriceCalculator.SelectTable(change.PriceRequest)));
+            var machine = CuttingMachine.Verify(change.PriceRequest.CuttingType, change.Machine, book.Machines ?? []);
+            var saved = change.Calculate(book.Prices.Single(table => table.Name == CuttingPriceCalculator.SelectTable(change.PriceRequest, machine)), machine);
             return (Replace(book, saved), saved);
         }, cancellationToken);
     }

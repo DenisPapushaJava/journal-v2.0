@@ -34,15 +34,17 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default)
     {
         PriceTables.ValidateName(tableName);
-        return ReadAsync(book => book.Prices.Single(table => table.Name == tableName), cancellationToken);
+        return ReadAsync(book => book.Prices.SingleOrDefault(table => table.Name == tableName) ??
+            throw new PriceReadException("В локальной копии этого прайса нет."), cancellationToken);
     }
 
     public Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default) =>
         WriteAsync(book =>
         {
             draft.Validate();
-            var table = book.Prices.Single(price => price.Name == CuttingPriceCalculator.SelectTable(draft.PriceRequest));
-            var quote = draft.Calculate(table);
+            var machine = CuttingMachine.Verify(draft.CuttingType, draft.Machine, book.Machines ?? []);
+            var table = book.Prices.Single(price => price.Name == CuttingPriceCalculator.SelectTable(draft.PriceRequest, machine));
+            var quote = draft.Calculate(table, machine);
             if (book.LastIssuedId == int.MaxValue)
                 throw new OrderWriteException(OrderWriteFailure.NotSaved, "Закончился диапазон номеров локальных записей.");
             var order = draft.ToOrder(book.LastIssuedId + 1, quote.StoredPrice);
@@ -58,8 +60,9 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
                 throw new OrderWriteException(OrderWriteFailure.NotSaved, "Закончился диапазон номеров локальных записей.");
             var rows = snapshot.Select((draft, index) =>
             {
-                var table = book.Prices.Single(price => price.Name == CuttingPriceCalculator.SelectTable(draft.PriceRequest));
-                try { return draft.ToOrder(book.LastIssuedId + index + 1, draft.Calculate(table).StoredPrice); }
+                var machine = CuttingMachine.Verify(draft.CuttingType, draft.Machine, book.Machines ?? []);
+                var table = book.Prices.Single(price => price.Name == CuttingPriceCalculator.SelectTable(draft.PriceRequest, machine));
+                try { return draft.ToOrder(book.LastIssuedId + index + 1, draft.Calculate(table, machine).StoredPrice); }
                 catch (OrderPriceChangedException changed) { throw new OrderBatchPriceChangedException(index, changed.Quote); }
             }).ToArray();
             return (book with { LastIssuedId = rows[^1].Id, Orders = [.. book.Orders, .. rows] }, rows);
@@ -86,11 +89,11 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
         }, cancellationToken);
 
     public static Task InitializeAsync(string path, IReadOnlyList<OrderSummary> orders, IReadOnlyList<PriceTable> prices,
-        string sourceName, string sourceSha256, CancellationToken cancellationToken = default) => Task.Run(() =>
+        string sourceName, string sourceSha256, CancellationToken cancellationToken = default, IReadOnlyList<CuttingMachine>? machines = null) => Task.Run(() =>
         {
             var store = new LocalJournalStore(path);
             var book = new LocalJournalFile("Journal.LocalTestCopy", 1, sourceName, sourceSha256, DateTimeOffset.UtcNow,
-                Math.Max(0, orders.Select(row => row.Id).DefaultIfEmpty().Max()), orders.ToArray(), prices.ToArray());
+                Math.Max(0, orders.Select(row => row.Id).DefaultIfEmpty().Max()), orders.ToArray(), prices.ToArray(), Machines: machines?.ToArray());
             Validate(book);
             Directory.CreateDirectory(Path.GetDirectoryName(store._path)!);
             using var gate = store.Acquire(cancellationToken);
@@ -189,14 +192,15 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
 
     private static void Validate(LocalJournalFile book)
     {
+        _ = CuttingMachine.Snapshot(book.Machines ?? []);
         if (book.Format != "Journal.LocalTestCopy" || book.Version != 1 || string.IsNullOrEmpty(book.SourceName) ||
             book.SourceSha256 is not { Length: 64 } || !book.SourceSha256.All(Uri.IsHexDigit) ||
             book.Orders is null || book.Prices is null || book.LastIssuedId < 0 ||
             book.Orders.Any(row => row is null || row.Id > book.LastIssuedId || row.SpecificationNumber is null ||
                 row.ManagerName is null || row.CustomerName is null || row.MaterialName is null || row.CuttingType is null) ||
             book.Orders.Select(row => row.Id).Distinct().Count() != book.Orders.Length ||
-            book.Prices.Length != PriceTables.All.Count ||
-            !book.Prices.Select(table => table?.Name).ToHashSet().SetEquals(PriceTables.All))
+            book.Prices.Length != PriceTables.All.Count + (book.Machines?.Length ?? 0) ||
+            !book.Prices.Select(table => table?.Name).ToHashSet().SetEquals(PriceTables.All.Concat((book.Machines ?? []).Select(machine => machine.TableName))))
             throw new ArgumentException("Некорректный файл локальной копии.");
         if (book.Records is { } records)
         {
@@ -217,4 +221,4 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
 }
 
 internal sealed record LocalJournalFile(string Format, int Version, string SourceName, string SourceSha256,
-    DateTimeOffset ImportedAt, int LastIssuedId, OrderSummary[] Orders, PriceTable[] Prices, OrderRecord[]? Records = null);
+    DateTimeOffset ImportedAt, int LastIssuedId, OrderSummary[] Orders, PriceTable[] Prices, OrderRecord[]? Records = null, CuttingMachine[]? Machines = null);

@@ -3,8 +3,22 @@ using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Access;
 
-public sealed class AccessPriceReader(string path) : IPriceReader
+public sealed class AccessPriceReader(string path) : IPriceReader, IMachineCatalogReader
 {
+    public async Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await AccessDatabaseFile.ValidateAsync(path, cancellationToken);
+            if (AccessHostClient.IsBundled) return await new AccessHostClient(path).ReadMachinesAsync(cancellationToken);
+            if (OperatingSystem.IsWindows()) return await new OleDbMachineCatalog(path).ReadMachinesAsync(cancellationToken);
+            if (OperatingSystem.IsLinux()) return await MdbToolsMachineCatalog.ReadAsync(path, cancellationToken);
+            throw new PriceReadException("Чтение каталога реализовано для Windows и Linux.");
+        }
+        catch (Exception exception) when (exception is OrderReadException or IOException or UnauthorizedAccessException or ArgumentException)
+        { throw new PriceReadException("Не удалось прочитать каталог станков.", exception); }
+
+    }
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default)
     {
         PriceTables.ValidateName(tableName);

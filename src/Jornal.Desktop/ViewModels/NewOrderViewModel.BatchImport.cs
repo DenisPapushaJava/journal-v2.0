@@ -21,7 +21,7 @@ public partial class NewOrderViewModel
     public string BatchSummary => $"Готово: {BatchItems.Count(item => item.IsIncluded && item.IsReady)} из {IncludedCount}";
     public bool CanEditBatch => !SaveCommand.IsRunning && !CalculatePriceCommand.IsRunning && !IsSaved && !RequiresReload;
     public bool CanAddFiles => CanEditBatch && !IsImporting && !HasPendingImport;
-    private bool CanSaveBatch => _creator is IManualOrderBatchCreator && IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.IsReady);
+    private bool CanSaveBatch => _creator is IManualOrderBatchCreator && IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.IsReady && !item.Form.Material.NeedsReview);
 
     internal void NotifyBatchState()
     {
@@ -67,6 +67,7 @@ public partial class NewOrderViewModel
                 var form = NewBatchForm();
                 if (ImportPreview is { } previous) form.ApplyImport(previous, _importSourcePath);
                 for (var index = 0; index < Fields.Count; index++) form.Fields[index].Value = Fields[index].Value;
+                form.Material.NeedsReview = Material.NeedsReview;
                 form._quote = _quote; form.PriceText = PriceText; form.PriceBreakdown = PriceBreakdown;
                 var current = new BatchSpecificationItem(this, form, ImportPreview?.FileName ?? "Текущая заявка", _importSourcePath) { HasParameters = true, IsReading = false };
                 BatchItems.Add(current);
@@ -86,8 +87,11 @@ public partial class NewOrderViewModel
         await Task.WhenAll(pending.Select(item => ReadBatchItemAsync(item, cancellationToken)));
     }
 
-    private NewOrderViewModel NewBatchForm() => new(_creator, IsLocalCopy, IsDatabase, InitialColor)
-        { ImportReader = ImportReader, ExistingOrders = ExistingOrders };
+    private NewOrderViewModel NewBatchForm()
+    {
+        var form = new NewOrderViewModel(_creator, IsLocalCopy, IsDatabase, InitialColor) { ImportReader = ImportReader, ExistingOrders = ExistingOrders };
+        form.SetMachines(_machines); return form;
+    }
 
     private async Task ReadBatchItemAsync(BatchSpecificationItem item, CancellationToken cancellationToken)
     {
@@ -98,6 +102,8 @@ public partial class NewOrderViewModel
             if (SpecificationImportService.CheckFiles([item.Path ?? ""]) is { } error)
                 throw new DocumentRejectedException(DocumentRejection.UnsupportedFileType, error);
             await _batchReads.WaitAsync(linked.Token); entered = true;
+            await LoadMachinesAsync(linked.Token);
+            item.Form.SetMachines(_machines);
             var preview = await ImportReader.ReadAsync(item.Path!, linked.Token);
             linked.Token.ThrowIfCancellationRequested();
             if (!BatchItems.Contains(item)) return;

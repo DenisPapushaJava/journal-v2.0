@@ -244,6 +244,13 @@ public partial class MainWindow : Window
 
     private async void OnSettingsClick(object? sender, RoutedEventArgs e) => await ShowSettingsAsync(SettingsSection.General);
 
+    private async void OnPricesClick(object? sender, RoutedEventArgs e)
+    {
+        if (OwnedWindows.Count > 0 || _viewModel?.CreatePriceEditor() is not { } form) return;
+        var dialog = new PriceEditorWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
+        await dialog.ShowDialog(this);
+    }
+
     private async Task ShowSettingsAsync(SettingsSection section)
     {
         if (_viewModel is null || OwnedWindows.Count > 0) return;

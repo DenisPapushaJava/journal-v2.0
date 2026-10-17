@@ -9,8 +9,9 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 [SupportedOSPlatform("windows")]
-public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, IPriceReader, IManualOrderBatchCreator
+public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, IPriceReader, IManualOrderBatchCreator, IMachineCatalogReader
 {
+    public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => new OleDbMachineCatalog(path).ReadMachinesAsync(cancellationToken);
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) =>
         OleDbPriceReader.ReadAsync(path, tableName, cancellationToken);
 
@@ -51,10 +52,11 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
                 {
                     var draft = snapshot[index];
                     token.ThrowIfCancellationRequested();
-                    var name = CuttingPriceCalculator.SelectTable(draft.PriceRequest);
+                    var machine = OleDbMachineCatalog.Verify(connection, transaction, draft.CuttingType, draft.Machine, token);
+                    var name = CuttingPriceCalculator.SelectTable(draft.PriceRequest, machine);
                     if (!tables.TryGetValue(name, out var table))
                         tables[name] = table = OleDbPriceReader.Read(connection, transaction, name, token);
-                    try { preparedRows.Add(draft.ToOrder(0, DiagnosticStages.Run(DiagnosticStage.CalculatePrice, () => draft.Calculate(table)).StoredPrice)); }
+                    try { preparedRows.Add(draft.ToOrder(0, DiagnosticStages.Run(DiagnosticStage.CalculatePrice, () => draft.Calculate(table, machine)).StoredPrice)); }
                     catch (OrderPriceChangedException changed) when (batch) { throw new OrderBatchPriceChangedException(index, changed.Quote); }
                 }
                 var savedRows = new List<OrderSummary>();

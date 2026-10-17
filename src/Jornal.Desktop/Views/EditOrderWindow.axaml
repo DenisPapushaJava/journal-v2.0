@@ -88,7 +88,7 @@
           <TextBlock Text="{Binding ImportError}" IsVisible="{Binding HasImportError}" TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" />
           <StackPanel IsVisible="{Binding HasImport}" Spacing="8">
             <TextBlock x:Name="ImportFileName" Text="{Binding ImportPreview.FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ImportPreview.FileName}" FontWeight="Medium" />
-            <TextBlock Text="{Binding ImportPreview.Diagnostics}" IsVisible="{Binding HasImportDiagnostics}" TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" />
+            <TextBlock Text="{Binding ImportDiagnostics}" IsVisible="{Binding HasImportDiagnostics}" TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" />
           </StackPanel>
           <StackPanel x:Name="OrderChangesPanel" IsVisible="{Binding HasChanges}" Spacing="8">
             <Border Height="1" Background="{DynamicResource JournalBorder}" Margin="0,8" />

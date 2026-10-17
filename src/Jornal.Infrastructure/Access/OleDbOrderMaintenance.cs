@@ -9,8 +9,9 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 [SupportedOSPlatform("windows")]
-public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
+public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMachineCatalogReader
 {
+    public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => new OleDbMachineCatalog(path).ReadMachinesAsync(cancellationToken);
     private static readonly string[] Names = AccessOrderMapper.Columns.ToArray();
     private static readonly OleDbType[] Types = [OleDbType.Integer, OleDbType.Date, OleDbType.VarWChar, OleDbType.VarWChar,
         OleDbType.VarWChar, OleDbType.VarWChar, OleDbType.VarWChar, OleDbType.VarWChar, OleDbType.VarWChar,
@@ -41,8 +42,9 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
         return PrepareAndWrite(change.Values.CuttingTime is not null, (connection, transaction, token) =>
         {
             if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, change.Expected.Id)) != change.Expected) throw Conflict();
-            var table = OleDbPriceReader.Read(connection, transaction, CuttingPriceCalculator.SelectTable(change.PriceRequest), token);
-            var values = DiagnosticStages.Run(DiagnosticStage.CalculatePrice, () => change.Calculate(table));
+            var machine = OleDbMachineCatalog.Verify(connection, transaction, change.PriceRequest.CuttingType, change.Machine, token);
+            var table = OleDbPriceReader.Read(connection, transaction, CuttingPriceCalculator.SelectTable(change.PriceRequest, machine), token);
+            var values = DiagnosticStages.Run(DiagnosticStage.CalculatePrice, () => change.Calculate(table, machine));
             using var command = Command(connection, transaction);
             command.CommandText = "UPDATE [Orders] SET " + string.Join(", ", Names.Skip(1).Select(name => $"[{name}] = ?"));
             AddValues(command, values, skipId: true);

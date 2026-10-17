@@ -43,9 +43,12 @@ public partial class EditOrderViewModel : ObservableObject
         Func<CancellationToken, Task<OrderRecord?>> refresh)
     {
         _expected = expected; _store = store; SourceDescription = sourceDescription; _refresh = refresh;
+        if (!string.IsNullOrWhiteSpace(expected.CuttingType) && !CuttingMachine.LegacyNames.Contains(expected.CuttingType))
+            CuttingType.Choices = [.. CuttingMachine.LegacyNames, expected.CuttingType];
         Populate(expected);
         foreach (var field in Fields) field.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName == nameof(OrderEntryField.NeedsReview)) { OnPropertyChanged(nameof(ImportDiagnostics)); OnPropertyChanged(nameof(HasImportDiagnostics)); NotifyBusy(); return; }
             if (e.PropertyName != nameof(OrderEntryField.Value)) return;
             field.Error = null;
             if (field == CuttingTime && !_populating) _timeEdited = true;
@@ -92,7 +95,7 @@ public partial class EditOrderViewModel : ObservableObject
     public bool HasChanges => Changes.Count > 0;
     public bool HasError => Error is not null;
     public bool IsBusy => SaveCommand.IsRunning || CalculateCommand.IsRunning || RefreshCommand.IsRunning || IsImporting;
-    public bool CanSave => !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null;
+    public bool CanSave => !Material.NeedsReview && !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null;
     public bool CanRefresh => RequiresReload && !IsBusy && !HasPendingImport;
     partial void OnRequiresReloadChanged(bool value) => NotifyBusy();
     private void NotifyBusy()
@@ -134,6 +137,9 @@ public partial class EditOrderViewModel : ObservableObject
 
     public OrderEditChange BuildChange()
     {
+        if (Material.NeedsReview) throw new ArgumentException("Подтвердите материал.");
+        if (ImportPreview?.Report.Profile == CuttingMachine.WaterjetProfile && SelectedMachine?.SpecificationProfileId != CuttingMachine.WaterjetProfile)
+            throw new ArgumentException("Выберите станок с профилем AWJC.");
         foreach (var field in Fields) field.Error = null;
         ValidateImportedParameters();
         string? Text(OrderEntryField field, string? original)
@@ -175,7 +181,7 @@ public partial class EditOrderViewModel : ObservableObject
             storedCoefficient = string.Join('|', parts);
         }
         var material = Text(Material, _expected.Material);
-        if (Material.Value != _initial[Material] && material?.Any(char.IsWhiteSpace) == true)
+        if (Material.Value != _initial[Material] && SelectedMachine?.SpecificationProfileId != CuttingMachine.WaterjetProfile && material?.Any(char.IsWhiteSpace) == true)
         { Material.Error = "Материал без пробелов"; throw new ArgumentException("Материал"); }
         if (SheetCount.Value != _initial[SheetCount] && !OrderSheetCount.IsValid(SheetCount.Value.Trim()))
         { SheetCount.Error = OrderSheetCount.ValidationMessage; throw new ArgumentException("Количество листов"); }
@@ -186,7 +192,7 @@ public partial class EditOrderViewModel : ObservableObject
         if (!CuttingDuration.TryParse(CuttingTime.Value, out var minutes))
         { CuttingTime.Error = CuttingDuration.ValidationMessage; throw new ArgumentException(CuttingTime.Error); }
         if (_timeEdited) values = values with { CuttingTime = minutes is { } time ? OrderCuttingTime.For(values.ToSummary(), time) : null };
-        var change = new OrderEditChange(_expected, values, _quote); change.Validate(); return change;
+        var change = new OrderEditChange(_expected, values, _quote) { Machine = SelectedMachine }; change.Validate(); return change;
     }
 
     [RelayCommand]

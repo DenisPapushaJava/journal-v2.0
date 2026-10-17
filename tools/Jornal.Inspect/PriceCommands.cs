@@ -13,7 +13,7 @@ internal static class PriceCommands
     public static void PrintUsage()
     {
         Console.Error.WriteLine("Jornal.Inspect prices <база.mdb>");
-        Console.Error.WriteLine("Jornal.Inspect price <база.mdb> <Лазер|Плазма|Газо-кислородная|HansLaser> <толщина_мм> <целые_метры> <коэффициент> [ID_материала]");
+        Console.Error.WriteLine("Jornal.Inspect price <база.mdb> <название_станка> <толщина_мм> <целые_метры> <коэффициент> [ID_материала]");
     }
 
     public static async Task<int> RunAsync(string[] args)
@@ -22,7 +22,12 @@ internal static class PriceCommands
         {
             var reader = new AccessPriceReader(args[1]);
             var failed = false;
-            foreach (var name in PriceTables.All)
+            IReadOnlyList<CuttingMachine> machines;
+            try { machines = await reader.ReadMachinesAsync(); }
+            catch (Exception exception) when (exception is PriceReadException or ArgumentException)
+            { Console.Error.WriteLine("Каталог станков: " + exception.Message); return 1; }
+            foreach (var machine in machines) Console.WriteLine(JsonSerializer.Serialize(machine, JsonOptions));
+            foreach (var name in PriceTables.All.Concat(machines.Select(machine => machine.TableName)))
             {
                 try { Console.WriteLine(JsonSerializer.Serialize(await reader.ReadAsync(name), JsonOptions)); }
                 catch (Exception exception) when (exception is PriceReadException or ArgumentException)

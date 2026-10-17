@@ -28,6 +28,7 @@ public partial class NewOrderWindow : Window
     {
         base.OnOpened(e);
         WindowSizing.FitToWorkingArea(this);
+        if (_viewModel is not null) _ = _viewModel.LoadMachinesAsync(_importLifetime.Token);
         this.GetVisualDescendants().OfType<OrderEntryControl>().FirstOrDefault(control => control.IsEffectivelyVisible)?.FocusInput();
     }
 

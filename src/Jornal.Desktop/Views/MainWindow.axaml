@@ -21,23 +21,25 @@
   <Grid RowDefinitions="52,Auto,Auto,*,32">
     <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
             BorderThickness="0,0,0,1" Padding="24,0">
-      <Grid ColumnDefinitions="Auto,24,*,Auto,8,Auto,8,Auto,8,Auto,8,Auto">
+      <Grid ColumnDefinitions="Auto,24,*,Auto,8,Auto,8,Auto,8,Auto,8,Auto,8,Auto">
         <TextBlock Text="Журнал заявок" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
         <TextBlock x:Name="SourceDescriptionText" Grid.Column="2" Text="{Binding SourceDescription}" ToolTip.Tip="{Binding SourceDetails}"
                    Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-        <Grid Grid.Column="3" VerticalAlignment="Center">
+        <ui:JournalButton Grid.Column="3" x:Name="PricesButton" Label="Прайсы" Icon="columns-3" Height="32"
+                          Click="OnPricesClick" IsEnabled="{Binding CanOpenPrices}" ToolTip.Tip="Прайсы на резку" VerticalAlignment="Center" />
+        <Grid Grid.Column="5" VerticalAlignment="Center">
           <ui:JournalButton x:Name="UpdatesButton" Label="{Binding Updates.NotificationText}" Icon="bell" IconOnly="True" Width="32" Height="32" Padding="0"
                             Click="OnUpdatesClick" IsEnabled="{Binding CanCheckUpdates}" ToolTip.Tip="{Binding Updates.NotificationText}" />
           <Ellipse x:Name="UpdateBadge" Width="7" Height="7" Fill="{DynamicResource JournalAccent}" IsVisible="{Binding Updates.HasUpdate}"
                    HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False" />
         </Grid>
-        <ToggleButton Grid.Column="5" x:Name="ThemeButton" Theme="{StaticResource JournalThemeSwitch}"
+        <ToggleButton Grid.Column="7" x:Name="ThemeButton" Theme="{StaticResource JournalThemeSwitch}"
                       IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" VerticalAlignment="Center"
                       ToolTip.Tip="{Binding ThemeActionLabel}" AutomationProperties.Name="{Binding ThemeActionLabel}" />
-        <ui:JournalButton Grid.Column="7" x:Name="PersonalizeButton" Label="Настроить экран" Icon="panels-top-left"
+        <ui:JournalButton Grid.Column="9" x:Name="PersonalizeButton" Label="Настроить экран" Icon="panels-top-left"
                           IconOnly="True" Width="32" Height="32" Padding="0" Click="OnCustomizeClick" IsEnabled="{Binding CanConfigureScreen}"
                           ToolTip.Tip="Настроить экран" VerticalAlignment="Center" />
-        <Grid Grid.Column="11" Width="40" Height="36" VerticalAlignment="Center">
+        <Grid Grid.Column="13" Width="40" Height="36" VerticalAlignment="Center">
           <ui:JournalButton x:Name="TrashButton" Label="Корзина" Icon="trash" IconOnly="True" Width="32" Height="32" Padding="0"
                             IsEnabled="{Binding CanOpenTrash}" Click="OnTrashClick" ToolTip.Tip="{Binding TrashHint}" AutomationProperties.Name="{Binding TrashHint}" VerticalAlignment="Bottom" HorizontalAlignment="Left" />
           <Border x:Name="TrashBadge" Background="{DynamicResource JournalAccent}" CornerRadius="8" Padding="3,0" MinWidth="16" MaxWidth="28" Height="16"
@@ -45,7 +47,7 @@
             <TextBlock Text="{Binding TrashBadgeText}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource JournalOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
         </Grid>
-        <ui:JournalButton x:Name="SettingsButton" Grid.Column="9" Label="Настройки" Icon="settings" IconOnly="True" Width="32" Height="32" Padding="0" ToolTip.Tip="Настройки"
+        <ui:JournalButton x:Name="SettingsButton" Grid.Column="11" Label="Настройки" Icon="settings" IconOnly="True" Width="32" Height="32" Padding="0" ToolTip.Tip="Настройки"
                           Click="OnSettingsClick" VerticalAlignment="Center" />
       </Grid>
     </Border>
@@ -234,16 +236,13 @@
         </Border>
         <Border x:Name="TablePanel" Grid.Row="3" Classes="panel" ClipToBounds="True">
           <Grid>
-            <DataGrid DoubleTapped="OnOrdersDoubleTapped" x:Name="OrdersGrid" Classes="reserved-scrollbars" IsEnabled="{Binding CanInteractWithTable}" ItemsSource="{Binding Orders}" AutoGenerateColumns="False" IsReadOnly="True"
+            <DataGrid DoubleTapped="OnOrdersDoubleTapped" x:Name="OrdersGrid" IsEnabled="{Binding CanInteractWithTable}" ItemsSource="{Binding Orders}" AutoGenerateColumns="False" IsReadOnly="True"
                       SelectionMode="Extended" GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                       RowHeight="32" ColumnHeaderHeight="44" FontSize="13" BorderThickness="0"
                       CanUserResizeColumns="True" CanUserReorderColumns="True" CanUserSortColumns="{Binding CanUseJournal}"
                       FrozenColumnCount="1"
                       SelectionChanged="OnSelectionChanged" CurrentCellChanged="OnCurrentCellChanged"
                       HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-              <DataGrid.Resources>
-                <x:Double x:Key="ScrollBarSize">12</x:Double>
-              </DataGrid.Resources>
               <DataGrid.Columns>
                 <DataGridTemplateColumn Width="44" MinWidth="44" MaxWidth="44" CanUserSort="False"
                                         CanUserReorder="False" CanUserResize="False">

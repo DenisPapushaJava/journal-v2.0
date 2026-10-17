@@ -50,6 +50,7 @@ public sealed record OrderRecord(int Id, DateTime? Date, string? Manager, string
 
 public sealed record OrderEditChange(OrderRecord Expected, OrderRecord Values, CuttingPriceQuote? ExpectedQuote = null)
 {
+    public CuttingMachine? Machine { get; init; }
     public void Validate()
     {
         Expected.Validate(); Values.Validate();
@@ -58,12 +59,12 @@ public sealed record OrderEditChange(OrderRecord Expected, OrderRecord Values, C
         var before = Expected.TextValues; var after = Values.TextValues;
         if (Enumerable.Range(0, 8).Any(index => before[index] != after[index] &&
                 (string.IsNullOrWhiteSpace(after[index]) || after[index]!.Any(char.IsControl))) ||
-            Values.Material != Expected.Material && Values.Material?.Any(char.IsWhiteSpace) == true ||
+            Values.Material != Expected.Material && Machine?.SpecificationProfileId != CuttingMachine.WaterjetProfile && Values.Material?.Any(char.IsWhiteSpace) == true ||
             Values.Date != Expected.Date && Values.Date is null)
             throw new OrderWriteException(OrderWriteFailure.NotSaved, "Проверьте изменённые поля. Обязательный текст нельзя очистить, материал указывается без пробелов.");
         if (Values.SheetCount != Expected.SheetCount && !OrderSheetCount.IsValid(Values.SheetCount))
             throw new OrderWriteException(OrderWriteFailure.NotSaved, OrderSheetCount.ValidationMessage);
-        _ = CuttingPriceCalculator.SelectTable(PriceRequest);
+        _ = CuttingPriceCalculator.SelectTable(PriceRequest, Machine);
     }
 
     [JsonIgnore] public CuttingPriceRequest PriceRequest
@@ -78,10 +79,10 @@ public sealed record OrderEditChange(OrderRecord Expected, OrderRecord Values, C
         }
     }
 
-    public OrderRecord Calculate(PriceTable table)
+    public OrderRecord Calculate(PriceTable table, CuttingMachine? machine = null)
     {
         Validate();
-        var quote = CuttingPriceCalculator.Calculate(PriceRequest, table);
+        var quote = CuttingPriceCalculator.Calculate(PriceRequest, table, machine ?? Machine);
         if (ExpectedQuote is not null && ExpectedQuote != quote) throw new OrderEditPriceChangedException(quote);
         return Values with { Price = quote.StoredPrice };
     }

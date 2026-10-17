@@ -50,6 +50,6 @@ public sealed record SpecificationParseResult(
     public bool IsComplete => IsRecognized && !HasErrors && Header is not null && CuttingType is not null && Material is not null &&
         SheetLayouts.Count > 0 && SheetLayouts.Select(layout => layout.Value.Dimensions.ThicknessMillimeters).Distinct().Count() == 1 &&
         SheetCount is not null && CutLengthMillimeters is not null && WeightKilograms is not null &&
-        PartCount is not null && PunchCount is not null &&
+        (Profile == WaterjetPdfSpecificationParser.Profile || PartCount is not null && PunchCount is not null) &&
         (Profile != HansPdfSpecificationParser.Profile || MaterialId is not null && CuttingGas is not null);
 }
