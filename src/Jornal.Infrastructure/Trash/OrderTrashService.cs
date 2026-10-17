@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Text.Json.Serialization;
 using Jornal.Core.Orders;
 
@@ -90,7 +91,7 @@ public sealed class OrderTrashService(IOrderMaintenance maintenance, TrashSource
             results.Add(result);
             // Ошибка отображения прогресса не должна менять подтверждённый результат записи.
             try { progress?.Invoke(result); }
-            catch (Exception exception) { System.Diagnostics.Trace.TraceError("Trash progress: {0}", exception); }
+            catch (Exception exception) { AppDiagnostics.Capture(DiagnosticOperation.Trash, exception); }
         }
         return new(results);
     }
@@ -194,6 +195,6 @@ public sealed class OrderTrashService(IOrderMaintenance maintenance, TrashSource
     {
         try { await lease.SaveAsync(entry); }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        { System.Diagnostics.Trace.TraceError("Trash state was kept pending: {0}", exception); }
+        { AppDiagnostics.Capture(DiagnosticOperation.Trash, exception); }
     }
 }

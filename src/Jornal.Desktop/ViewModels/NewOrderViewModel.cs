@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -13,27 +14,29 @@ public partial class NewOrderViewModel : ObservableObject
     private bool _submitted;
     private CuttingPriceQuote? _quote;
 
-    public NewOrderViewModel(IManualOrderCreator creator, bool isLocalCopy = false, bool isDatabase = false)
+    public NewOrderViewModel(IManualOrderCreator creator, bool isLocalCopy = false, bool isDatabase = false, int initialColor = OrderColors.None)
     {
         _creator = creator;
+        InitialColor = initialColor;
         IsLocalCopy = isLocalCopy;
         IsDatabase = isDatabase;
         foreach (var field in Fields) field.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(OrderEntryField.Value)) return;
             if (_submitted) Validate();
+            if (IsBatchMode && (field == Manager || field == Customer)) SyncBatchSharedFields();
             if (field == CuttingType || field == Thickness || field == CutLength || field == Coefficient || field == MaterialId)
             { _quote = null; PriceText = "Не рассчитана"; PriceBreakdown = ""; PriceError = null; }
         };
         SaveCommand.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(IAsyncRelayCommand.IsRunning)) return;
-            OnPropertyChanged(nameof(IsBusy)); CalculatePriceCommand.NotifyCanExecuteChanged();
+            OnPropertyChanged(nameof(IsBusy)); CalculatePriceCommand.NotifyCanExecuteChanged(); NotifyBatchState();
         };
         CalculatePriceCommand.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(IAsyncRelayCommand.IsRunning)) return;
-            OnPropertyChanged(nameof(IsBusy)); SaveCommand.NotifyCanExecuteChanged();
+            OnPropertyChanged(nameof(IsBusy)); SaveCommand.NotifyCanExecuteChanged(); NotifyBatchState();
         };
         CuttingType.PropertyChanged += (_, e) =>
         {
@@ -41,70 +44,77 @@ public partial class NewOrderViewModel : ObservableObject
         };
     }
 
+    public int InitialColor { get; }
     public bool IsLocalCopy { get; }
     public bool IsDatabase { get; }
     public AccessHostHelpViewModel AccessHostHelp { get; } = new();
     partial void OnPriceErrorChanged(string? value) { if (value is null && SaveError is null) AccessHostHelp.ShowFor(null); }
     partial void OnSaveErrorChanged(string? value) { if (value is null && PriceError is null) AccessHostHelp.ShowFor(null); }
     public bool HasPricing => _creator is IPriceReader;
-    public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning || IsImporting;
+    public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning || IsImporting || IsBatchReading;
     [ObservableProperty] private string _priceText = "Не рассчитана";
     [ObservableProperty] private string _priceBreakdown = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPriceError))] private string? _priceError;
     public bool HasPriceError => PriceError is not null;
-    public string WindowTitle => IsLocalCopy ? "Новая заявка · Локальная копия" : IsDatabase ? "Новая заявка · MDB" : "Новая заявка · Деморежим";
-    public string StorageDescription => (HasImport ? "Из спецификации · " : "Ручной ввод · ") + (IsLocalCopy ? "Локальная тестовая копия — изменения сохраняются между запусками" :
-        IsDatabase ? "Сохранение в подключённую MDB" : "Деморежим — данные доступны до закрытия программы");
-    public string SaveDescription => IsLocalCopy ? "Добавление в локальную копию; исходная MDB не меняется" :
-        IsDatabase ? "Новая заявка будет добавлена в MDB с расчётом по её прайсу" : "Добавление только в деможурнал текущего сеанса";
-    public string SaveLabel => IsLocalCopy || IsDatabase ? "Добавить заявку" : "Добавить в деможурнал";
-    public string PriceDescription => IsDatabase ? "Тариф проверяется при сохранении. Если он изменился, покажем новую цену." :
-        IsLocalCopy ? "При сохранении цена рассчитывается по прайсам, перенесённым из MDB. Существующие суммы не пересчитываются." :
-        "Расчёт появится после подключения прайсов из базы.";
+    public string Heading => IsBatchMode ? "Пакетный импорт" : "Новая заявка";
+    public string WindowTitle => IsBatchMode ? "Пакетный импорт · " + StorageDescription : IsLocalCopy ? "Новая заявка · Локальная копия" : IsDatabase ? "Новая заявка · MDB" : "Новая заявка · Деморежим";
+    public string StorageDescription => IsLocalCopy ? "Локальная тестовая копия" :
+        IsDatabase ? "MDB" : "Деморежим · без сохранения";
+    public string SaveLabel => IsBatchMode ? "Добавить " + IncludedCount + " " + (IncludedCount % 100 is >= 11 and <= 14 ? "заявок" : IncludedCount % 10 == 1 ? "заявку" : IncludedCount % 10 is >= 2 and <= 4 ? "заявки" : "заявок") : IsLocalCopy || IsDatabase ? "Добавить заявку" : "Добавить в деможурнал";
 
-    public OrderEntryField OrderDate { get; } = new("Дата *", "ДД.ММ.ГГГГ");
-    public OrderEntryField SpecificationNumber { get; } = new("№ спецификации *", "Например, 1015-1004");
-    public OrderEntryField Manager { get; } = new("Менеджер *", "Введите имя");
-    public OrderEntryField Customer { get; } = new("Заказчик *", "Введите название");
+    public OrderEntryField OrderDate { get; } = new("Дата *");
+    public OrderEntryField SpecificationNumber { get; } = new("№ спецификации *");
+    public OrderEntryField Manager { get; } = new("Менеджер *");
+    public OrderEntryField Customer { get; } = new("Заказчик *");
     public OrderEntryField CuttingType { get; } = new("Вид резки / станок *", choices:
         ["Лазер", "Плазма", "Газо-кислородная", "HansLaser"]);
-    public OrderEntryField Material { get; } = new("Материал *", "Любая марка без пробелов");
-    public OrderEntryField Thickness { get; } = new("Толщина, мм *", "Например, 2,5");
-    public OrderEntryField SheetSize { get; } = new("Размер листа, мм *", "Например, 1500x3000");
-    public OrderEntryField SheetCount { get; } = new("Количество листов *", "Например, 2 или 1,3");
-    public OrderEntryField Weight { get; } = new("Вес, кг *", "Например, 38,5");
-    public OrderEntryField CutLength { get; } = new("Длина реза, м *", "Целое число метров");
+    public OrderEntryField Material { get; } = new("Материал *");
+    public OrderEntryField Thickness { get; } = new("Толщина, мм *");
+    public OrderEntryField SheetSize { get; } = new("Размер листа, мм *");
+    public OrderEntryField SheetCount { get; } = new("Количество листов *");
+    public OrderEntryField Weight { get; } = new("Вес, кг *");
+    public OrderEntryField CutLength { get; } = new("Длина реза, м *");
+    public OrderEntryField CuttingTime { get; } = new("Время резки, ч:мин");
     public OrderEntryField Coefficient { get; } = new("Коэффициент *", value: "1");
-    public OrderEntryField MaterialId { get; } = new("ID материала HansLaser", "Если известен");
-    public OrderEntryField Gas { get; } = new("Газ HansLaser", "Если известен");
+    public OrderEntryField MaterialId { get; } = new("ID материала HansLaser");
+    public OrderEntryField Gas { get; } = new("Газ HansLaser");
     public bool IsHansLaser => CuttingType.Value == "HansLaser";
     public IReadOnlyList<OrderEntryField> Fields => [OrderDate, SpecificationNumber, Manager, Customer,
-        CuttingType, Material, Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas];
+        CuttingType, Material, Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas, CuttingTime];
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSaveError))] private string? _saveError;
     [ObservableProperty] private bool _hasValidationErrors;
     [ObservableProperty] private bool _isSaved;
     public bool HasSaveError => SaveError is not null;
     public OrderSummary? CreatedOrder { get; private set; }
+    public IReadOnlyList<OrderSummary> CreatedOrders { get; private set; } = [];
     public event EventHandler? Saved;
     public event EventHandler? ReloadRequired;
     [ObservableProperty] private bool _requiresReload;
-    partial void OnRequiresReloadChanged(bool value) => SaveCommand.NotifyCanExecuteChanged();
+    partial void OnRequiresReloadChanged(bool value) { SaveCommand.NotifyCanExecuteChanged(); NotifyBatchState(); }
 
     public void ResumeAfterReload()
     {
         RequiresReload = false;
-        SaveError = "Ввод восстановлен. Перед повторным добавлением проверьте список: предыдущая заявка могла сохраниться.";
+        if (IsBatchMode) UpdateDuplicateWarnings();
+        SaveError = IsBatchMode ? "Ввод восстановлен. Перед повторным добавлением проверьте список: пакет мог сохраниться." : "Ввод восстановлен. Перед повторным добавлением проверьте список: предыдущая заявка могла сохраниться.";
     }
 
-    private bool CanSave() => !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning && !IsImporting && !HasPendingImport;
+    private bool CanSave() => (!IsBatchMode || CanSaveBatch) && !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning && !IsImporting && !HasPendingImport;
 
-    private bool CanCalculatePrice() => HasPricing && !IsSaved && !SaveCommand.IsRunning && !IsImporting && !HasPendingImport;
+    private bool CanCalculatePrice() => (!IsBatchMode || CanSaveBatch) && !RequiresReload && HasPricing && !IsSaved && !SaveCommand.IsRunning && !IsImporting && !HasPendingImport;
 
     [RelayCommand(CanExecute = nameof(CanCalculatePrice))]
     private async Task CalculatePriceAsync(CancellationToken cancellationToken)
     {
+        AppDiagnostics.Current?.Mark(DiagnosticOperation.PriceRead);
         if (!CanCalculatePrice()) return;
+        if (IsBatchMode)
+        {
+            try { await CalculateBatchPricesAsync(cancellationToken); }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+            return;
+        }
         PriceError = null;
         AccessHostHelp.ShowFor(null);
         _quote = null;
@@ -122,28 +132,21 @@ public partial class NewOrderViewModel : ObservableObject
             ShowQuote(quote);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (Exception exception) when (exception is PriceCalculationException or PriceReadException or OrderReadException)
-        { PriceError = exception.Message; AccessHostHelp.ShowFor(exception); }
+        catch (Exception exception)
+        { PriceError = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось рассчитать цену."); AccessHostHelp.ShowFor(exception); }
     }
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
+        AppDiagnostics.Current?.Mark(DiagnosticOperation.OrderCreate);
         if (!CanSave()) return;
+        if (IsBatchMode) { await SaveBatchAsync(); return; }
         _submitted = true;
         SaveError = null;
         AccessHostHelp.ShowFor(null);
         if (!Validate()) return;
-        DateOnly.TryParseExact(OrderDate.Value.Trim(), "dd.MM.yyyy", CultureInfo.InvariantCulture,
-            DateTimeStyles.None, out var date);
-        TryDecimal(Thickness.Value, out var thickness);
-        TryDecimal(Coefficient.Value, out var coefficient);
-        int.TryParse(CutLength.Value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var length);
-        var draft = new ManualOrderDraft(date, SpecificationNumber.Value.Trim(), Manager.Value.Trim(),
-            Customer.Value.Trim(), CuttingType.Value, Material.Value.Trim(), thickness, SheetSize.Value.Trim(),
-            SheetCount.Value.Trim(), length, Weight.Value.Trim(), coefficient,
-            IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "")
-            { ExpectedQuote = _quote, PartCount = ImportPreview?.PartCount, PunchCount = ImportPreview?.PunchCount };
+        var draft = BuildDraft();
         try
         {
             CreatedOrder = await _creator.CreateAsync(draft);
@@ -156,18 +159,39 @@ public partial class NewOrderViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            Trace.TraceError("Manual order creation failed: {0}", exception);
-            SaveError = exception is PriceCalculationException or OrderWriteException ? exception.Message :
-                "Не удалось добавить заявку. Введённые данные сохранены в форме — попробуйте ещё раз.";
+            SaveError = AppDiagnostics.Describe(DiagnosticOperation.OrderCreate, exception,
+                "Не удалось добавить заявку. Введённые данные сохранены в форме — попробуйте ещё раз.");
             AccessHostHelp.ShowFor(exception);
             if (exception is OrderWriteException { RequiresReload: true })
             { RequiresReload = true; ReloadRequired?.Invoke(this, EventArgs.Empty); }
             return;
         }
+        CreatedOrders = [CreatedOrder!];
         IsSaved = true;
         SaveCommand.NotifyCanExecuteChanged();
         CalculatePriceCommand.NotifyCanExecuteChanged();
         Saved?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal ManualOrderDraft BuildDraft()
+    {
+        DateOnly.TryParseExact(OrderDate.Value.Trim(), "dd.MM.yyyy", CultureInfo.InvariantCulture,
+            DateTimeStyles.None, out var date);
+        TryDecimal(Thickness.Value, out var thickness);
+        TryDecimal(Coefficient.Value, out var coefficient);
+        int.TryParse(CutLength.Value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var length);
+        return new ManualOrderDraft(date, SpecificationNumber.Value.Trim(), Manager.Value.Trim(),
+            Customer.Value.Trim(), CuttingType.Value, Material.Value.Trim(), thickness, SheetSize.Value.Trim(),
+            SheetCount.Value.Trim(), length, Weight.Value.Trim(), coefficient,
+            IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "")
+            { InitialColor = InitialColor, ExpectedQuote = _quote, PartCount = ImportPreview?.PartCount, PunchCount = ImportPreview?.PunchCount,
+                CuttingDurationMinutes = CuttingDuration.TryParse(CuttingTime.Value, out var minutes) ? minutes : null };
+    }
+
+    internal bool ValidateBatchParameters()
+    {
+        Validate();
+        return !Fields.Where(field => field != Manager && field != Customer).Any(field => field.HasError);
     }
 
     private void ShowQuote(CuttingPriceQuote quote)
@@ -189,7 +213,7 @@ public partial class NewOrderViewModel : ObservableObject
             }
             var value = field.Value.Trim();
             field.Error = value.Length > 255 ? "Не более 255 символов." :
-                field != MaterialId && field != Gas && value.Length == 0 ? "Заполните поле." : null;
+                field != MaterialId && field != Gas && field != CuttingTime && value.Length == 0 ? "Заполните поле." : null;
         }
         if (OrderDate.Error is null && !DateOnly.TryParseExact(OrderDate.Value.Trim(), "dd.MM.yyyy",
             CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
@@ -215,7 +239,7 @@ public partial class NewOrderViewModel : ObservableObject
         }
         if (CutLength.Error is null && !int.TryParse(CutLength.Value.Trim(), NumberStyles.None,
             CultureInfo.InvariantCulture, out _))
-            CutLength.Error = "Целое число от 0 до 2147483647 м, как в журнале.";
+            CutLength.Error = "Укажите целое число метров.";
         if (Coefficient.Error is null && (!TryDecimal(Coefficient.Value, out var coefficient) || coefficient <= 0))
             Coefficient.Error = "Коэффициент должен быть положительным числом.";
         if (RequiresImportedHansFields)
@@ -224,6 +248,7 @@ public partial class NewOrderViewModel : ObservableObject
                 MaterialId.Error = "Проверьте ID: 0 — сталь, 1 — нержавеющая, 2 — цветной, -1 — стандартный прайс.";
             if (string.IsNullOrWhiteSpace(Gas.Value)) Gas.Error = "Проверьте газ по спецификации.";
         }
+        if (!CuttingDuration.TryParse(CuttingTime.Value, out _)) CuttingTime.Error = CuttingDuration.ValidationMessage;
         HasValidationErrors = Fields.Any(field => field.HasError);
         return !HasValidationErrors;
     }

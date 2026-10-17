@@ -6,7 +6,7 @@
       <ComboBox x:Name="ResultFontSize" ItemsSource="{Binding ResultFontSizes}" SelectedItem="{Binding ResultFontSizePoints, Mode=TwoWay}"
                 Width="64" Height="28" MinHeight="28" Padding="6,2" FontSize="12"
                 Background="#CCDEE4EC" Foreground="#455166" BorderBrush="#99BFC7D2" CornerRadius="4"
-                ToolTip.Tip="Размер всего результата: 8, 10, 12 или 14 pt · по умолчанию 10 pt"
+                ToolTip.Tip="Размер шрифта"
                 AutomationProperties.Name="Размер шрифта результата, pt" />
     </ThemeVariantScope>
     <TextBlock Text="pt" Foreground="#5D6777" FontSize="11" VerticalAlignment="Center" />
@@ -20,7 +20,6 @@
         <Flyout Placement="BottomEdgeAlignedLeft">
           <StackPanel Width="240" Spacing="10">
             <TextBlock Text="Цвет текста" FontWeight="SemiBold" />
-            <TextBlock Text="Применяется ко всему результату" Classes="muted" />
             <ItemsControl ItemsSource="{Binding ResultColors}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate><UniformGrid Columns="8" /></ItemsPanelTemplate>

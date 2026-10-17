@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Data;
 using System.Data.OleDb;
 using System.Runtime.Versioning;
@@ -10,7 +11,7 @@ public static class OleDbOrderReader
 {
     public static Task<IReadOnlyList<OrderSummary>> ReadAsync(string path, CancellationToken cancellationToken = default) =>
         // OLE DB синхронен: соединение и reader живут на одном рабочем потоке, UI не блокируется.
-        Task.Run<IReadOnlyList<OrderSummary>>(() => Read(path, cancellationToken), cancellationToken);
+        Task.Run<IReadOnlyList<OrderSummary>>(() => DiagnosticStages.Run(DiagnosticStage.ReadOrders, () => Read(path, cancellationToken)), cancellationToken);
 
     public static string? FindProvider()
     {
@@ -28,8 +29,8 @@ public static class OleDbOrderReader
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var connection = OleDbAccessConnection.Create(path, writable: false);
-            connection.Open();
+            using var connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: false));
+            DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             cancellationToken.ThrowIfCancellationRequested();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM [Orders]";
@@ -45,7 +46,9 @@ public static class OleDbOrderReader
                     .ToDictionary(item => item.name, item => (object?)item.value, StringComparer.Ordinal)));
             }
             cancellationToken.ThrowIfCancellationRequested();
-            return orders;
+            reader.Close();
+            var times = OleDbOrderExtras.ReadAll(connection);
+            return orders.Select(row => row with { CuttingTime = times.GetValueOrDefault(row.Id) }).ToArray();
         }
         catch (Exception exception) when (exception is OleDbException or InvalidOperationException)
         {

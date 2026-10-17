@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -59,7 +60,7 @@ public sealed class DesktopStartup
         }
         catch (Exception exception)
         {
-            Trace.TraceError("Journal startup failed: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.Startup, exception);
             _setMainWindow(Splash);
             main?.Close();
             Splash.ShowStartupError();

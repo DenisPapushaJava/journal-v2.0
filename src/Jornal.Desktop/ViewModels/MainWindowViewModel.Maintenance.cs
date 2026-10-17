@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using Jornal.Core.Orders;
 using Jornal.Desktop.DataSources;
@@ -21,11 +22,12 @@ public partial class MainWindowViewModel
     private IOrderMaintenance? Maintenance => _source?.Maintenance ?? orderReader as IOrderMaintenance ?? (orderReader as DemoOrderStore)?.Maintenance;
     private TrashSource TrashSource => new(_source?.Path is null ? "demo" : _source.IsLocalCopy ? "local" : "mdb", _source?.Path ?? _demoTrashId);
     private OrderTrashService TrashService => new(Maintenance!, TrashSource, _source?.Path is null ? _demoTrash : _trashStore);
-    public bool CanEditOrder => Maintenance is not null && _activeOrderId is not null && CanUseJournal && !RequiresReload;
+    public bool CanEditOrder => Maintenance is not null && _selectedCount == 1 && _activeOrderId is not null && CanUseJournal && !RequiresReload;
     public bool CanTrashOrder => Maintenance is not null && _selectedCount > 0 && CanUseJournal && !RequiresReload;
     public bool CanOpenTrash => Maintenance is not null && CanUseJournal && !IsCopyingResult;
-    public string MaintenanceHint => Maintenance is null ? "Изменение MDB доступно в Windows; на Linux используйте локальную тестовую копию" : "Одна активная заявка; сохранение в текущем источнике";
-    public string TrashOrderHint => Maintenance is null ? MaintenanceHint : $"В корзину: выбранных заявок — {_selectedCount}. Локальная копия хранится 30 дней";
+    public string? MaintenanceHint => Maintenance is null ? "Изменение MDB доступно в Windows" : null;
+    public string? EditOrderHint => MaintenanceHint ?? (_selectedCount == 1 ? null : "Выберите одну заявку");
+    public string? TrashOrderHint => MaintenanceHint;
 
     public async Task<EditOrderViewModel?> CreateEditFormAsync(CancellationToken cancellationToken = default)
     {
@@ -78,8 +80,7 @@ public partial class MainWindowViewModel
         OrderConfirmationViewModel form = null!;
         form = new(records.Count == 1 ? "Переместить заявку в корзину?" : $"Переместить в корзину: {records.Count}?",
             string.Join("\n\n", records.Select(Describe)),
-            "Выбранные заявки исчезнут из общей базы у всех пользователей. Полные копии останутся в вашей локальной корзине на 30 дней. " +
-            "Восстановление доступно на этом компьютере в вашем профиле. При ошибке остановимся: уже удалённые заявки останутся в корзине, остальные — в базе.\nИсточник: " + SourceDetails,
+            "Заявки исчезнут из общей базы у всех пользователей. Восстановление на этом компьютере — 30 дней.\nИсточник: " + SourceDetails,
             records.Count == 1 ? "В корзину" : $"В корзину ({records.Count})", async () =>
         {
             await WriteMaintenanceAsync(async () =>
@@ -137,7 +138,7 @@ public partial class MainWindowViewModel
         catch (Exception exception)
         {
             RequiresReload = true; ErrorMessage = "Правки сохранены, но экран не обновлён. Выполните F5; повторять запись не нужно.";
-            Trace.TraceError("Edited order display: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.Trash, exception);
         }
     }
 
@@ -198,7 +199,7 @@ public partial class MainWindowViewModel
             var entries = await service.RefreshAsync(reconcile: false);
             if (sourceKey == TrashSource.Key) UpdateTrashBadge(entries);
         }
-        catch (Exception exception) { Trace.TraceWarning("Trash cleanup: {0}", exception); }
+        catch (Exception exception) { AppDiagnostics.Capture(DiagnosticOperation.Trash, exception); }
     }
 
     private void UpdateTrashBadge(IReadOnlyList<TrashEntry> entries)
@@ -222,8 +223,9 @@ public partial class MainWindowViewModel
         if (exception is OrderWriteException { RequiresReload: true }) RequiresReload = true;
         ErrorMessage = exception is OrderWriteException or OrderReadException ? exception.Message :
             "Не удалось выполнить действие. Проверьте доступ к базе и локальной корзине. Список и архив сохранены.";
+        ErrorMessage = AppDiagnostics.WithCode(ErrorMessage, AppDiagnostics.Capture(DiagnosticOperation.Trash, exception));
         AccessHostHelp.ShowFor(exception);
-        Trace.TraceError("Order maintenance: {0}", exception);
+        AppDiagnostics.Capture(DiagnosticOperation.Trash, exception);
     }
 
     public static string Describe(OrderRecord row) => $"№ {row.Specification ?? "—"} · {row.Date:dd.MM.yyyy}\nЗаказчик: {row.Customer ?? "—"}\nМенеджер: {row.Manager ?? "—"} · код {row.Id}";

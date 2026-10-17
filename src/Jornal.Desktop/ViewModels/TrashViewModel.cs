@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Jornal.Infrastructure.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Jornal.Core.Orders;
@@ -35,7 +36,7 @@ public partial class TrashViewModel(OrderTrashService service, string sourceDesc
     public string SelectedDetails => Selected is { Entry.Record: var row } ?
         MainWindowViewModel.Describe(row) + $"\nДата исходная: {row.Date:dd.MM.yyyy HH:mm:ss} · {row.CuttingType} · {row.Material} · {row.Thickness} мм\n" +
         $"Лист: {row.SheetSize} · количество: {row.SheetCount} · вес: {row.Weight} · рез: {row.CutLength} м\n" +
-        $"Цена: {row.Price?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "NULL"} · БЛЦБ: {row.DeliveryNumber ?? "NULL"} · цвет: {row.Color?.ToString() ?? "NULL"}\nКоэффициент: {row.Coefficient ?? "NULL"}" : "Выберите архивную заявку";
+        $"Цена: {row.Price?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "—"} · БЛЦБ: {row.DeliveryNumber ?? "—"} · цвет: {row.Color?.ToString() ?? "—"}\nКоэффициент: {row.Coefficient ?? "—"}" : "";
 
     [RelayCommand]
     private async Task RefreshAsync(CancellationToken cancellationToken)
@@ -53,7 +54,7 @@ public partial class TrashViewModel(OrderTrashService service, string sourceDesc
             OnPropertyChanged(nameof(CountText));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (Exception exception) { Error = exception.Message; AccessHostHelp.ShowFor(exception); }
+        catch (Exception exception) { Error = AppDiagnostics.Describe(DiagnosticOperation.Trash, exception, "Не удалось прочитать корзину."); AccessHostHelp.ShowFor(exception); }
         finally { IsRefreshing = false; }
     }
 
@@ -61,7 +62,7 @@ public partial class TrashViewModel(OrderTrashService service, string sourceDesc
 
     public OrderConfirmationViewModel? CreateRestoreConfirmation() => CanAct && Selected is { } item ? Confirmation(
         "Восстановить заявку?", MainWindowViewModel.Describe(item.Entry.Record),
-        "Вернутся прежние значения и цена без пересчёта, с тем же кодом. Занятая запись не перезаписывается.\nИсточник: " + SourceDescription,
+        "Вернутся исходные данные и цена.\nИсточник: " + SourceDescription,
         "Восстановить", async () =>
         {
             var restored = await service.RestoreAsync(item.Entry.OperationId);
@@ -70,7 +71,7 @@ public partial class TrashViewModel(OrderTrashService service, string sourceDesc
 
     public OrderConfirmationViewModel? CreatePurgeConfirmation() => CanAct && Selected is { } item ? Confirmation(
         "Удалить копию окончательно?", MainWindowViewModel.Describe(item.Entry.Record),
-        "Архивная копия будет удалена с этого компьютера. Восстановить её из этой корзины больше не получится. Это действие не меняет MDB.",
+        "Удалится только архивная копия. Восстановление станет недоступно.",
         "Удалить окончательно", () => service.PurgeAsync(item.Entry.OperationId), destructive: true) : null;
 
     private OrderConfirmationViewModel Confirmation(string title, string details, string explanation, string label, Func<Task> action, bool destructive = false) =>
@@ -80,5 +81,5 @@ public partial class TrashViewModel(OrderTrashService service, string sourceDesc
             IsWriting = true;
             try { await runWrite(action); }
             finally { IsWriting = false; }
-        }, exception => { Error = exception.Message; failed(exception); }, destructive);
+        }, exception => { Error = AppDiagnostics.Describe(DiagnosticOperation.Trash, exception, "Не удалось выполнить действие."); failed(exception); }, destructive);
 }

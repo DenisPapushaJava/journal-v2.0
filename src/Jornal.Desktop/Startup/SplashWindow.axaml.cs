@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using System.Reflection;
 using Avalonia.Controls;
@@ -51,7 +52,7 @@ public partial class SplashWindow : Window
         catch (Exception exception)
         {
             // Декоративная картинка не должна препятствовать работе с журналом.
-            Trace.TraceWarning("Startup artwork could not be loaded ({0}): {1}", resource, exception);
+            AppDiagnostics.Capture(DiagnosticOperation.Startup, exception);
             return null;
         }
     }

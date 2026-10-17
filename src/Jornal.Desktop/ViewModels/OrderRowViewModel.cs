@@ -1,16 +1,23 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Jornal.Core.Orders;
+using Jornal.Desktop.Tables;
 
 namespace Jornal.Desktop.ViewModels;
 
 public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
 {
     private OrderSummary _order = order;
+    private long? _cuttingDurationMinutes = order.CuttingDurationMinutes;
+    private NumericTextSortKey? _sheetCountSortKey = NumericTextSortKey.Parse(order.SheetCount);
+    private NumericTextSortKey? _weightSortKey = NumericTextSortKey.Parse(order.WeightKilograms);
     internal void Update(OrderSummary replacement)
     {
         if (replacement.Id != Id) throw new ArgumentException("Нельзя заменить идентификатор строки.", nameof(replacement));
         _order = replacement;
+        _cuttingDurationMinutes = replacement.CuttingDurationMinutes;
+        _sheetCountSortKey = NumericTextSortKey.Parse(replacement.SheetCount);
+        _weightSortKey = NumericTextSortKey.Parse(replacement.WeightKilograms);
         OnPropertyChanged(string.Empty);
     }
 
@@ -23,6 +30,10 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
     public decimal? ThicknessMillimeters => _order.ThicknessMillimeters;
     public decimal? StoredCuttingPrice => _order.StoredCuttingPrice;
     public int? CutLengthMeters => _order.CutLengthMeters;
+    public long? CuttingDurationMinutes => _cuttingDurationMinutes;
+    public string CuttingTimeText => CuttingDurationMinutes is { } minutes ? CuttingDuration.Format(minutes) : "—";
+    public string? CuttingTimeHint => _order.CuttingTime is not null && CuttingDurationMinutes is null
+        ? "Параметры изменились. Проверьте время резки." : null;
 
     public string DateText => _order.OrderDate?.ToString("dd.MM.yyyy", DisplayCulture) ?? "—";
     public string SpecificationNumber => _order.SpecificationNumber;
@@ -35,6 +46,8 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
         ? price.ToString("N2", DisplayCulture) + " ₽" : "Не рассчитана";
     public string SheetSize => _order.SheetSize;
     public string SheetCount => _order.SheetCount;
+    public NumericTextSortKey? SheetCountSortKey => _sheetCountSortKey;
+    public NumericTextSortKey? WeightSortKey => _weightSortKey;
     public string CutLengthText => _order.CutLengthMeters?.ToString(DisplayCulture) ?? "—";
     public string WeightText => _order.WeightKilograms.Replace('.', ',');
     public string DeliveryNumber => _order.DeliveryNumber ?? "";

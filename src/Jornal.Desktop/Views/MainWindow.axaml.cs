@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -46,6 +47,8 @@ public partial class MainWindow : Window
     protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        if (Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current?.HasPreviousFatal == true)
+            DiagnosticsButton.Label = "Сбой предыдущего запуска · Диагностика";
         _customization.Initialize();
         if (_viewModel is not null)
         {
@@ -98,6 +101,8 @@ public partial class MainWindow : Window
     {
         if (_viewModel?.IsImportingSpecification == true && e.Key == Key.Escape)
         { _specificationImportCancellation?.Cancel(); e.Handled = true; return; }
+        if (_viewModel?.HasSpecificationImportError == true && e.Key == Key.Escape)
+        { _viewModel.DismissSpecificationImportErrorCommand.Execute(null); e.Handled = true; return; }
         if (_viewModel?.IsCustomizing == true)
         {
             if (e.Key == Key.Escape)
@@ -131,7 +136,7 @@ public partial class MainWindow : Window
             _viewModel.PropertyChanged += OnViewModelChanged;
             _viewModel.SelectionRestoreRequested += OnSelectionRestore;
             _viewModel.Updates.ConfigureRestart(
-                () => _viewModel.CanCheckUpdates && !OwnedWindows.Any(window => window is not AppUpdatesWindow),
+                () => _viewModel.CanCheckUpdates && !OwnedWindows.Any(window => window is not AppUpdatesWindow && window is not SettingsWindow { CanRestart: true }),
                 () =>
                 {
                     AppUpdateSafety.EnsureExternalDatabase(_viewModel.CaptureUpdateDraft().DatabasePath, AppContext.BaseDirectory);
@@ -146,10 +151,12 @@ public partial class MainWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainWindowViewModel.IsImportingSpecification)) UpdateSpecificationFocus();
+        if (e.PropertyName is nameof(MainWindowViewModel.IsImportingSpecification) or nameof(MainWindowViewModel.HasSpecificationImportError)) UpdateSpecificationFocus();
         if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme))
         { UpdateTheme(); _customization.AppearanceChanged(); }
-        if (e.PropertyName is nameof(MainWindowViewModel.ResultFontSizePoints) or nameof(MainWindowViewModel.ResultTextColor))
+        if (e.PropertyName is nameof(MainWindowViewModel.ResultFontSizePoints) or nameof(MainWindowViewModel.ResultTextColor) or
+            nameof(MainWindowViewModel.UseResultMinimumPrice) or nameof(MainWindowViewModel.ResultMinimumPrice) or
+            nameof(MainWindowViewModel.UseTechnologistColor) or nameof(MainWindowViewModel.TechnologistColorArgb))
             _customization.AppearanceChanged();
     }
 
@@ -166,12 +173,23 @@ public partial class MainWindow : Window
         var dialog = new NewOrderWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
         var order = await dialog.ShowDialog<OrderSummary?>(this);
         if (order is null) return;
-        _viewModel!.AcceptCreatedOrder(order);
-        OrdersGrid.SelectedItem = _viewModel.Orders.FirstOrDefault(row => row.Id == order.Id);
-        OrdersGrid.ScrollIntoView(OrdersGrid.SelectedItem, OrdersGrid.Columns[2]);
+        var created = form.CreatedOrders.Count > 0 ? form.CreatedOrders : [order];
+        _viewModel!.AcceptCreatedOrders(created);
+        var ids = created.Select(row => row.Id).ToHashSet();
+        OrdersGrid.SelectedItems.Clear();
+        foreach (var row in _viewModel.Orders.Where(row => ids.Contains(row.Id))) OrdersGrid.SelectedItems.Add(row);
+        if (created.Count == 1) OrdersGrid.SelectedItem = _viewModel.Orders.FirstOrDefault(row => row.Id == order.Id);
+        OrdersGrid.ScrollIntoView(_viewModel.Orders.FirstOrDefault(row => row.Id == order.Id), OrdersGrid.Columns[2]);
     }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e) => UpdateSelection();
+    private async void OnDiagnosticsClick(object? sender, RoutedEventArgs e)
+    {
+        if (OwnedWindows.Count > 0 || Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current is not { } service) return;
+        service.AcknowledgePreviousFatal();
+        DiagnosticsButton.Label = "Диагностика";
+        await ShowSettingsAsync(SettingsSection.Diagnostics);
+    }
     private async void OnEditOrderClick(object? sender, RoutedEventArgs e) => await EditOrderAsync();
     private async Task EditOrderAsync()
     {
@@ -182,8 +200,14 @@ public partial class MainWindow : Window
     }
     private async void OnOrdersDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (e.Source is not Control control || control.FindAncestorOfType<DataGridRow>() is null ||
+        if (_viewModel?.CanUseJournal != true || OwnedWindows.Count > 0 || e.Source is not Control control ||
             control is CheckBox || control.GetVisualAncestors().OfType<CheckBox>().Any()) return;
+        var row = control as DataGridRow ?? control.FindAncestorOfType<DataGridRow>();
+        if (row?.DataContext is not OrderRowViewModel target || !_viewModel.Orders.Contains(target)) return;
+        OrdersGrid.SelectedItems.Clear();
+        OrdersGrid.SelectedItem = target;
+        UpdateSelection();
+        e.Handled = true;
         await EditOrderAsync();
     }
     private async void OnTrashOrderClick(object? sender, RoutedEventArgs e)
@@ -199,19 +223,14 @@ public partial class MainWindow : Window
         await dialog.ShowDialog(this);
     }
     private void OnCurrentCellChanged(object? sender, EventArgs e) => UpdateSelection();
-    private void UpdateSelection()
-    {
+    private void UpdateSelection() =>
         _viewModel?.UpdateSelection(OrdersGrid.SelectedItems.Cast<OrderRowViewModel>(),
             OrdersGrid.SelectedItem as OrderRowViewModel);
-        var count = OrdersGrid.SelectedItems.Count;
-        SelectAllRowsBox.IsChecked = count == 0 ? false : count == _viewModel?.Orders.Count ? true : null;
-    }
 
-    private void OnSelectAllRows(object? sender, RoutedEventArgs e)
+    private void OnClearSelection(object? sender, RoutedEventArgs e)
     {
-        // Частичный выбор при следующем нажатии дополняется до полного.
-        if (OrdersGrid.SelectedItems.Count < _viewModel?.Orders.Count) OrdersGrid.SelectAll();
-        else OrdersGrid.SelectedItems.Clear();
+        if (_viewModel?.CanClearSelection != true) return;
+        OrdersGrid.SelectedItems.Clear();
         UpdateSelection();
         e.Handled = true;
     }
@@ -223,18 +242,22 @@ public partial class MainWindow : Window
         await dialog.ShowDialog<bool>(this);
     }
 
-    private async void OnDatabaseSettingsClick(object? sender, RoutedEventArgs e)
+    private async void OnSettingsClick(object? sender, RoutedEventArgs e) => await ShowSettingsAsync(SettingsSection.General);
+
+    private async Task ShowSettingsAsync(SettingsSection section)
     {
-        if (_viewModel?.CreateDatabaseSettingsForm() is not { } form) return;
-        var dialog = new DatabaseSettingsWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
-        await dialog.ShowDialog<bool>(this);
+        if (_viewModel is null || OwnedWindows.Count > 0) return;
+        var form = new SettingsViewModel(_viewModel, Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current, section);
+        var dialog = new SettingsWindow { DataContext = form };
+        await dialog.ShowDialog(this);
+        if (Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current?.HasPreviousFatal == false) DiagnosticsButton.Label = "Диагностика";
+        if (dialog.CustomizeRequested && _viewModel.CanConfigureScreen) _customization.Begin();
     }
 
     private async void OnUpdatesClick(object? sender, RoutedEventArgs e)
     {
         if (_viewModel?.CanCheckUpdates != true || OwnedWindows.Count > 0) return;
-        var dialog = new AppUpdatesWindow { DataContext = _viewModel.Updates, RequestedThemeVariant = ActualThemeVariant };
-        await dialog.ShowDialog(this);
+        await ShowSettingsAsync(SettingsSection.Updates);
     }
 
     private void OnSelectionRestore(object? sender, SelectionRestoreRequest request)
@@ -272,6 +295,39 @@ public partial class MainWindow : Window
 
     private void OnShowAllColumns(object? sender, RoutedEventArgs e) => SetAllColumnsVisible(true);
     private void OnHideAllColumns(object? sender, RoutedEventArgs e) => SetAllColumnsVisible(false);
+
+    private void OnDecreaseRowHeight(object? sender, RoutedEventArgs e) => ChangeRowHeight(-1);
+    private void OnIncreaseRowHeight(object? sender, RoutedEventArgs e) => ChangeRowHeight(1);
+    private void OnResetRowHeight(object? sender, RoutedEventArgs e) => _customization.SetRowHeight(TableDensity.DefaultHeight);
+
+    private void ChangeRowHeight(int step) => _customization.SetRowHeight(Math.Clamp(_customization.RowHeight + step,
+        TableDensity.MinimumHeight, TableDensity.MaximumHeight));
+
+    private void OnRowHeightTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        // Незаконченный ввод («2» перед «24») не меняет таблицу и не сохраняется.
+        if (_customization is not null && sender is TextBox input &&
+            int.TryParse(input.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) &&
+            value is >= (int)TableDensity.MinimumHeight and <= (int)TableDensity.MaximumHeight && value != _customization.RowHeight)
+            _customization.SetRowHeight(value);
+    }
+
+    private void CommitRowHeight()
+    {
+        var value = _customization.RowHeight;
+        if (decimal.TryParse(RowHeightInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var entered))
+            value = (double)Math.Clamp(entered, (decimal)TableDensity.MinimumHeight, (decimal)TableDensity.MaximumHeight);
+        _customization.SetRowHeight(value);
+    }
+
+    private void OnRowHeightLostFocus(object? sender, RoutedEventArgs e) => CommitRowHeight();
+
+    private void OnRowHeightKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) { CommitRowHeight(); e.Handled = true; }
+        else if (e.Key is Key.Up or Key.Down) { ChangeRowHeight(e.Key == Key.Up ? 1 : -1); e.Handled = true; }
+    }
+
     private void SetAllColumnsVisible(bool visible)
     {
         foreach (var column in OrdersGrid.Columns.Skip(1)) column.IsVisible = visible;

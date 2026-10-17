@@ -57,27 +57,27 @@ public sealed class UpdateWindowTests
         {
             owner.Show(); Pump();
             Assert.Equal(0, updater.Checks);
-            Assert.False(owner.FindControl<Control>("UpdateBadge")!.IsVisible);
+            Assert.False(owner.FindDescendant<Control>("UpdateBadge")!.IsVisible);
             await updates.CheckCommand.ExecuteAsync(null); Pump();
-            Assert.True(owner.FindControl<Control>("UpdateBadge")!.IsVisible);
+            Assert.True(owner.FindDescendant<Control>("UpdateBadge")!.IsVisible);
             Click(owner, "UpdatesButton");
-            var dialog = Assert.Single(owner.OwnedWindows.OfType<AppUpdatesWindow>());
+            var dialog = Assert.Single(owner.OwnedWindows.OfType<SettingsWindow>());
             Assert.Equal(owner.ActualThemeVariant, dialog.ActualThemeVariant);
-            dialog.Width = 600; dialog.Height = 540;
+            dialog.Width = 800; dialog.Height = 580;
             updates.ReleaseNotes = string.Join('\n', Enumerable.Repeat("Длинное описание новой версии с подробностями исправлений", 80));
             updates.Error = "Проверка сообщения: соединение недоступно. Повторите попытку или продолжите работу."; Pump();
             updates.PreferencesWarning = "Не удалось сохранить канал обновлений. Выбор действует до закрытия программы. Проверьте доступ к папке профиля."; Pump();
-            Assert.Equal("Получать тестовые версии", dialog.FindControl<CheckBox>("PreviewUpdatesCheckBox")!.Content);
-            Assert.False(dialog.FindControl<JournalButton>("InstallUpdateButton")!.IsVisible);
-            Assert.True(dialog.FindControl<JournalButton>("DownloadUpdateButton")!.IsEffectivelyEnabled);
-            foreach (var name in new[] { "CheckUpdatesButton", "DownloadUpdateButton", "CloseUpdatesButton", "UpdateError", "AutomaticUpdatesCheckBox", "PreviewUpdatesCheckBox", "UpdatePreferencesWarning" }) AssertInside(dialog, name);
+            Assert.Equal("Получать тестовые версии", dialog.FindDescendant<CheckBox>("PreviewUpdatesCheckBox")!.Content);
+            Assert.False(dialog.FindDescendant<JournalButton>("InstallUpdateButton")!.IsVisible);
+            Assert.True(dialog.FindDescendant<JournalButton>("DownloadUpdateButton")!.IsEffectivelyEnabled);
+            foreach (var name in new[] { "CheckUpdatesButton", "DownloadUpdateButton", "CloseSettingsButton", "UpdateError", "AutomaticUpdatesCheckBox", "PreviewUpdatesCheckBox", "UpdatePreferencesWarning" }) AssertInside(dialog, name);
             Screenshot(dialog, "update-available-" + (dark ? "dark" : "light"));
             Click(dialog, "DownloadUpdateButton"); Pump();
-            Assert.True(dialog.FindControl<JournalButton>("InstallUpdateButton")!.IsEffectivelyEnabled);
+            Assert.True(dialog.FindDescendant<JournalButton>("InstallUpdateButton")!.IsEffectivelyEnabled);
             Assert.Equal(0, updater.Restarts);
-            AssertInside(dialog, "InstallUpdateButton"); AssertInside(dialog, "CloseUpdatesButton");
+            AssertInside(dialog, "InstallUpdateButton"); AssertInside(dialog, "CloseSettingsButton");
             Screenshot(dialog, "update-downloaded-" + (dark ? "dark" : "light"));
-            Click(dialog, "CloseUpdatesButton"); Assert.False(dialog.IsVisible);
+            Click(dialog, "CloseSettingsButton"); Assert.False(dialog.IsVisible);
             model.IsUpdatingOrders = true; Assert.False(model.CanCheckUpdates);
             model.IsUpdatingOrders = false; model.IsCustomizing = true; Assert.False(model.CanCheckUpdates);
             model.IsCustomizing = false; Assert.True(model.CanCheckUpdates);
@@ -87,14 +87,14 @@ public sealed class UpdateWindowTests
 
     private static void AssertInside(Window window, string name)
     {
-        var control = window.FindControl<Control>(name)!;
+        var control = window.FindDescendant<Control>(name)!;
         var rect = new Rect(control.Bounds.Size).TransformToAABB(control.TransformToVisual(window)!.Value);
-        Assert.True(rect.Top >= 0 && rect.Bottom <= window.Height + 1 && rect.Right <= window.Width + 1, $"{name}: {rect}");
+        Assert.True(rect.Top >= 0 && rect.Bottom <= window.ClientSize.Height + 1 && rect.Right <= window.ClientSize.Width + 1, $"{name}: {rect}");
     }
     private static void Pump() => Dispatcher.UIThread.RunJobs();
     private static void Click(Window window, string name)
     {
-        var c = window.FindControl<Control>(name)!; var point = c.TranslatePoint(new Point(c.Bounds.Width / 2, c.Bounds.Height / 2), window)!.Value;
+        var c = window.FindDescendant<Control>(name)!; var point = c.TranslatePoint(new Point(c.Bounds.Width / 2, c.Bounds.Height / 2), window)!.Value;
         window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();
     }
     private static void Screenshot(Window window, string name)

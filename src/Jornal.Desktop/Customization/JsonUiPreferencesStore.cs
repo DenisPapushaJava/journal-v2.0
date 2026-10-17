@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -22,11 +23,12 @@ public sealed class JsonUiPreferencesStore(string path) : IUiPreferencesStore
             var preferences = JsonSerializer.Deserialize<UiPreferences>(stream, Options);
             if (preferences is null || preferences.Version != 1 || preferences.Layout is null)
                 return new(null, "Настройки экрана несовместимы с этой версией. Используется стандартный вид.");
-            return new(preferences with { Layout = preferences.Layout.Normalize(), ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize() });
+            return new(preferences with { Layout = preferences.Layout.Normalize(), ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize(),
+                ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize() });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
-            Trace.TraceWarning("UI preferences could not be loaded: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.Preferences, exception);
             return new(null, "Не удалось прочитать настройки экрана. Используется стандартный вид.");
         }
     }
@@ -41,7 +43,8 @@ public sealed class JsonUiPreferencesStore(string path) : IUiPreferencesStore
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
                 JsonSerializer.Serialize(stream, preferences with { Layout = preferences.Layout.Normalize(),
-                    ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize() }, Options);
+                    ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize(),
+                    ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize() }, Options);
                 stream.Flush(flushToDisk: true);
             }
             File.Move(temporary, path, overwrite: true);

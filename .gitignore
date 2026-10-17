@@ -364,6 +364,7 @@ FodyWeavers.xsd
 
 # Modern development: private fixtures, databases and local output
 .local/
+.wrangler/
 __pycache__/
 *.pyc
 artifacts/

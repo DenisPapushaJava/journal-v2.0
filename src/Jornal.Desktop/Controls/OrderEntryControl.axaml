@@ -4,12 +4,12 @@
   <Grid ColumnDefinitions="144,8,*" RowDefinitions="Auto,Auto,Auto">
     <TextBlock Text="{Binding Label}" Foreground="{DynamicResource JournalMuted}" FontWeight="Medium" FontSize="13"
                VerticalAlignment="Center" TextWrapping="Wrap" />
-    <TextBox x:Name="Input" Grid.Column="2" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Hint}"
+    <TextBox x:Name="Input" Grid.Column="2" Text="{Binding Value, Mode=TwoWay}"
              IsVisible="{Binding !HasChoices}" MinHeight="36" FontSize="14"
-             AutomationProperties.Name="{Binding Label}" Classes.invalid="{Binding HasError}" ToolTip.Tip="{Binding Value}" />
+             AutomationProperties.Name="{Binding Label}" Classes.invalid="{Binding HasError}" ToolTip.Tip="{Binding InputHint}" />
     <ComboBox x:Name="Choice" Grid.Column="2" ItemsSource="{Binding Choices}" SelectedItem="{Binding Value, Mode=TwoWay}"
               IsVisible="{Binding HasChoices}" MinHeight="36" FontSize="14" HorizontalAlignment="Stretch"
-              PlaceholderText="Выберите вид резки" AutomationProperties.Name="{Binding Label}" />
+              ToolTip.Tip="{Binding InputHint}" AutomationProperties.Name="{Binding Label}" />
     <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Error}" IsVisible="{Binding HasError}" TextWrapping="Wrap" Margin="0,4,0,0"
                Foreground="{DynamicResource JournalDangerForeground}" FontSize="12" />
     <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding ImportHint}" IsVisible="{Binding HasImportHint}" ToolTip.Tip="{Binding ImportEvidence}"

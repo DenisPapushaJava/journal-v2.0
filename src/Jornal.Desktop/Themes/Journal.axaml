@@ -5,6 +5,7 @@
     <ui:OrderRowBrushConverter x:Key="OrderRowBackground" />
     <ui:OrderRowBrushConverter x:Key="OrderRowForeground" Foreground="True" />
     <ControlTheme x:Key="JournalCommandButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
       <Setter Property="Template">
         <ControlTemplate>
           <ContentPresenter Name="CommandPresenter" Content="{TemplateBinding Content}"
@@ -22,12 +23,14 @@
         <ControlTemplate>
           <ContentPresenter Name="FilterPresenter" Content="{TemplateBinding Content}"
                             Background="{TemplateBinding Background}" Foreground="{TemplateBinding Foreground}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}"
                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
         </ControlTemplate>
       </Setter>
     </ControlTheme>
     <ControlTheme x:Key="JournalThemeSwitch" TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
       <Setter Property="Width" Value="66" />
       <Setter Property="Height" Value="32" />
       <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
@@ -56,7 +59,7 @@
       <Style Selector="^:checked /template/ Border#MoonSlot">
         <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
       </Style>
-      <Style Selector="^:pointerover /template/ Border#ThemeSwitchTrack">
+      <Style Selector="^:pointerover /template/ Border#ThemeSwitchTrack, ^:focus-visible /template/ Border#ThemeSwitchTrack">
         <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
       </Style>
       <Style Selector="^:pressed /template/ Border#ThemeSwitchTrack">
@@ -88,9 +91,10 @@
                   BorderThickness="{TemplateBinding BorderThickness}">
             <Grid Name="PART_ColumnHeaderRoot" ColumnDefinitions="*,Auto" Margin="{TemplateBinding Padding}">
               <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
-                                ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center" />
-              <Path Name="SortIcon" Grid.Column="1" IsVisible="False" Width="10" Height="10" Margin="4,0,0,0" Stretch="Uniform"
-                    Fill="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+              <Path Name="SortIcon" Grid.Column="1" IsVisible="False" Width="12" Height="12" Margin="4,0,0,0" Stretch="Uniform"
+                    Fill="{DynamicResource JournalText}" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Grid>
           </Border>
         </ControlTemplate>
@@ -141,6 +145,12 @@
   <Style Selector="ui|LayoutHandle:focus-visible">
     <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
   </Style>
+  <Style Selector="TextBox#ResultTextBox">
+    <Setter Property="Padding" Value="14,10" />
+  </Style>
+  <Style Selector="Window.customizing TextBox#ResultTextBox">
+    <Setter Property="Padding" Value="14,38,14,10" />
+  </Style>
   <Style Selector="Window.customizing DataGridRow">
     <Setter Property="IsHitTestVisible" Value="False" />
     <Setter Property="Focusable" Value="False" />
@@ -172,6 +182,15 @@
     <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
     <Setter Property="BorderThickness" Value="2" />
   </Style>
+  <Style Selector="Border.command-panel">
+    <Setter Property="Padding" Value="16,10,16,12" />
+  </Style>
+  <Style Selector="Grid.docked Border.command-panel">
+    <Setter Property="Padding" Value="12,8" />
+  </Style>
+  <Style Selector="Grid.docked Border.command-panel TextBlock.muted">
+    <Setter Property="FontSize" Value="11" />
+  </Style>
   <Style Selector="Button.command">
     <Setter Property="Theme" Value="{StaticResource JournalCommandButton}" />
     <Setter Property="MinHeight" Value="32" />
@@ -179,12 +198,17 @@
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="FontSize" Value="13" />
     <Setter Property="Background" Value="{DynamicResource JournalRaised}" />
-    <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="Grid.docked Border.command-panel Button.command">
+    <Setter Property="Height" Value="28" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Padding" Value="8,0" />
   </Style>
   <Style Selector="Button.command:pointerover:not(:disabled)">
     <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
@@ -192,6 +216,9 @@
   </Style>
   <Style Selector="Button.command:pressed">
     <Setter Property="Background" Value="{DynamicResource JournalControlPressed}" />
+  </Style>
+  <Style Selector="Button.command:focus-visible">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
   </Style>
   <Style Selector="Button.command.primary">
     <Setter Property="Background" Value="{DynamicResource JournalAccent}" />
@@ -204,8 +231,11 @@
   <Style Selector="Button.command.primary:pressed">
     <Setter Property="Background" Value="{DynamicResource JournalAccentPressed}" />
   </Style>
+  <Style Selector="Button.command.primary:focus-visible">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalOnAccent}" />
+  </Style>
   <Style Selector="Button.command:disabled">
-    <Setter Property="Opacity" Value="0.5" />
+    <Setter Property="Opacity" Value="0.6" />
   </Style>
   <Style Selector="Button.command.outline">
     <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
@@ -265,6 +295,9 @@
   <Style Selector="Button.command.result-tool:pressed">
     <Setter Property="Background" Value="#A8BEDA" />
   </Style>
+  <Style Selector="Button.command.result-tool:focus-visible">
+    <Setter Property="BorderBrush" Value="#617F9F" />
+  </Style>
   <Style Selector="Button.command.result-tool:disabled">
     <Setter Property="Opacity" Value="0.7" />
   </Style>
@@ -282,6 +315,9 @@
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Background" Value="{DynamicResource JournalRaised}" />
     <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
@@ -303,6 +339,12 @@
   <Style Selector="RadioButton.filter:checked:pressed">
     <Setter Property="Background" Value="{DynamicResource JournalAccentPressed}" />
   </Style>
+  <Style Selector="RadioButton.filter:focus-visible">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="RadioButton.filter:checked:focus-visible">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalOnAccent}" />
+  </Style>
   <Style Selector="CheckBox:checked:not(:disabled) /template/ Path#CheckGlyph, CheckBox:indeterminate:not(:disabled) /template/ Path#CheckGlyph">
     <Setter Property="Fill" Value="{DynamicResource JournalOnAccent}" />
   </Style>
@@ -319,11 +361,11 @@
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccentPressed}" />
   </Style>
   <Style Selector="TextBox, ComboBox, CalendarDatePicker">
-    <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
+    <Setter Property="Background" Value="{DynamicResource JournalInput}" />
     <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource JournalBorder}" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="FontSize" Value="13" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalControlBorder}" />
   </Style>
   <Style Selector="TextBox">
     <Setter Property="PlaceholderForeground" Value="{DynamicResource JournalMuted}" />
@@ -338,7 +380,28 @@
     <Setter Property="RowBackground" Value="{DynamicResource JournalSurface}" />
     <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource JournalBorder}" />
   </Style>
+  <!-- Fluent DataGrid 12.1.2 spans its presenters under the scrollbars by default.
+       The class selector overrides template-local spans without copying the template;
+       these spans also tell DataGrid to reserve space when calculating its viewport. -->
+  <Style Selector="DataGrid.reserved-scrollbars /template/ DataGridColumnHeadersPresenter#PART_ColumnHeadersPresenter">
+    <Setter Property="Grid.ColumnSpan" Value="1" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="DataGrid.reserved-scrollbars /template/ DataGridRowsPresenter#PART_RowsPresenter">
+    <Setter Property="Grid.ColumnSpan" Value="2" />
+    <Setter Property="Grid.RowSpan" Value="1" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="DataGrid.reserved-scrollbars /template/ ScrollBar:vertical /template/ Thumb">
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="MinHeight" Value="24" />
+  </Style>
+  <Style Selector="DataGrid.reserved-scrollbars /template/ ScrollBar:horizontal /template/ Thumb">
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="MinWidth" Value="24" />
+  </Style>
   <Style Selector="DataGridColumnHeader">
+    <Setter Property="ui:TableCellPresentation.Enabled" Value="True" />
     <Setter Property="Theme" Value="{StaticResource JournalColumnHeader}" />
     <Setter Property="Background" Value="{DynamicResource JournalRaised}" />
     <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
@@ -347,7 +410,8 @@
   </Style>
   <Style Selector="DataGridCell">
     <Setter Property="Padding" Value="8,0" />
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="FontSize" Value="{ReflectionBinding $parent[DataGrid].FontSize}" />
   </Style>
   <Style Selector="DataGridColumnHeader TextBlock">
     <Setter Property="TextWrapping" Value="Wrap" />
@@ -381,11 +445,17 @@
   <Style Selector="CheckBox.row-selection /template/ Border#NormalRectangle">
     <Setter Property="BorderBrush" Value="{ReflectionBinding $parent[DataGridRow].Foreground}" />
   </Style>
+  <Style Selector="CheckBox.row-selection /template/ Grid">
+    <Setter Property="Height" Value="{ReflectionBinding Height, RelativeSource={RelativeSource TemplatedParent}}" />
+  </Style>
   <Style Selector="CheckBox.row-selection:unchecked /template/ Border#NormalRectangle">
     <Setter Property="Background" Value="Transparent" />
   </Style>
   <Style Selector="DataGridCell TextBlock">
+    <Setter Property="ui:TableCellPresentation.Enabled" Value="True" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+    <Setter Property="MaxLines" Value="1" />
   </Style>
 </Styles>

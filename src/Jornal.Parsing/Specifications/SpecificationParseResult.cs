@@ -41,11 +41,13 @@ public sealed record SpecificationParseResult(
     SpecificationValue<TimeSpan>? CuttingDuration,
     IReadOnlyList<SpecificationIssue> Issues)
 {
+    // Структура известного отчёта найдена. Полнота/конфликты полей проверяются независимо через IsComplete/Issues.
+    public bool IsRecognized { get; init; }
     public IReadOnlyList<SpecificationValue<SheetLayout>> SheetLayouts { get; init; } = [];
     public SpecificationValue<string>? MaterialId { get; init; }
     public SpecificationValue<string>? CuttingGas { get; init; }
     public bool HasErrors => Issues.Any(issue => issue.Severity == SpecificationIssueSeverity.Error);
-    public bool IsComplete => !HasErrors && Header is not null && CuttingType is not null && Material is not null &&
+    public bool IsComplete => IsRecognized && !HasErrors && Header is not null && CuttingType is not null && Material is not null &&
         SheetLayouts.Count > 0 && SheetLayouts.Select(layout => layout.Value.Dimensions.ThicknessMillimeters).Distinct().Count() == 1 &&
         SheetCount is not null && CutLengthMillimeters is not null && WeightKilograms is not null &&
         PartCount is not null && PunchCount is not null &&

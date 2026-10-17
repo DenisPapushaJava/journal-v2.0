@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Jornal.Desktop.Customization;
 
 namespace Jornal.Desktop.Controls;
 
@@ -12,6 +13,8 @@ public sealed class StatusBadge : Border
         AvaloniaProperty.Register<StatusBadge, string>(nameof(Status), "neutral");
     public static readonly StyledProperty<string?> TextProperty =
         AvaloniaProperty.Register<StatusBadge, string?>(nameof(Text));
+    public static readonly StyledProperty<double> RowHeightProperty =
+        AvaloniaProperty.Register<StatusBadge, double>(nameof(RowHeight), TableDensity.DefaultHeight);
     private readonly TextBlock _label = new() { FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
 
     public StatusBadge()
@@ -26,6 +29,7 @@ public sealed class StatusBadge : Border
 
     public string Status { get => GetValue(StatusProperty); set => SetValue(StatusProperty, value); }
     public string? Text { get => GetValue(TextProperty); set => SetValue(TextProperty, value); }
+    public double RowHeight { get => GetValue(RowHeightProperty); set => SetValue(RowHeightProperty, value); }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -33,9 +37,14 @@ public sealed class StatusBadge : Border
         if (change.Property == TextProperty)
         {
             _label.Text = Text;
-            ToolTip.SetTip(this, Text);
         }
         if (change.Property == StatusProperty) UpdateBrushes();
+        if (change.Property == RowHeightProperty)
+        {
+            var density = TableDensity.FromHeight(RowHeight);
+            _label.FontSize = density.FontSize;
+            Height = density.BadgeHeight;
+        }
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

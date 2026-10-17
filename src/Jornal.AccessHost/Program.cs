@@ -4,6 +4,7 @@ using System.Text.Json;
 using Jornal.Core.Orders;
 using Jornal.Core.Pricing;
 using Jornal.Infrastructure.Access;
+using Jornal.Infrastructure.Diagnostics;
 
 Console.InputEncoding = new UTF8Encoding(false);
 Console.OutputEncoding = new UTF8Encoding(false);
@@ -29,6 +30,7 @@ if (args.Length != 0) return 2;
 
 AccessHostRequest? request = null;
 AccessHostResponse response;
+var diagnosticStage = DiagnosticStage.ValidateAccessRequest;
 try
 {
     var json = await Console.In.ReadLineAsync() ?? throw new InvalidDataException("Запрос не передан.");
@@ -36,7 +38,14 @@ try
     if (request.Protocol != 1 || !Enum.IsDefined(request.Operation) || request.Operation == AccessHostOperation.Probe ||
         !Path.IsPathFullyQualified(request.Path) || !string.Equals(Path.GetExtension(request.Path), ".mdb", StringComparison.OrdinalIgnoreCase))
         throw new InvalidDataException("Несовместимый запрос модуля Access.");
-    if (request.Operation == AccessHostOperation.ReadPriceTable)
+    diagnosticStage = DiagnosticStage.Unknown;
+    if (request.Operation == AccessHostOperation.PrepareCuttingTime)
+    {
+        diagnosticStage = DiagnosticStage.PrepareCuttingTime;
+        await new OleDbOrderExtras(request.Path).PrepareCuttingTimeAsync();
+        response = new(1, CuttingTimePrepared: true);
+    }
+    else if (request.Operation == AccessHostOperation.ReadPriceTable)
         response = new(1, PriceTable: await new AccessPriceReader(request.Path).ReadAsync(request.PriceTableName ?? ""));
     else if (request.Operation is AccessHostOperation.ReadOrder or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder)
     {
@@ -59,6 +68,7 @@ try
             AccessHostOperation.Read => await new AccessOrderReader(request.Path).ReadAsync(),
             AccessHostOperation.SetColor => await editor.SetColorAsync(request.Expected ?? [], request.Color),
             AccessHostOperation.SetDeliveryNumber => await editor.SetDeliveryNumberAsync(request.Expected ?? [], request.DeliveryNumber ?? ""),
+            AccessHostOperation.CreateOrders => await new OleDbManualOrderCreator(request.Path).CreateBatchAsync(request.Drafts ?? []),
             AccessHostOperation.CreateOrder => [await new OleDbManualOrderCreator(request.Path).CreateAsync(
                 request.Draft ?? throw new InvalidDataException("Не переданы поля новой заявки."))],
             _ => throw new InvalidDataException("Неизвестное действие.")
@@ -66,16 +76,32 @@ try
         response = new(1, rows.ToArray());
     }
 }
+catch (OrderBatchPriceChangedException exception) { response = new(1, Error: exception.Message, Failure: OrderWriteFailure.NotSaved, ChangedQuote: exception.Quote, ChangedDraftIndex: exception.Index); }
 catch (OrderPriceChangedException exception) { response = new(1, Error: exception.Message, Failure: OrderWriteFailure.NotSaved, ChangedQuote: exception.Quote); }
 catch (OrderEditPriceChangedException exception) { response = new(1, Error: exception.Message, Failure: OrderWriteFailure.NotSaved, ChangedQuote: exception.Quote); }
 catch (PriceCalculationException exception) { response = new(1, Error: exception.Message, Failure: OrderWriteFailure.NotSaved); }
-catch (OrderWriteException exception) { response = new(1, Error: exception.Message, Failure: exception.Failure); }
+catch (OrderWriteException exception) { response = new(1, Error: exception.Message, Failure: exception.Failure, Diagnostic: CaptureHost(exception, exception.Failure)); }
 catch (Exception exception)
 {
+    var failure = request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder
+        ? exception is ArgumentException or InvalidDataException ? OrderWriteFailure.NotSaved : OrderWriteFailure.OutcomeUnknown : (OrderWriteFailure?)null;
     response = new(1, Error: exception is OrderReadException or PriceReadException or ArgumentException or InvalidDataException
         ? exception.Message : "Модуль Access не смог выполнить запрос.",
-        Failure: request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder
-            ? exception is ArgumentException or InvalidDataException ? OrderWriteFailure.NotSaved : OrderWriteFailure.OutcomeUnknown : null);
+        Failure: failure, Diagnostic: CaptureHost(exception, failure));
 }
 await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response));
 return 0;
+
+DiagnosticReport? CaptureHost(Exception exception, OrderWriteFailure? failure)
+{
+    if (exception is ArgumentException || failure == OrderWriteFailure.Conflict) return null;
+    try
+    {
+        DiagnosticStages.Tag(exception, diagnosticStage);
+        var session = Guid.TryParseExact(request?.DiagnosticSessionId, "N", out var sessionId) ? sessionId.ToString("N") : Guid.NewGuid().ToString("N");
+        var id = Guid.TryParseExact(request?.DiagnosticEventId, "N", out var eventId) ? eventId.ToString("N") : Guid.NewGuid().ToString("N");
+        return DiagnosticReport.Create(exception, AccessHostDiagnostics.Operation(request?.Operation ?? AccessHostOperation.Probe), session,
+            AppDiagnostics.AppVersion, component: DiagnosticComponent.AccessHost, eventId: id) with { WriteFailure = failure };
+    }
+    catch (Exception) { return null; }
+}

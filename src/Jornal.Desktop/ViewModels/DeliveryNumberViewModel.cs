@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -38,10 +39,9 @@ public partial class DeliveryNumberViewModel : ObservableObject
     public string SelectionDescription { get; }
     public IReadOnlyList<string> Specifications { get; }
     [ObservableProperty] private string _number;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(FeedbackText))] private string? _error;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _error;
     [ObservableProperty, NotifyCanExecuteChangedFor(nameof(SaveCommand))] private bool _isSaved;
     public bool HasError => Error is not null;
-    public string FeedbackText => Error ?? "Очистка применяется только после нажатия «Сохранить».";
     public event EventHandler? Saved;
 
     partial void OnNumberChanged(string value)
@@ -82,8 +82,9 @@ public partial class DeliveryNumberViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            Trace.TraceError("Delivery number update failed: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.OrderBatch, exception);
             Error = "Не удалось сохранить БЛЦБ. Номер оставлен в поле — попробуйте ещё раз.";
+            Error = AppDiagnostics.WithCode(Error, AppDiagnostics.Capture(DiagnosticOperation.OrderBatch, exception));
             return;
         }
         IsSaved = true;

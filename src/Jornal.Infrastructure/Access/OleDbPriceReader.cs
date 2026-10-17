@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Data;
 using System.Data.OleDb;
 using System.Runtime.Versioning;
@@ -19,8 +20,8 @@ public static class OleDbPriceReader
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var connection = OleDbAccessConnection.Create(path, writable: false);
-            connection.Open();
+            using var connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: false));
+            DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             cancellationToken.ThrowIfCancellationRequested();
             return Read(connection, null, tableName, cancellationToken);
         }
@@ -30,7 +31,7 @@ public static class OleDbPriceReader
         }
     }
 
-    internal static PriceTable Read(OleDbConnection connection, OleDbTransaction? transaction, string tableName, CancellationToken cancellationToken)
+    internal static PriceTable Read(OleDbConnection connection, OleDbTransaction? transaction, string tableName, CancellationToken cancellationToken) => DiagnosticStages.Run(DiagnosticStage.ReadPrices, () =>
     {
         PriceTables.ValidateName(tableName);
         using var command = connection.CreateCommand();
@@ -43,5 +44,5 @@ public static class OleDbPriceReader
         var first = reader.Read() ? Enumerable.Range(0, reader.FieldCount).Select(index => (object?)reader.GetValue(index)).ToArray() : null;
         cancellationToken.ThrowIfCancellationRequested();
         return AccessPriceMapper.Map(tableName, columns, first);
-    }
+    });
 }

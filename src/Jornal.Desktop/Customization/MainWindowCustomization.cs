@@ -1,4 +1,6 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -11,10 +13,10 @@ using Jornal.Desktop.Views;
 namespace Jornal.Desktop.Customization;
 
 /// <summary>Редактируемая копия компоновки. До «Готово» на диск попадает только прежний вариант.</summary>
-public sealed class MainWindowCustomization
+public sealed partial class MainWindowCustomization
 {
     private static readonly string[] ColumnIds = ["date", "specification", "manager", "customer", "cutting",
-        "material", "thickness", "sheet-size", "sheet-count", "cut-length", "weight", "price", "delivery", "status"];
+        "material", "thickness", "sheet-size", "sheet-count", "cut-length", "weight", "price", "cutting-time", "delivery", "status"];
     private static readonly Dictionary<string, double> MinimumWidths = new()
         { ["orders"] = 312, ["clipboard"] = 430, ["status"] = 428 };
     private readonly MainWindow _window;
@@ -61,7 +63,7 @@ public sealed class MainWindowCustomization
             handle.MoveCanceled += (_, _) => CancelDrag();
             handle.KeyDown += OnHandleKeyDown;
         }
-        foreach (var name in new[] { "FirstPanelSplitter", "SecondPanelSplitter" })
+        foreach (var name in new[] { "FirstPanelSplitter", "SecondPanelSplitter", "WorkspaceFirstSplitter", "WorkspaceSecondSplitter", "WorkspaceRowsSplitter" })
         {
             var splitter = Find<GridSplitter>(name);
             splitter.DragCompleted += (_, _) => Changed();
@@ -83,9 +85,11 @@ public sealed class MainWindowCustomization
             {
                 model.IsDarkTheme = profile.DarkTheme;
                 model.ApplyResultStyle(profile.ResultFormatting ?? new());
+                model.ApplyResultPricing(profile.ResultPricing ?? new());
+                model.ApplyNewOrderColor(profile.NewOrderColor ?? new());
             }
         }
-        Apply(loaded.Preferences?.Layout ?? new ScreenLayout());
+        Apply(loaded.Preferences?.Layout ?? ScreenLayout.CreateDefault());
         _applying = false;
         _initialized = true;
     }
@@ -123,7 +127,7 @@ public sealed class MainWindowCustomization
 
     public void Reset()
     {
-        if (_beforeEdit is not null) { CancelDrag(); Apply(new ScreenLayout()); }
+        if (_beforeEdit is not null) { CancelDrag(); Apply(ScreenLayout.CreateDefault()); }
     }
 
     private void End()
@@ -138,7 +142,7 @@ public sealed class MainWindowCustomization
     public void AppearanceChanged()
     {
         if (!_initialized || _applying) return;
-        // Тема/оформление текста сохраняются и при последующей отмене пробной компоновки.
+        // Тема/параметры результата сохраняются и при последующей отмене пробной компоновки.
         if (_beforeEdit is { } original) Write(original);
         else Changed();
     }
@@ -159,18 +163,43 @@ public sealed class MainWindowCustomization
         return !_dirty;
     }
 
+    public void SetRowHeight(double height)
+    {
+        if (!_initialized || _applying) return;
+        _layout = _layout with { RowHeight = TableDensity.NormalizeHeight(height) };
+        ApplyTableDensity();
+        Changed();
+    }
+
+    public double RowHeight => _layout.RowHeight;
+
+    private void ApplyTableDensity()
+    {
+        var density = TableDensity.FromHeight(_layout.RowHeight);
+        // Проверяем метрики реального шрифта, чтобы замена гарнитуры не обрезала строку.
+        var sample = new TextBlock { Text = "ЙДgj 0123456789", FontFamily = _table.FontFamily, FontSize = density.FontSize };
+        sample.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var minimum = Math.Ceiling(sample.DesiredSize.Height) + 6;
+        var height = Math.Max(density.RowHeight, minimum);
+        _table.FontSize = density.FontSize;
+        _table.RowHeight = height;
+        Find<TextBox>("RowHeightInput").Text = _layout.RowHeight.ToString("0", CultureInfo.InvariantCulture);
+        Find<JournalButton>("DecreaseRowHeightButton").IsEnabled = _layout.RowHeight > TableDensity.MinimumHeight;
+        Find<JournalButton>("IncreaseRowHeightButton").IsEnabled = _layout.RowHeight < TableDensity.MaximumHeight;
+    }
+
     private bool Write(ScreenLayout layout)
     {
         try
         {
             _store.Save(new UiPreferences { DarkTheme = Model?.IsDarkTheme == true, Layout = layout,
-                ResultFormatting = Model?.CaptureResultStyle() ?? new() });
+                ResultFormatting = Model?.CaptureResultStyle() ?? new(), ResultPricing = Model?.CaptureResultPricing() ?? new(), NewOrderColor = Model?.CaptureNewOrderColor() ?? new() });
             if (Model is { } model) model.PreferencesError = null;
             return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            Trace.TraceWarning("UI preferences save failed: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.Preferences, exception);
             if (Model is { } model) model.PreferencesError = "Не удалось сохранить настройки экрана. Проверьте доступ к папке профиля. Изменения пока не записаны.";
             return false;
         }
@@ -198,7 +227,8 @@ public sealed class MainWindowCustomization
     private ScreenLayout Capture() => (_layout with
     {
         Columns = CaptureColumns(),
-        PanelWidths = _panels.ToDictionary(pair => pair.Key,
+        Workspace = CaptureWorkspace(),
+        PanelWidths = _layout.Workspace is not null ? _layout.PanelWidths : _panels.ToDictionary(pair => pair.Key,
             pair => Math.Max(MinimumWidths[pair.Key], _groups.ColumnDefinitions[Grid.GetColumn(pair.Value)].ActualWidth))
     }).Normalize();
 
@@ -207,6 +237,7 @@ public sealed class MainWindowCustomization
         var wasApplying = _applying;
         _applying = true;
         _layout = layout.Normalize();
+        ApplyTableDensity();
         // Сначала восстанавливаем исходные определения: новые столбцы получают безопасные значения.
         var columns = _defaultColumns.ToDictionary(column => column.Id);
         foreach (var column in _layout.Columns)
@@ -222,23 +253,29 @@ public sealed class MainWindowCustomization
             .ThenBy(column => Array.IndexOf(ColumnIds, column.Id)).ToArray();
         for (var index = 0; index < sorted.Length; index++)
             _table.Columns[Array.IndexOf(ColumnIds, sorted[index].Id) + 1].DisplayIndex = index + 1;
-        _groups.ColumnDefinitions.Clear();
-        for (var index = 0; index < 3; index++)
+        ApplyWorkspace();
+        if (_layout.Workspace is null)
         {
-            var id = _layout.PanelOrder[index];
-            if (index > 0) _groups.ColumnDefinitions.Add(new ColumnDefinition(16, GridUnitType.Pixel));
-            _groups.ColumnDefinitions.Add(new ColumnDefinition(_layout.PanelWidths[id], GridUnitType.Star) { MinWidth = MinimumWidths[id] });
-            Grid.SetColumn(_panels[id], index * 2);
+            _groups.ColumnDefinitions.Clear();
+            for (var index = 0; index < 3; index++)
+            {
+                var id = _layout.PanelOrder[index];
+                if (index > 0) _groups.ColumnDefinitions.Add(new ColumnDefinition(16, GridUnitType.Pixel));
+                _groups.ColumnDefinitions.Add(new ColumnDefinition(_layout.PanelWidths[id], GridUnitType.Star) { MinWidth = MinimumWidths[id] });
+                Grid.SetColumn(_panels[id], index * 2);
+            }
+            Grid.SetRow(Find<Grid>("ResultSlot"), _layout.ResultAboveCommands ? 0 : 2);
+            Grid.SetRow(_groups, _layout.ResultAboveCommands ? 2 : 0);
         }
-        Grid.SetRow(Find<Grid>("ResultSlot"), _layout.ResultAboveCommands ? 0 : 2);
-        Grid.SetRow(_groups, _layout.ResultAboveCommands ? 2 : 0);
         UpdateResultSize();
         _applying = wasApplying;
     }
 
     private void UpdateResultSize()
     {
+        if (_layout.Workspace is not null) { UpdateWorkspaceSize(); return; }
         if (_top.RowDefinitions.Count != 3) return;
+        _top.RowDefinitions[1].Height = new GridLength(12);
         var body = Find<Grid>("BodyGrid");
         var filtersHeight = Math.Max(36, Find<Grid>("FiltersPanel").Bounds.Height);
         var error = Find<Border>("LoadErrorPanel");
@@ -252,8 +289,8 @@ public sealed class MainWindowCustomization
     {
         if (sender is not LayoutHandle handle || handle.PanelId != "result-size" && _beforeEdit is null) return;
         _drag = handle;
-        _resizeStart = Find<Grid>("ResultSlot").Bounds.Height;
-        _resizeOriginal = _layout.ResultHeight;
+        _resizeStart = _layout.Workspace is null ? Find<Grid>("ResultSlot").Bounds.Height : Find<Grid>("DockArea").Bounds.Height;
+        _resizeOriginal = _layout.Workspace?.Height ?? _layout.ResultHeight;
     }
 
     private void MoveDrag(object? sender, Point point)
@@ -261,25 +298,25 @@ public sealed class MainWindowCustomization
         if (_drag is not { } handle) return;
         if (handle.PanelId == "result-size")
         {
-            _layout = _layout with { ResultHeight = Math.Clamp(_resizeStart + point.Y - handle.StartPoint.Y, ScreenLayout.MinimumResultHeight, ScreenLayout.MaximumResultHeight) };
+            ResizeHeight(_resizeStart + point.Y - handle.StartPoint.Y);
             UpdateResultSize();
             return;
         }
-        if (Math.Abs(point.X - handle.StartPoint.X) + Math.Abs(point.Y - handle.StartPoint.Y) < 4) return;
-        var preview = Find<Border>("DragPreview");
-        Find<TextBlock>("DragPreviewText").Text = handle.Title;
-        preview.IsVisible = true;
-        Canvas.SetLeft(preview, Math.Clamp(point.X + 12, 0, _window.Bounds.Width - 240));
-        Canvas.SetTop(preview, Math.Clamp(point.Y + 12, 0, _window.Bounds.Height - 44));
+        if (!Find<Border>("DragPreview").IsVisible && Math.Abs(point.X - handle.StartPoint.X) + Math.Abs(point.Y - handle.StartPoint.Y) < 6) return;
+        ShowDragPreview(handle, point);
         _dropTarget = null;
         foreach (var panel in _panels.Values) panel.Classes.Remove("drop-target");
         var guide = Find<Border>("DropGuide");
         guide.IsVisible = false;
+        Find<Border>("ResultPanel").Classes.Remove("drop-target");
+        if (_layout.Workspace is not null) { FindWorkspaceTarget(handle, point); return; }
         if (handle.PanelId == "result")
         {
             var bounds = BoundsInWindow(_groups);
             if (!bounds.Inflate(new Thickness(0, 16)).Contains(point)) return;
             _dropTarget = "result";
+            guide.Height = 3;
+            Find<TextBlock>("DropGuideText").Text = "";
             guide.Width = _groups.Bounds.Width;
             Canvas.SetLeft(guide, bounds.Left);
             Canvas.SetTop(guide, _layout.ResultAboveCommands ? bounds.Bottom + 4 : bounds.Top - 7);
@@ -289,7 +326,7 @@ public sealed class MainWindowCustomization
         {
             foreach (var (id, panel) in _panels)
                 if (id != handle.PanelId && BoundsInWindow(panel).Contains(point))
-                { _dropTarget = id; panel.Classes.Add("drop-target"); break; }
+                { _dropTarget = id; panel.Classes.Add("drop-target"); ShowDropGuide(panel); break; }
         }
     }
 
@@ -299,10 +336,13 @@ public sealed class MainWindowCustomization
     private void FinishDrag(object? sender, EventArgs e)
     {
         if (_drag is not { } handle) return;
-        if (handle.PanelId == "result-size") Changed();
-        else if (_dropTarget == "result") Apply(Capture() with { ResultAboveCommands = !_layout.ResultAboveCommands });
-        else if (_dropTarget is { } target) Swap(handle.PanelId, target);
+        var target = _dropTarget;
+        handle.CancelMove();
         ClearDrag();
+        if (handle.PanelId == "result-size") Changed();
+        else if (_layout.Workspace is not null && target is not null) SwapWorkspace(handle.PanelId, target);
+        else if (target == "result") Apply(Capture() with { ResultAboveCommands = !_layout.ResultAboveCommands });
+        else if (target is not null) Swap(handle.PanelId, target);
     }
 
     private void Swap(string source, string target)
@@ -319,7 +359,7 @@ public sealed class MainWindowCustomization
     {
         if (_drag is not { } handle) return false;
         if (handle.PanelId == "result-size")
-        { _layout = _layout with { ResultHeight = _resizeOriginal }; UpdateResultSize(); }
+        { ResizeHeight(_resizeOriginal); UpdateResultSize(); }
         handle.CancelMove();
         ClearDrag();
         return true;
@@ -327,6 +367,7 @@ public sealed class MainWindowCustomization
 
     private void ClearDrag()
     {
+        ClearDragPreview();
         _drag = null;
         _dropTarget = null;
         foreach (var panel in _panels.Values) panel.Classes.Remove("drop-target");
@@ -339,11 +380,14 @@ public sealed class MainWindowCustomization
         if (sender is not LayoutHandle handle) return;
         if (handle.PanelId == "result-size" && e.Key is Key.Up or Key.Down)
         {
-            _layout = _layout with { ResultHeight = Math.Clamp(Find<Grid>("ResultSlot").Bounds.Height + (e.Key == Key.Up ? -8 : 8), ScreenLayout.MinimumResultHeight, ScreenLayout.MaximumResultHeight) };
+            var height = _layout.Workspace is null ? Find<Grid>("ResultSlot").Bounds.Height : Find<Grid>("DockArea").Bounds.Height;
+            ResizeHeight(height + (e.Key == Key.Up ? -8 : 8));
             UpdateResultSize();
             Changed();
             e.Handled = true;
         }
+        else if (_beforeEdit is not null && _layout.Workspace is not null && e.Key is Key.Up or Key.Down or Key.Left or Key.Right)
+        { MoveWorkspaceByKey(handle.PanelId, e.Key); e.Handled = true; }
         else if (_beforeEdit is not null && handle.PanelId == "result" && e.Key is Key.Up or Key.Down)
         { Apply(Capture() with { ResultAboveCommands = e.Key == Key.Up }); e.Handled = true; }
         else if (_beforeEdit is not null && e.Key is Key.Left or Key.Right)

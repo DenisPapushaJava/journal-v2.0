@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using Jornal.Desktop.Updates;
 
@@ -21,7 +22,7 @@ public partial class MainWindowViewModel
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
-            Trace.TraceWarning("Update draft restore failed: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.Update, exception);
             ResultMessage = "Не удалось восстановить результат после обновления. Черновик оставлен в профиле пользователя.";
             HasResultError = true;
         }

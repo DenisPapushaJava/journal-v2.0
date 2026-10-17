@@ -5,7 +5,7 @@
   <Grid RowDefinitions="Auto,*,Auto,Auto">
     <StackPanel Margin="24,18,24,12" Spacing="6">
       <TextBlock Text="Корзина заявок" FontSize="20" FontWeight="SemiBold" />
-      <TextBlock Text="Копии хранятся 30 дней на этом компьютере. Удаления из старой программы сюда не попадают."
+      <TextBlock Text="Копии хранятся на этом компьютере 30 дней."
                  Classes="muted" TextWrapping="Wrap" />
       <TextBlock Text="{Binding SourceDescription}" Classes="muted" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceDescription}" />
     </StackPanel>

@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -32,15 +33,15 @@ public sealed class VelopackAppUpdater : IAppUpdater
         get
         {
             try { return (_manager ??= _managerFactory(false)).IsInstalled; }
-            catch (Exception exception) { Trace.TraceWarning("Update locator unavailable: {0}", exception); return false; }
+            catch (Exception exception) { AppDiagnostics.Capture(DiagnosticOperation.Update, exception); return false; }
         }
     }
 
     public async Task<AppUpdate?> CheckAsync(bool preview, CancellationToken cancellationToken)
     {
         var manager = _managerFactory(preview);
-        var candidate = await Task.Run(() => manager.CheckForUpdatesAsync(), cancellationToken)
-            .WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+        var candidate = await DiagnosticStages.RunAsync(DiagnosticStage.CheckUpdates, () => Task.Run(() => manager.CheckForUpdatesAsync(), cancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(30), cancellationToken));
         cancellationToken.ThrowIfCancellationRequested();
         if (candidate is not null && !string.Equals(candidate.TargetFullRelease.PackageId, manager.AppId, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Пакет предназначен для другого приложения.");
@@ -55,7 +56,7 @@ public sealed class VelopackAppUpdater : IAppUpdater
     public async Task DownloadAsync(AppUpdate update, IProgress<int> progress, CancellationToken cancellationToken)
     {
         EnsureCandidate(update);
-        await Task.Run(() => _manager!.DownloadUpdatesAsync(_candidate!, progress.Report, cancellationToken), cancellationToken);
+        await DiagnosticStages.RunAsync(DiagnosticStage.DownloadUpdate, () => Task.Run(() => _manager!.DownloadUpdatesAsync(_candidate!, progress.Report, cancellationToken), cancellationToken));
         cancellationToken.ThrowIfCancellationRequested();
         _downloaded = true;
     }
@@ -71,7 +72,7 @@ public sealed class VelopackAppUpdater : IAppUpdater
                     if (process.Id != Environment.ProcessId && string.Equals(process.MainModule?.FileName, executable, StringComparison.OrdinalIgnoreCase))
                         throw new InvalidOperationException("Закройте другие окна Journal перед установкой обновления.");
         // Приложение закроется обычным путём после сохранения состояния; Environment.Exit не обходит OnClosed.
-        _manager!.WaitExitThenApplyUpdates(_candidate!.TargetFullRelease, silent: false, restart: true, restartArgs: []);
+        DiagnosticStages.Run(DiagnosticStage.ApplyUpdate, () => _manager!.WaitExitThenApplyUpdates(_candidate!.TargetFullRelease, silent: false, restart: true, restartArgs: []));
     }
 
     private void EnsureCandidate(AppUpdate update)

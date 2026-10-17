@@ -15,18 +15,19 @@ public partial class EditOrderWindow : Window
     public EditOrderWindow()
     {
         InitializeComponent();
+        ConfigureFileDrop();
         DataContextChanged += (_, _) =>
         {
-            if (_viewModel is not null) _viewModel.Saved -= OnSaved;
+            if (_viewModel is not null) { _viewModel.Saved -= OnSaved; _viewModel.PropertyChanged -= OnImportStateChanged; }
             _viewModel = DataContext as EditOrderViewModel;
-            if (_viewModel is not null) _viewModel.Saved += OnSaved;
+            if (_viewModel is not null) { _viewModel.Saved += OnSaved; _viewModel.PropertyChanged += OnImportStateChanged; }
         };
     }
 
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        OrderWindowSizing.FitToWorkingArea(this);
+        WindowSizing.FitToWorkingArea(this);
         this.GetVisualDescendants().OfType<OrderEntryControl>().First().FocusInput();
     }
 
@@ -38,11 +39,15 @@ public partial class EditOrderWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _importLifetime.Cancel();
+        _importLifetime.Dispose();
         if (_viewModel is not null)
         {
+            _viewModel.CancelImportRead();
             _viewModel.CalculateCommand.Cancel();
             _viewModel.RefreshCommand.Cancel();
             _viewModel.Saved -= OnSaved;
+            _viewModel.PropertyChanged -= OnImportStateChanged;
         }
         base.OnClosed(e);
     }
@@ -53,7 +58,9 @@ public partial class EditOrderWindow : Window
         if (e.Key == Key.F5 && _viewModel?.CanRefresh == true) { _viewModel.RefreshCommand.Execute(null); e.Handled = true; return; }
         if (e.Key == Key.Escape && _viewModel?.SaveCommand.IsRunning != true)
         {
-            Close();
+            if (_viewModel?.IsImporting == true) _viewModel.CancelImportRead();
+            else if (_viewModel?.HasPendingImport == true) _viewModel.CancelImportReplacementCommand.Execute(null);
+            else Close();
             e.Handled = true;
         }
     }

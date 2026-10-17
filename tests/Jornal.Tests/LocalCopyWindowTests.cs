@@ -35,10 +35,10 @@ public sealed class LocalCopyWindowTests
         {
             window.Show(); Pump(); await model.ReloadCommand.ExecutionTask!; Pump();
             Assert.False(model.HasError, model.ErrorMessage); Assert.Equal(expected.Count, model.Orders.Count);
-            Assert.True(window.FindControl<JournalButton>("NewOrderButton")!.IsEffectivelyEnabled);
-            var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            Assert.True(window.FindDescendant<JournalButton>("NewOrderButton")!.IsEffectivelyEnabled);
+            var table = window.FindDescendant<DataGrid>("OrdersGrid")!;
             table.SelectedItems.Add(model.Orders.First(row => row.StoredCuttingPrice is not null)); Pump();
-            Assert.True(window.FindControl<JournalButton>("DeliveryNumberButton")!.IsEffectivelyEnabled);
+            Assert.True(window.FindDescendant<JournalButton>("DeliveryNumberButton")!.IsEffectivelyEnabled);
             Click(window, "AddResultButton"); Assert.False(model.HasResultError, model.ResultMessage);
             Screenshot(window, "private-local-real-" + (dark ? "dark" : "light"));
         }
@@ -60,10 +60,10 @@ public sealed class LocalCopyWindowTests
             window.Show(); Pump(); await model.ReloadCommand.ExecutionTask!; Pump();
             Assert.False(model.HasError, model.ErrorMessage);
             Assert.Contains("Локальная", model.SourceDescription);
-            Assert.True(window.FindControl<JournalButton>("NewOrderButton")!.IsEffectivelyEnabled);
-            var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            Assert.True(window.FindDescendant<JournalButton>("NewOrderButton")!.IsEffectivelyEnabled);
+            var table = window.FindDescendant<DataGrid>("OrdersGrid")!;
             table.SelectedItems.Add(model.Orders[0]); Pump();
-            Assert.True(window.FindControl<JournalButton>("DeliveryNumberButton")!.IsEffectivelyEnabled);
+            Assert.True(window.FindDescendant<JournalButton>("DeliveryNumberButton")!.IsEffectivelyEnabled);
             Click(window, "DeliveryNumberButton");
             var delivery = Assert.Single(window.OwnedWindows.OfType<DeliveryNumberWindow>());
             var blcb = (DeliveryNumberViewModel)delivery.DataContext!;
@@ -113,14 +113,14 @@ public sealed class LocalCopyWindowTests
         try
         {
             window.Show(); Pump();
-            var radio = window.FindControl<RadioButton>("LocalCopyModeButton")!;
+            var radio = window.FindDescendant<RadioButton>("LocalCopyModeButton")!;
             radio.BringIntoView(); Pump(); Click(window, radio.Name!);
             Assert.True(form.UseLocalCopy); Assert.False(form.UseDemo); Assert.False(form.UseDatabase);
             form.LocalCopyPath = "некорректный путь";
             Click(window, "ConnectDatabaseButton"); Pump(); Assert.True(form.HasError);
             foreach (var name in new[] { "ConnectDatabaseButton", "CancelDatabaseButton", "DatabaseConnectionError" })
             {
-                var control = window.FindControl<Control>(name)!;
+                var control = window.FindDescendant<Control>(name)!;
                 var bounds = new Rect(control.Bounds.Size).TransformToAABB(control.TransformToVisual(window)!.Value);
                 Assert.True(bounds.Top >= 0 && bounds.Bottom <= window.Height && bounds.Right <= window.Width, name);
             }
@@ -169,7 +169,7 @@ public sealed class LocalCopyWindowTests
     private static void Pump() => Dispatcher.UIThread.RunJobs();
     private static void Click(Window window, string name)
     {
-        var control = window.FindControl<Control>(name)!;
+        var control = window.FindDescendant<Control>(name)!;
         var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
         window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();
     }

@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Jornal.Infrastructure.Local;
@@ -19,21 +20,23 @@ public partial class DatabaseSettingsViewModel(string? currentPath, Func<string?
     public bool CanChangeSource => !IsImporting && !IsConnecting;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _error;
     [ObservableProperty] private bool _isConnected;
+    [ObservableProperty] private string _currentSource = currentPath ?? "Демонстрационный журнал";
     public bool HasError => !string.IsNullOrEmpty(Error);
     public AccessHostHelpViewModel AccessHostHelp { get; } = new();
     partial void OnErrorChanged(string? value) => AccessHostHelp.ShowFor(null);
     public string DatabaseCapabilities => OperatingSystem.IsWindows()
-        ? "В MDB доступны поиск, фильтры, результат для письма, создание заявки с расчётом цены, изменение статусов и БЛЦБ. Редактирование и импорт спецификаций ещё переносятся."
-        : "На Linux MDB доступна только для чтения: поиск, фильтры и результат для письма. Создание с расчётом, статусы и БЛЦБ доступны в локальной копии или через MDB на Windows.";
+        ? "Для первой подготовки закройте журнал на остальных ПК. Резервная копия создаётся автоматически."
+        : "MDB доступна только для чтения. Для изменений используйте локальную тестовую копию.";
     public event EventHandler? Connected;
-    partial void OnDatabasePathChanged(string value) => Error = null;
-    partial void OnLocalCopyPathChanged(string value) => Error = null;
+    partial void OnDatabasePathChanged(string value) { Error = null; IsConnected = false; }
+    partial void OnLocalCopyPathChanged(string value) { Error = null; IsConnected = false; }
     partial void OnIsImportingChanged(bool value) => ConnectCommand.NotifyCanExecuteChanged();
 
     private void SelectSource(int kind)
     {
         if (_sourceKind == kind) return;
         _sourceKind = kind;
+        IsConnected = false;
         foreach (var name in new[] { nameof(UseDatabase), nameof(UseDemo), nameof(UseLocalCopy) }) OnPropertyChanged(name);
         Error = null;
     }
@@ -52,7 +55,7 @@ public partial class DatabaseSettingsViewModel(string? currentPath, Func<string?
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            Error = "Не удалось создать локальную копию. " + exception.Message;
+            Error = AppDiagnostics.Describe(DiagnosticOperation.OrderRead, exception, "Не удалось создать локальную копию.");
         }
         finally { IsImporting = false; }
     }
@@ -96,7 +99,7 @@ public partial class DatabaseSettingsViewModel(string? currentPath, Func<string?
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (OrderReadException exception)
         {
-            Error = exception.Message;
+            Error = AppDiagnostics.Describe(DiagnosticOperation.OrderRead, exception, "Не удалось подключить базу.");
             AccessHostHelp.ShowFor(exception);
         }
         finally { IsConnecting = false; }

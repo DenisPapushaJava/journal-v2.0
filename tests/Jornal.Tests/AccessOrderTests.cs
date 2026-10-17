@@ -3,12 +3,37 @@ using System.Security.Cryptography;
 using Jornal.Core.Orders;
 using Jornal.Desktop.ViewModels;
 using Jornal.Infrastructure.Access;
+using Jornal.Infrastructure.Diagnostics;
 using Xunit;
 
 namespace Jornal.Tests;
 
 public sealed class AccessOrderTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InvalidAndUnavailableDatabasesKeepOpeningStageWithoutLeakingInput(bool missing)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "journal-header-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, "SECRET-CUSTOMER.mdb");
+        var bytes = "Synthetic invalid database"u8.ToArray();
+        if (!missing) await File.WriteAllBytesAsync(path, bytes, TestContext.Current.CancellationToken);
+        try
+        {
+            var error = await Assert.ThrowsAsync<OrderReadException>(() => new AccessOrderReader(path).ReadAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(DiagnosticStage.OpenDatabase, DiagnosticStages.Of(error));
+            var report = DiagnosticReport.Create(error, DiagnosticOperation.OrderRead, Guid.NewGuid().ToString("N"), "2026.1.0-alpha.6");
+            var json = System.Text.Json.JsonSerializer.Serialize(report, DiagnosticReport.Json);
+            Assert.DoesNotContain("SECRET", json);
+            Assert.Equal(DiagnosticStage.OpenDatabase, report.Stage);
+            if (!missing) Assert.Equal(bytes, await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
+            else Assert.False(File.Exists(path));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     [Fact]
     public void ReadsNamedColumnsAndPreservesHistoricalValues()
     {

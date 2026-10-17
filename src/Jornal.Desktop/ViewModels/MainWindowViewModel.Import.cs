@@ -1,17 +1,35 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Jornal.Parsing.Documents;
+using Jornal.Infrastructure.Diagnostics;
 using Jornal.Desktop.Import;
 
 namespace Jornal.Desktop.ViewModels;
 
 public partial class MainWindowViewModel
 {
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowSpecificationOverlay)), NotifyPropertyChangedFor(nameof(SpecificationOverlayTitle))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowSpecificationOverlay)), NotifyPropertyChangedFor(nameof(SpecificationOverlayTitle)),
+        NotifyPropertyChangedFor(nameof(ShowSpecificationReading)), NotifyPropertyChangedFor(nameof(ShowSpecificationRejection)),
+        NotifyPropertyChangedFor(nameof(SpecificationRejectionText))]
     private bool _isDraggingSpecification;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowSpecificationOverlay)), NotifyPropertyChangedFor(nameof(SpecificationOverlayTitle))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowSpecificationOverlay)), NotifyPropertyChangedFor(nameof(SpecificationOverlayTitle)),
+        NotifyPropertyChangedFor(nameof(ShowSpecificationReading)), NotifyPropertyChangedFor(nameof(ShowSpecificationRejection)),
+        NotifyPropertyChangedFor(nameof(SpecificationRejectionText))]
     private bool _isImportingSpecification;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(SpecificationOverlayTitle))] private string? _specificationDropError;
-    [ObservableProperty] private string _specificationOverlayDescription = "HTML БЛОК/Wintech или PDF HansLaser · новая заявка после проверки";
-    public bool ShowSpecificationOverlay => IsDraggingSpecification || IsImportingSpecification;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SpecificationOverlayTitle)),
+        NotifyPropertyChangedFor(nameof(ShowSpecificationReading)), NotifyPropertyChangedFor(nameof(ShowSpecificationRejection)),
+        NotifyPropertyChangedFor(nameof(SpecificationRejectionText))]
+    private string? _specificationDropError;
+    [ObservableProperty] private string _specificationOverlayDescription = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowSpecificationOverlay)), NotifyPropertyChangedFor(nameof(ShowSpecificationReading)), NotifyPropertyChangedFor(nameof(ShowSpecificationRejection)),
+        NotifyPropertyChangedFor(nameof(HasSpecificationImportError)), NotifyPropertyChangedFor(nameof(SpecificationRejectionText))]
+    private string? _specificationImportError;
+    public bool HasSpecificationImportError => !string.IsNullOrEmpty(SpecificationImportError);
+    public bool ShowSpecificationReading => IsImportingSpecification && !ShowSpecificationRejection;
+    public bool ShowSpecificationRejection => IsDraggingSpecification ? SpecificationDropError is not null : HasSpecificationImportError;
+    public string? SpecificationRejectionText => IsDraggingSpecification ? SpecificationDropError : SpecificationImportError;
+    public bool ShowSpecificationOverlay => IsDraggingSpecification || IsImportingSpecification || HasSpecificationImportError;
+    [RelayCommand] private void DismissSpecificationImportError() => SpecificationImportError = null;
     public string SpecificationOverlayTitle => IsImportingSpecification ? "Читаем спецификацию…" :
         SpecificationDropError is null ? "Отпустите спецификацию здесь" : "Этот файл пока не принимается";
     public bool CanImportSpecification => CanCreateOrder && _pendingCreationForm is null;
@@ -26,18 +44,28 @@ public partial class MainWindowViewModel
     {
         IsDraggingSpecification = false;
         if (IsImportingSpecification) return null;
-        if ((ImportAvailabilityError ?? SpecificationImportService.CheckFiles(paths)) is { } error)
-        { ErrorMessage = error; return null; }
+        SpecificationImportError = null;
+        if ((ImportAvailabilityError ?? SpecificationImportService.CheckDropFiles(paths)) is { } error)
+        { SpecificationImportError = error; return null; }
+        if (paths.Count > 1)
+        {
+            var batch = CreateOrderForm(forImport: true);
+            if (batch is null) return null;
+            batch.ImportReader = reader;
+            _ = batch.AddBatchFilesAsync(paths, cancellationToken);
+            return batch;
+        }
         SpecificationOverlayDescription = Path.GetFileName(paths[0]);
         IsImportingSpecification = true;
         SpecificationImportPreview? preview = null;
         try { preview = await reader.ReadAsync(paths[0], cancellationToken); cancellationToken.ThrowIfCancellationRequested(); }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (DocumentRejectedException exception) { SpecificationImportError = exception.Message; }
         catch (Exception exception) when (exception is not OutOfMemoryException)
-        { ErrorMessage = "Не удалось прочитать спецификацию. " + exception.Message; }
+        { SpecificationImportError = AppDiagnostics.Describe(DiagnosticOperation.SpecificationImport, exception, "Не удалось прочитать спецификацию."); }
         finally { IsImportingSpecification = false; }
         if (preview is null || cancellationToken.IsCancellationRequested || CreateOrderForm(forImport: true) is not { } form) return null;
-        form.ApplyImport(preview);
+        form.ApplyImport(preview, paths[0]);
         return form;
     }
 }

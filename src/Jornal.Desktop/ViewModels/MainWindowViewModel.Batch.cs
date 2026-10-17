@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -78,11 +79,12 @@ public partial class MainWindowViewModel
         }
         catch (Exception exception)
         {
-            Trace.TraceError("Order batch update failed: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.OrderBatch, exception);
             UpdatedText = previousUpdate;
             RequiresReload = writeCompleted || exception is OrderWriteException { RequiresReload: true };
             ErrorMessage = writeCompleted ? "Изменения сохранены, но не удалось обновить экран. Закройте форму БЛЦБ, если она открыта, и обновите список (F5)." :
                 exception is OrderWriteException ? exception.Message : "Не удалось изменить заявки. Список и выбор сохранены — попробуйте ещё раз.";
+            ErrorMessage = AppDiagnostics.WithCode(ErrorMessage, AppDiagnostics.Capture(DiagnosticOperation.OrderBatch, exception));
             AccessHostHelp.ShowFor(exception);
             return false;
         }

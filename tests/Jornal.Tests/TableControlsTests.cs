@@ -22,7 +22,7 @@ namespace Jornal.Tests;
 public sealed class TableControlsTests
 {
     [AvaloniaFact]
-    public async Task SelectAllIncludesOrdersOutsideViewportAndBothScrollbarsAreAvailable()
+    public async Task KeyboardSelectAllIncludesOrdersOutsideViewportAndBothScrollbarsAreAvailable()
     {
         var seed = (await new DemoOrderStore().ReadAsync()).First();
         var rows = Enumerable.Range(1, 80).Select(id => seed with { Id = id, SpecificationNumber = $"1015-{id:0000}" }).ToArray();
@@ -36,7 +36,10 @@ public sealed class TableControlsTests
             var bars = grid.GetVisualDescendants().OfType<ScrollBar>().ToArray();
             Assert.Contains(bars, bar => bar.Orientation == Avalonia.Layout.Orientation.Horizontal && bar.IsVisible && bar.Maximum > 0);
             Assert.Contains(bars, bar => bar.Orientation == Avalonia.Layout.Orientation.Vertical && bar.IsVisible && bar.Maximum > 0);
-            Click(window, window.FindControl<CheckBox>("SelectAllRowsBox")!);
+            grid.Focus();
+            window.KeyPress(Key.A, RawInputModifiers.Control, PhysicalKey.A, "a");
+            window.KeyRelease(Key.A, RawInputModifiers.Control, PhysicalKey.A, "a");
+            Dispatcher.UIThread.RunJobs();
             Assert.Equal(80, grid.SelectedItems.Count);
             grid.ScrollIntoView(vm.Orders.Last(), grid.Columns[1]);
             Dispatcher.UIThread.RunJobs();
@@ -53,7 +56,7 @@ public sealed class TableControlsTests
     }
 
     [AvaloniaFact]
-    public void RowCheckboxesAndHeaderSelectionApplyOnlyToFilteredOrders()
+    public void RowCheckboxesToggleSelectionAndRespectFilteredOrders()
     {
         var vm = new MainWindowViewModel(new DemoOrderStore());
         var window = new MainWindow { DataContext = vm };
@@ -62,33 +65,26 @@ public sealed class TableControlsTests
             window.Show();
             Dispatcher.UIThread.RunJobs();
             var grid = window.FindControl<DataGrid>("OrdersGrid")!;
-            var all = window.FindControl<CheckBox>("SelectAllRowsBox")!;
             CheckBox Row(int id) => grid.GetVisualDescendants().OfType<CheckBox>()
-                .Single(box => box.Classes.Contains("row-selection") && box.DataContext is OrderRowViewModel row && row.Id == id);
+                .Single(box => box.IsEffectivelyVisible && box.Classes.Contains("row-selection") && box.DataContext is OrderRowViewModel row && row.Id == id);
             Click(window, Row(1));
             Assert.Single(grid.SelectedItems);
-            Assert.Null(all.IsChecked);
             Click(window, Row(2));
             Assert.Equal(2, grid.SelectedItems.Count);
-            Click(window, all);
-            Assert.Equal(3, grid.SelectedItems.Count);
-            Assert.True(all.IsChecked);
-            Assert.Equal("Выбрано: 3", vm.SelectionText);
-            Click(window, all);
-            Assert.Empty(grid.SelectedItems);
-            Assert.False(all.IsChecked);
-            vm.SearchText = "Менеджер 1";
-            Dispatcher.UIThread.RunJobs();
-            Click(window, all);
-            Assert.Equal(2, grid.SelectedItems.Count);
-            Assert.True(all.IsChecked);
+            Assert.Equal("Выбрано: 2", vm.SelectionText);
             Click(window, Row(1));
             Assert.Single(grid.SelectedItems);
-            Assert.Null(all.IsChecked);
+            Click(window, Row(2));
+            Assert.Empty(grid.SelectedItems);
+            vm.SearchText = "Менеджер 1";
+            Dispatcher.UIThread.RunJobs();
+            Click(window, Row(1));
+            Click(window, Row(3));
+            Assert.Equal(2, grid.SelectedItems.Count);
+            Click(window, Row(1));
+            Assert.Single(grid.SelectedItems);
             vm.SearchText = "ничего не найдено";
             Dispatcher.UIThread.RunJobs();
-            Assert.False(all.IsEnabled);
-            Assert.False(all.IsChecked);
             Assert.Empty(grid.SelectedItems);
         }
         finally { window.Close(); }

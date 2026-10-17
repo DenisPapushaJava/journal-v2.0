@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Data;
 using System.Data.OleDb;
 using System.Diagnostics;
@@ -31,10 +32,10 @@ public sealed class OleDbOrderBatchEditor(string path) : IOrderBatchEditor
             token.ThrowIfCancellationRequested();
             if (!string.Equals(Path.GetExtension(path), ".mdb", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
                 throw new OrderWriteException(OrderWriteFailure.NotSaved, "Файл MDB недоступен. Проверьте путь и подключение к общей папке.");
-            connection = OleDbAccessConnection.Create(path, writable: true);
-            connection.Open();
+            connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: true));
+            DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             token.ThrowIfCancellationRequested();
-            transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+            transaction = DiagnosticStages.Run(DiagnosticStage.BeginTransaction, () => connection.BeginTransaction(IsolationLevel.ReadCommitted));
             try
             {
                 var updated = new List<OrderSummary>(change.Expected.Count);
@@ -42,20 +43,20 @@ public sealed class OleDbOrderBatchEditor(string path) : IOrderBatchEditor
                 {
                     token.ThrowIfCancellationRequested();
                     using var command = CreateUpdate(connection, transaction, change, expected);
-                    if (command.ExecuteNonQuery() != 1) throw OrderWriteException.Conflict();
+                    if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw OrderWriteException.Conflict();
                     // Результат читаем до commit: после успешного commit нет запросов, способных скрыть успех ошибкой.
-                    updated.Add(ReadRow(connection, transaction, expected.Id));
+                    updated.Add(DiagnosticStages.Run(DiagnosticStage.ReadBack, () => ReadRow(connection, transaction, expected.Id)));
                 }
                 token.ThrowIfCancellationRequested();
                 commitStarted = true;
-                transaction.Commit();
+                DiagnosticStages.Run(DiagnosticStage.CommitTransaction, transaction.Commit);
                 return updated;
             }
             catch (Exception exception)
             {
                 var rollbackFailed = false;
-                try { transaction.Rollback(); }
-                catch (Exception rollback) { rollbackFailed = true; Trace.TraceError("MDB rollback failed: {0}", rollback); }
+                try { DiagnosticStages.Run(DiagnosticStage.RollbackTransaction, transaction.Rollback); }
+                catch (Exception rollback) { rollbackFailed = true; AppDiagnostics.Capture(DiagnosticOperation.OrderBatch, rollback); }
                 if (commitStarted || rollbackFailed)
                     throw new OrderWriteException(OrderWriteFailure.OutcomeUnknown,
                         "Не удалось подтвердить сохранение. Изменения могли примениться. Закройте форму БЛЦБ, если она открыта, и обновите список (F5) перед повтором.", exception);
@@ -84,8 +85,8 @@ public sealed class OleDbOrderBatchEditor(string path) : IOrderBatchEditor
 
     private static void Dispose(IDisposable? resource)
     {
-        try { resource?.Dispose(); }
-        catch (Exception exception) { Trace.TraceError("MDB resource cleanup failed: {0}", exception); }
+        try { DiagnosticStages.Run(DiagnosticStage.ReleaseResources, () => resource?.Dispose()); }
+        catch (Exception exception) { AppDiagnostics.Capture(DiagnosticOperation.OrderBatch, exception); }
     }
 
     private static OleDbCommand CreateUpdate(OleDbConnection connection, OleDbTransaction transaction,
@@ -126,7 +127,9 @@ public sealed class OleDbOrderBatchEditor(string path) : IOrderBatchEditor
         if (!reader.Read()) throw OrderWriteException.Conflict();
         var names = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToArray();
         AccessOrderMapper.ValidateColumns(names);
-        return AccessOrderMapper.Map(names.Select((name, index) => (name, value: reader.GetValue(index)))
+        var row = AccessOrderMapper.Map(names.Select((name, index) => (name, value: reader.GetValue(index)))
             .ToDictionary(item => item.name, item => (object?)item.value, StringComparer.Ordinal));
+        reader.Close();
+        return row with { CuttingTime = OleDbOrderExtras.Read(connection, transaction, id) };
     }
 }

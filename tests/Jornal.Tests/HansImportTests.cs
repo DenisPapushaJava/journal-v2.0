@@ -108,6 +108,9 @@ public sealed class HansImportTests
             Assert.Equal(expected.WeightKilograms, form.Weight.Value); Assert.Equal(expected.CutLengthMeters.ToString(), form.CutLength.Value);
             Assert.Equal(expected.Coefficient, decimal.Parse(form.Coefficient.Value, System.Globalization.CultureInfo.InvariantCulture));
             Assert.Equal(expected.OrderDate.ToString("dd.MM.yyyy"), form.OrderDate.Value);
+            var rawSeconds = item.GetProperty("Raw").GetProperty("DurationSeconds").GetInt64();
+            var expectedMinutes = rawSeconds / 60 + (rawSeconds % 60 == 0 ? 0 : 1);
+            Assert.Equal($"{expectedMinutes / 60:00}:{expectedMinutes % 60:00}", form.CuttingTime.Value);
             Assert.Equal(3, (await store.ReadAsync(TestContext.Current.CancellationToken)).Count);
         }
     }
@@ -132,7 +135,7 @@ internal sealed class HansPdfFile : IDisposable
 {
     private readonly string _directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "journal-hans-" + Guid.NewGuid().ToString("N"));
     public string Path { get; }
-    public HansPdfFile()
+    public HansPdfFile(Jornal.Parsing.Documents.SourceDocument? document = null)
     {
         Directory.CreateDirectory(_directory);
         Path = System.IO.Path.Combine(_directory, "99 mm 1999-01-01-9999 неверное имя.pdf");
@@ -140,7 +143,7 @@ internal sealed class HansPdfFile : IDisposable
         using var stream = AssetLoader.Open(new Uri("avares://Avalonia.Fonts.Inter/Assets/Inter-Regular.ttf"));
         using var font = new MemoryStream(); stream.CopyTo(font);
         var added = builder.AddTrueTypeFont(font.ToArray());
-        foreach (var source in HansSample.Document().Pages)
+        foreach (var source in (document ?? HansSample.Document()).Pages)
         {
             var page = builder.AddPage(source.Width, source.Height);
             foreach (var word in source.Words)
