@@ -66,6 +66,39 @@ public sealed class BatchImportTests
         Assert.All(form.BatchItems, item => Assert.False(item.HasWarning));
     }
     [Fact]
+    public async Task TemporarilyMissingControlValuesCannotCrashBatchValidationOrSaveIncompleteCards()
+    {
+        var store = new DemoOrderStore();
+        var form = new NewOrderViewModel(store) { ImportReader = new Reader(await Preview()) };
+        form.Manager.Value = "Иван"; form.Customer.Value = "Клиент";
+        await form.ImportFilesAsync(["one.html", "two.html"], Token);
+        var first = form.BatchItems[0].Form;
+        var otherValues = form.BatchItems[1].Form.Fields.Select(field => field.Value).ToArray();
+        foreach (var field in first.Fields)
+        {
+            var previous = field.Value;
+            field.Value = null!; // ComboBox/TextBox могут передать null при пересоздании карточки.
+            Assert.Equal("", field.Value);
+            field.Value = previous;
+        }
+        var machine = first.CuttingType.Value;
+        first.Annotations.HasBending = true;
+        first.Annotations.Comment = "Временный комментарий";
+        first.Annotations.Comment = null;
+        Assert.Equal("", first.Annotations.Comment); Assert.Equal("0/255", first.Annotations.CommentLengthText);
+        Assert.True(first.Annotations.HasBending); Assert.False(first.Annotations.HasComment);
+        first.CuttingType.Value = null!;
+        Assert.False(form.SaveCommand.CanExecute(null));
+        await form.SaveCommand.ExecuteAsync(null);
+        Assert.False(form.IsSaved); Assert.Equal(3, (await store.ReadAsync(Token)).Count);
+        Assert.Equal(otherValues, form.BatchItems[1].Form.Fields.Select(field => field.Value));
+        first.CuttingType.Value = machine;
+        Assert.True(form.SaveCommand.CanExecute(null));
+        await form.SaveCommand.ExecuteAsync(null);
+        Assert.True(form.IsSaved); Assert.Equal(2, form.CreatedOrders.Count);
+    }
+
+    [Fact]
     public async Task ConvertingFilledSingleFormPreservesManualEditsSharedHeaderAndQuoteInputs()
     {
         var form = ManualOrderTests.ValidForm(new DemoOrderStore());

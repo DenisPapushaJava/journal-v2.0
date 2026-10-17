@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Jornal.Core.Orders;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Jornal.Desktop.ViewModels;
 
@@ -10,7 +11,23 @@ public partial class OrderAnnotationsEditor : ObservableObject
     private OrderSummary _identity = new(0, null, "", "", "", "", "", null, null, null);
     private string? _confirmedIdentity;
     [ObservableProperty] private bool _hasBending;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CommentLengthText)), NotifyPropertyChangedFor(nameof(HasComment))] private string _comment = "";
+    private string _comment = "";
+    [AllowNull]
+    public string Comment
+    {
+        get => _comment;
+        set
+        {
+            var text = value ?? "";
+            if (_comment == text) return;
+            OnPropertyChanging(nameof(Comment));
+            _comment = text;
+            OnCommentChanged(text);
+            OnPropertyChanged(nameof(Comment));
+            OnPropertyChanged(nameof(CommentLengthText));
+            OnPropertyChanged(nameof(HasComment));
+        }
+    }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasCommentError))] private string? _commentError;
     public bool HasCommentError => CommentError is not null;
     public bool HasComment => Comment.Length > 0;
@@ -26,7 +43,7 @@ public partial class OrderAnnotationsEditor : ObservableObject
     public void SetIdentity(DateOnly? date, string specification)
     { _identity = _identity with { OrderDate = date, SpecificationNumber = specification }; OnPropertyChanged(nameof(NeedsReview)); }
     partial void OnHasBendingChanged(bool value) => OnPropertyChanged(nameof(NeedsReview));
-    partial void OnCommentChanged(string value) { CommentError = null; OnPropertyChanged(nameof(NeedsReview)); }
+    private void OnCommentChanged(string value) { CommentError = null; OnPropertyChanged(nameof(NeedsReview)); }
     [RelayCommand]
     private void ConfirmReview() { _confirmedIdentity = OrderAnnotations.For(_identity, true, "")!.IdentityHash; OnPropertyChanged(nameof(NeedsReview)); }
     [RelayCommand]

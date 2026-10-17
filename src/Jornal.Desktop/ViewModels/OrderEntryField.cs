@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Jornal.Desktop.ViewModels;
 
@@ -25,7 +26,7 @@ public partial class OrderEntryField(string label, string value = "",
         ImportHint = value.Length == 0 ? "Не распознано" : "Из спецификации";
         Error = null;
     }
-    partial void OnValueChanged(string value)
+    private void OnValueChanged(string value)
     {
         NeedsReview = false;
         if (_importedValue is not null) ImportHint = value == _importedValue
@@ -33,7 +34,24 @@ public partial class OrderEntryField(string label, string value = "",
     }
     [ObservableProperty] private bool _needsReview;
     [RelayCommand] private void ConfirmReview() { NeedsReview = false; Error = null; }
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasImportHint)), NotifyPropertyChangedFor(nameof(SuggestionText))] private string _value = value;
+    private string _value = value ?? "";
+    // TextBox.Text и ComboBox.SelectedItem могут прислать null до/при пересоздании привязки.
+    [AllowNull]
+    public string Value
+    {
+        get => _value;
+        set
+        {
+            var text = value ?? "";
+            if (_value == text) return;
+            OnPropertyChanging(nameof(Value));
+            _value = text;
+            OnValueChanged(text);
+            OnPropertyChanged(nameof(Value));
+            OnPropertyChanged(nameof(HasImportHint));
+            OnPropertyChanged(nameof(SuggestionText));
+        }
+    }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _error;
     public bool HasError => Error is not null;
 }
