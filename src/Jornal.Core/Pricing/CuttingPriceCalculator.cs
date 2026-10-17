@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Jornal.Core.Pricing;
 
 public sealed record CuttingPriceRequest(string CuttingType, decimal ThicknessMillimeters,
@@ -48,25 +50,33 @@ public static class CuttingPriceCalculator
 
     public static CuttingPriceQuote Calculate(CuttingPriceRequest request, PriceTable table, CuttingMachine? machine = null)
     {
-        var selected = SelectTable(request, machine);
+        var result = CalculateResult(request, table, machine);
+        return result.Quote ?? throw new PriceCalculationException(result.Failure!.Value, result.Error!);
+    }
+
+    public static CuttingPriceResult CalculateResult(CuttingPriceRequest request, PriceTable table, CuttingMachine? machine = null)
+    {
+        string selected;
+        try { selected = SelectTable(request, machine); }
+        catch (PriceCalculationException exception) { return new(exception.Failure, exception.Message); }
         table.Validate();
         if (table.Name != selected)
             throw new ArgumentException("Передан прайс другого вида резки или ID материала.", nameof(table));
         var rate = table.Rates.SingleOrDefault(rate => rate.ThicknessMillimeters == request.ThicknessMillimeters);
         if (!table.HasRow || rate?.RublesPerMeter is null)
-            throw new PriceCalculationException(PriceCalculationFailure.PriceUnavailable,
-                "В первой строке выбранного прайса нет тарифа для этой толщины. Цена не рассчитана.");
+            return new(PriceCalculationFailure.PriceUnavailable,
+                $"{request.CuttingType}: нет тарифа для {request.ThicknessMillimeters.ToString("0.############################", CultureInfo.GetCultureInfo("ru-RU"))} мм. Добавьте его в «Прайсы».");
         if (rate.RublesPerMeter < 0)
-            throw new PriceCalculationException(PriceCalculationFailure.InvalidPrice, "Тариф в базе отрицательный. Проверьте прайс.");
+            return new(PriceCalculationFailure.InvalidPrice, "Тариф в базе отрицательный. Проверьте прайс.");
         // Совместимость с NewOrd/Edit: Double, прежний порядок умножения и ToEven.
         // Переход к decimal-арифметике изменил бы некоторые цены на границе округления.
         var rounded = Math.Round((double)rate.RublesPerMeter.Value * request.CutLengthMeters * (double)request.Coefficient,
             MidpointRounding.ToEven);
         if (!double.IsFinite(rounded) || rounded > 922337203685477d)
-            throw new PriceCalculationException(PriceCalculationFailure.AmountOutOfRange, "Стоимость превышает диапазон Currency в Access.");
+            return new(PriceCalculationFailure.AmountOutOfRange, "Стоимость превышает диапазон Currency в Access.");
         // Минимум 500 ₽ применяется только при подготовке результата, не здесь.
-        return new(table.Name, rate.ColumnName, rate.RublesPerMeter.Value, request.CutLengthMeters,
-            request.Coefficient, (decimal)rounded);
+        return new(new CuttingPriceQuote(table.Name, rate.ColumnName, rate.RublesPerMeter.Value, request.CutLengthMeters,
+            request.Coefficient, (decimal)rounded));
     }
 
     public static decimal CalculatePunchCoefficient(int partCount, int punchCount)
@@ -93,11 +103,21 @@ public sealed class CuttingPriceService(IPriceReader reader)
 
     public async Task<CuttingPriceQuote> CalculateAsync(CuttingPriceRequest request, CancellationToken cancellationToken = default)
     {
-        var machine = await ResolveMachineAsync(reader, request.CuttingType, cancellationToken);
-        var name = CuttingPriceCalculator.SelectTable(request, machine);
-        cancellationToken.ThrowIfCancellationRequested();
-        var table = await reader.ReadAsync(name, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        return CuttingPriceCalculator.Calculate(request, table, machine);
+        var result = await CalculateResultAsync(request, cancellationToken);
+        return result.Quote ?? throw new PriceCalculationException(result.Failure!.Value, result.Error!);
+    }
+
+    public async Task<CuttingPriceResult> CalculateResultAsync(CuttingPriceRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var machine = await ResolveMachineAsync(reader, request.CuttingType, cancellationToken);
+            var name = CuttingPriceCalculator.SelectTable(request, machine);
+            cancellationToken.ThrowIfCancellationRequested();
+            var table = await reader.ReadAsync(name, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return CuttingPriceCalculator.CalculateResult(request, table, machine);
+        }
+        catch (PriceCalculationException exception) { return new(exception.Failure, exception.Message); }
     }
 }

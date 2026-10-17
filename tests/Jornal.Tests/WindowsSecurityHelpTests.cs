@@ -147,7 +147,9 @@ public sealed class WindowsSecurityHelpTests
     {
         public bool Block { get; set; } = true;
         public Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default) => Block ? throw BlockedWrite() : Task.FromResult(draft.ToOrder(99, 977m));
-        public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) => throw new PriceReadException("Windows заблокировала модуль MDB", BlockedRead());
+        public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) => Block ?
+            throw new PriceReadException("Windows заблокировала модуль MDB", BlockedRead()) :
+            Task.FromResult(new PriceTable(tableName, true, [new(2.5m, "2,5", 17)]));
     }
     private sealed class BlockingEditor : IOrderBatchEditor
     {

@@ -136,13 +136,13 @@
                 <TextBlock Text="{Binding Failure}" IsVisible="{Binding HasFailure}" TextWrapping="Wrap"
                            Foreground="{DynamicResource JournalDangerForeground}" />
                 <TextBlock Text="{Binding Warning}" IsVisible="{Binding HasWarning}" TextWrapping="Wrap" Classes="muted" />
+                <TextBlock Text="{Binding Form.PriceError}" IsVisible="{Binding Form.HasPriceError}" TextWrapping="Wrap"
+                           Foreground="{DynamicResource JournalDangerForeground}" />
                 <StackPanel IsVisible="{Binding HasParameters}" Spacing="10" IsEnabled="{Binding CanEdit}">
                   <ui:OrderParametersControl DataContext="{Binding Form}" />
                   <TextBlock Text="{Binding Form.PriceText}" FontWeight="SemiBold" />
                   <ui:WindowsSecurityHelp DataContext="{Binding Form.AccessHostHelp}" />
                   <TextBlock Text="{Binding Form.SaveError}" IsVisible="{Binding Form.HasSaveError}" TextWrapping="Wrap"
-                             Foreground="{DynamicResource JournalDangerForeground}" />
-                  <TextBlock Text="{Binding Form.PriceError}" IsVisible="{Binding Form.HasPriceError}" TextWrapping="Wrap"
                              Foreground="{DynamicResource JournalDangerForeground}" />
                 </StackPanel>
               </StackPanel>

@@ -51,7 +51,12 @@ public partial class NewOrderViewModel : ObservableObject
     public bool IsLocalCopy { get; }
     public bool IsDatabase { get; }
     public AccessHostHelpViewModel AccessHostHelp { get; } = new();
-    partial void OnPriceErrorChanged(string? value) { if (value is null && SaveError is null) AccessHostHelp.ShowFor(null); }
+    partial void OnPriceErrorChanged(string? value)
+    {
+        if (value is null) HasPriceValidationError = false;
+        if (value is null && SaveError is null) AccessHostHelp.ShowFor(null);
+        SaveCommand.NotifyCanExecuteChanged();
+    }
     partial void OnSaveErrorChanged(string? value) { if (value is null && PriceError is null) AccessHostHelp.ShowFor(null); }
     private IPriceReader? PriceReader => _creator as IPriceReader ??
         (SelectedMachine is not null ? (_creator as Jornal.Infrastructure.Demo.DemoOrderStore)?.Prices : null);
@@ -60,6 +65,7 @@ public partial class NewOrderViewModel : ObservableObject
     [ObservableProperty] private string _priceText = "Не рассчитана";
     [ObservableProperty] private string _priceBreakdown = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPriceError))] private string? _priceError;
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(SaveCommand))] private bool _hasPriceValidationError;
     public bool HasPriceError => PriceError is not null;
     public string Heading => IsBatchMode ? "Пакетный импорт" : "Новая заявка";
     public string WindowTitle => IsBatchMode ? "Пакетный импорт · " + StorageDescription : IsLocalCopy ? "Новая заявка · Локальная копия" : IsDatabase ? "Новая заявка · MDB" : "Новая заявка · Деморежим";
@@ -106,9 +112,9 @@ public partial class NewOrderViewModel : ObservableObject
         SaveError = IsBatchMode ? "Ввод восстановлен. Перед повторным добавлением проверьте список: пакет мог сохраниться." : "Ввод восстановлен. Перед повторным добавлением проверьте список: предыдущая заявка могла сохраниться.";
     }
 
-    private bool CanSave() => (!IsBatchMode ? !Material.NeedsReview : CanSaveBatch) && !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning && !IsImporting && !HasPendingImport;
+    private bool CanSave() => (!IsBatchMode ? !Material.NeedsReview && !HasPriceValidationError : CanSaveBatch) && !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning && !IsImporting && !HasPendingImport;
 
-    private bool CanCalculatePrice() => (!IsBatchMode || CanSaveBatch) && !RequiresReload && HasPricing && !IsSaved && !SaveCommand.IsRunning && !IsImporting && !HasPendingImport;
+    private bool CanCalculatePrice() => (!IsBatchMode || CanCalculateBatch) && !RequiresReload && HasPricing && !IsSaved && !SaveCommand.IsRunning && !IsImporting && !HasPendingImport;
 
     [RelayCommand(CanExecute = nameof(CanCalculatePrice))]
     private async Task CalculatePriceAsync(CancellationToken cancellationToken)
@@ -133,9 +139,10 @@ public partial class NewOrderViewModel : ObservableObject
         { PriceError = "Укажите толщину, целую длину в метрах и коэффициент."; return; }
         try
         {
-            var quote = await new CuttingPriceService(PriceReader!).CalculateAsync(
+            var result = await new CuttingPriceService(PriceReader!).CalculateResultAsync(
                 new(CuttingType.Value, thickness, length, coefficient, IsHansLaser ? MaterialId.Value.Trim() : null), cancellationToken);
-            ShowQuote(quote);
+            if (result.Quote is { } quote) ShowQuote(quote);
+            else { HasPriceValidationError = true; PriceError = result.Error; }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception)
@@ -155,6 +162,7 @@ public partial class NewOrderViewModel : ObservableObject
         var draft = BuildDraft();
         try
         {
+            if (!await CheckPriceAsync(draft)) { if (!HasPriceValidationError) SaveError = PriceError; return; }
             CreatedOrder = await _creator.CreateAsync(draft);
         }
         catch (OrderPriceChangedException exception)
@@ -177,6 +185,24 @@ public partial class NewOrderViewModel : ObservableObject
         SaveCommand.NotifyCanExecuteChanged();
         CalculatePriceCommand.NotifyCanExecuteChanged();
         Saved?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async Task<bool> CheckPriceAsync(ManualOrderDraft draft, IPriceReader? priceReader = null)
+    {
+        if ((priceReader ?? PriceReader) is not { } reader) return true;
+        try
+        {
+            var result = await new CuttingPriceService(reader).CalculateResultAsync(draft.PriceRequest);
+            if (result.Quote is not null) { PriceError = null; return true; }
+            HasPriceValidationError = true; PriceError = result.Error;
+        }
+        catch (Exception exception)
+        {
+            PriceError = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось проверить цену. Повторите расчёт.");
+            AccessHostHelp.ShowFor(exception);
+        }
+        _quote = null; PriceText = "Не рассчитана"; PriceBreakdown = "";
+        return false;
     }
 
     internal ManualOrderDraft BuildDraft()

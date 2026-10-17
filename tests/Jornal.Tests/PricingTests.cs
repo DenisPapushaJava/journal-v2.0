@@ -72,6 +72,24 @@ public sealed class PricingTests
     }
 
     [Fact]
+    public void ExpectedTariffFailuresHaveAResultAndKeepTheStrictCalculationContract()
+    {
+        var request = new CuttingPriceRequest("Лазер", 2.5m, 1, 1);
+        foreach (var table in new[] { Table(null), new PriceTable(PriceTables.Laser, false, []), new PriceTable(PriceTables.Laser, true, []) })
+        {
+            var result = CuttingPriceCalculator.CalculateResult(request, table);
+            Assert.Null(result.Quote); Assert.Equal(PriceCalculationFailure.PriceUnavailable, result.Failure);
+            Assert.Contains("Лазер", result.Error); Assert.Contains("2,5 мм", result.Error);
+            var strict = Assert.Throws<PriceCalculationException>(() => CuttingPriceCalculator.Calculate(request, table));
+            Assert.Equal(result.Failure, strict.Failure); Assert.Equal(result.Error, strict.Message);
+        }
+        var negative = CuttingPriceCalculator.CalculateResult(request, Table(-1));
+        Assert.Null(negative.Quote); Assert.Equal(PriceCalculationFailure.InvalidPrice, negative.Failure);
+        var zero = CuttingPriceCalculator.CalculateResult(request, Table(0));
+        Assert.Null(zero.Error); Assert.Null(zero.Failure); Assert.Equal(0m, zero.Quote!.StoredPrice);
+    }
+
+    [Fact]
     public void ValidatesInputsCurrencyOverflowAndQuoteBreakdown()
     {
         var request = new CuttingPriceRequest("Лазер", 2.5m, 1, 1);

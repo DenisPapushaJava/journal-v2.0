@@ -214,7 +214,12 @@ public partial class EditOrderViewModel : ObservableObject
         AppDiagnostics.Current?.Mark(DiagnosticOperation.PriceRead);
         if (RequiresReload || SavedRecord is not null || SaveCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || HasPendingImport) return;
         Error = null; AccessHostHelp.ShowFor(null); _quote = null;
-        try { ShowQuote(await new CuttingPriceService(_store).CalculateAsync(BuildChange().PriceRequest, cancellationToken)); }
+        try
+        {
+            var result = await new CuttingPriceService(_store).CalculateResultAsync(BuildChange().PriceRequest, cancellationToken);
+            if (result.Quote is { } quote) ShowQuote(quote);
+            else { PriceText = "Не рассчитана"; Error = result.Error; }
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception) { Error = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось рассчитать цену."); AccessHostHelp.ShowFor(exception); }
     }
@@ -230,9 +235,12 @@ public partial class EditOrderViewModel : ObservableObject
         try
         {
             var change = BuildChange();
+            var result = await new CuttingPriceService(_store).CalculateResultAsync(change.PriceRequest);
+            if (result.Quote is not { } quote)
+            { _quote = null; PriceText = "Не рассчитана"; Error = result.Error; return; }
             if (_quote is null)
             {
-                ShowQuote(await new CuttingPriceService(_store).CalculateAsync(change.PriceRequest));
+                ShowQuote(quote);
                 change = BuildChange();
             }
             SavedRecord = await _store.UpdateAsync(change);
