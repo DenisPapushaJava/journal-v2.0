@@ -20,10 +20,11 @@ namespace Jornal.Tests;
 public sealed class ClipboardWindowTests
 {
     [AvaloniaTheory]
-    [InlineData(false)] [InlineData(true)]
-    public async Task SelectionNoticeFitsAndSurvivesSortingAndStatusUntilDeliveryIsFixed(bool dark)
+    [InlineData(false, false)] [InlineData(true, false)]
+    [InlineData(false, true)] [InlineData(true, true)]
+    public async Task SelectionNoticeFitsAndSurvivesSortingAndStatusUntilDeliveryIsFixed(bool dark, bool differentDelivery)
     {
-        var (model, _) = await ClipboardSelectionNoticeTests.Model();
+        var (model, _) = differentDelivery ? await ClipboardSelectionNoticeTests.MixedModel() : await ClipboardSelectionNoticeTests.Model();
         var window = new MainWindow(new MemoryUiPreferencesStore()) { DataContext = model, Width = 1280, Height = 720,
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
         try
@@ -36,12 +37,13 @@ public sealed class ClipboardWindowTests
             await model.CopyCommentAsync(clipboard, true); Dispatcher.UIThread.RunJobs();
             Assert.True(model.HasSelectionNotice);
             var text = window.FindControl<TextBlock>("JournalErrorText")!;
-            Assert.Contains(rows[0].SpecificationNumber, text.Text); Assert.Contains(rows[1].SpecificationNumber, text.Text);
+            Assert.Contains(rows[0].SpecificationNumber, text.Text);
+            Assert.Contains(rows[differentDelivery ? rows.Length - 1 : 1].SpecificationNumber, text.Text);
             Assert.True(window.FindControl<Border>("LoadErrorPanel")!.Bounds.Height < 100);
             if (Environment.GetEnvironmentVariable("JOURNAL_SCREENSHOT_DIR") is { } directory)
             {
                 Directory.CreateDirectory(directory); using var image = new RenderTargetBitmap(PixelSize.FromSize(window.ClientSize, 1)); image.Render(window);
-                image.Save(Path.Combine(directory, $"clipboard-notice-{dark}.png"), new PngBitmapEncoderOptions());
+                image.Save(Path.Combine(directory, $"clipboard-notice-{dark}-{differentDelivery}.png"), new PngBitmapEncoderOptions());
             }
             grid.Columns.Single(c => Equals(c.Header, "Спецификация")).Sort(System.ComponentModel.ListSortDirection.Ascending);
             Dispatcher.UIThread.RunJobs(); Assert.True(model.HasSelectionNotice); Assert.Equal(rows.Length, grid.SelectedItems.Count);

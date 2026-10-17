@@ -8,6 +8,79 @@ namespace Jornal.Tests;
 
 public sealed class ClipboardSelectionNoticeTests
 {
+    [Theory]
+    [InlineData("9285", "9286")]
+    [InlineData("РП-00012345", "ДРУГОЙ-12345")]
+    [InlineData("9285", "09285")]
+    [InlineData("00000", "0")]
+    [InlineData("РП-12345", "рп-12345")]
+    public void DifferentFullDeliveryNumbersBlockBothActionsIncludingMatchingDisplaySuffixes(string first, string second)
+    {
+        var rows = new[] { JournalClipboardTests.Order(100) with { SpecificationNumber = "Спека-100", DeliveryNumber = first },
+            JournalClipboardTests.Order(101) with { SpecificationNumber = "Спека-101", DeliveryNumber = second } };
+        var error = Assert.Throws<ArgumentException>(() => OrderCommentFormatter.Telegram(rows));
+        Assert.Equal(error.Message, Assert.Throws<ArgumentException>(() => OrderFolderPlan.Create(rows)).Message);
+        Assert.Contains("Разные БЛЦБ (2)", error.Message); Assert.Contains(first, error.Message); Assert.Contains(second, error.Message);
+        Assert.Contains("Спека-100", error.Message); Assert.Contains("Спека-101", error.Message);
+        Assert.Equal(error.Message, Assert.Throws<ArgumentException>(() => OrderCommentFormatter.Telegram(rows.Reverse().ToArray())).Message);
+    }
+
+    [Fact]
+    public void DeliveryMismatchMessageIsBoundedAndWhitespaceNormalizationDoesNotChangeStoredValues()
+    {
+        var rows = Enumerable.Range(100, 8).Select(id => JournalClipboardTests.Order(id) with
+        { SpecificationNumber = string.Concat(Enumerable.Repeat("😀", 100)), DeliveryNumber = new string('Я', 250) + id }).ToArray();
+        var message = Assert.Throws<ArgumentException>(() => OrderCommentFormatter.Telegram(rows)).Message;
+        Assert.Contains("Разные БЛЦБ (8)", message); Assert.Contains("ещё БЛЦБ: 5", message);
+        Assert.Contains("код 100", message); Assert.True(message.Length < 800);
+        _ = new System.Text.UTF8Encoding(false, true).GetBytes(message);
+        var first = JournalClipboardTests.Order(); var padded = first with { Id = 101, DeliveryNumber = "  " + first.DeliveryNumber + "\t " };
+        Assert.Contains("12345", OrderCommentFormatter.Telegram([first, padded]));
+        Assert.Equal(2, OrderFolderPlan.Create([first, padded]).Items.Count);
+        Assert.Equal("  " + first.DeliveryNumber + "\t ", padded.DeliveryNumber);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MismatchKeepsClipboardAndLetterUntilSelectionOrDeliveryIsExplicitlyFixed(bool folders)
+    {
+        var (model, rows) = await MixedModel();
+        var oldPlan = OrderFolderPlan.Create([JournalClipboardTests.Order(999)]);
+        var clipboard = new RecordingJournalClipboard { Text = "Прежний буфер", Plan = oldPlan };
+        model.ResultText = "Письмо";
+        async Task Run()
+        {
+            if (folders) Assert.Null(model.CreateFolderForm(clipboard));
+            else await model.CopyCommentAsync(clipboard, true);
+        }
+        await Run();
+        Assert.True(model.HasSelectionNotice); Assert.Contains("Разные БЛЦБ (2)", model.ErrorMessage);
+        Assert.Contains("9285", model.ErrorMessage); Assert.Contains("9286", model.ErrorMessage);
+        Assert.Equal("Прежний буфер", clipboard.Text); Assert.Same(oldPlan, clipboard.Plan); Assert.Equal("Письмо", model.ResultText);
+        var message = model.ErrorMessage;
+        model.UpdateSelection(rows.Reverse(), rows[1]); Assert.Equal(message, model.ErrorMessage);
+        await model.SetOrderColorCommand.ExecuteAsync(OrderColors.Work);
+        Assert.Equal(message, model.ErrorMessage); Assert.True(model.HasSelectionNotice);
+        model.UpdateSelection(model.Orders.Where(row => row.DeliveryNumber == "9285"), null);
+        Assert.False(model.HasSelectionNotice); Assert.Null(model.ErrorMessage);
+        Assert.Equal("Прежний буфер", clipboard.Text); Assert.Same(oldPlan, clipboard.Plan);
+        var ids = rows.Select(row => row.Id).ToHashSet();
+        model.UpdateSelection(model.Orders.Where(row => ids.Contains(row.Id)), null);
+        await Run(); Assert.True(model.HasSelectionNotice);
+        var delivery = model.CreateDeliveryNumberForm()!; delivery.Number = "9285";
+        await delivery.SaveCommand.ExecuteAsync(null);
+        Assert.True(delivery.IsSaved); Assert.False(model.HasSelectionNotice); Assert.Null(model.ErrorMessage);
+        Assert.Equal("Прежний буфер", clipboard.Text); Assert.Same(oldPlan, clipboard.Plan);
+        if (folders)
+        {
+            var form = model.CreateFolderForm(clipboard)!; Assert.Equal(3, form.Items.Count);
+            await form.CopyCommand.ExecuteAsync(null); Assert.NotSame(oldPlan, clipboard.Plan);
+        }
+        else { await model.CopyCommentAsync(clipboard, true); Assert.StartsWith("9285", clipboard.Text); }
+        Assert.False(model.HasError); Assert.Equal("Письмо", model.ResultText);
+    }
+
     [Fact]
     public void MissingDeliveryMessageNamesEveryMissingOrderAndBoundsLargeOrUnusualSets()
     {
@@ -92,5 +165,17 @@ public sealed class ClipboardSelectionNoticeTests
         var rows = model.Orders.Where(row => ids.Contains(row.Id)).OrderBy(row => row.Id).ToArray();
         model.UpdateSelection(rows, rows[0]);
         return (model, rows);
+    }
+
+    internal static async Task<(MainWindowViewModel Model, OrderRowViewModel[] Rows)> MixedModel()
+    {
+        var (model, rows) = await Model(); var ids = rows.Select(row => row.Id).ToHashSet();
+        var common = model.CreateDeliveryNumberForm()!; common.Number = "9285"; await common.SaveCommand.ExecuteAsync(null);
+        var last = model.Orders.Single(row => row.Id == rows[^1].Id);
+        model.UpdateSelection([last], last);
+        var different = model.CreateDeliveryNumberForm()!; different.Number = "9286"; await different.SaveCommand.ExecuteAsync(null);
+        var current = model.Orders.Where(row => ids.Contains(row.Id)).OrderBy(row => row.Id).ToArray();
+        model.UpdateSelection(current, current[0]);
+        return (model, current);
     }
 }

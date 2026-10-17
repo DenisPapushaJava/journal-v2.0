@@ -23,13 +23,11 @@ public sealed class JournalClipboardTests
         Assert.Equal("12345  Иван (Пример)\n2,5 мм Ст3   на Лазер\n\n", OrderCommentFormatter.Telegram([order]));
         var gas = order with { Id = 101, CuttingType = "Газо-кислородная", ThicknessMillimeters = 20 };
         var hydro = order with { Id = 102, CuttingType = "Гидроабразивная" };
-        var another = order with { Id = 103, DeliveryNumber = "РП-00000042", CustomerName = "Другой заказчик" };
+        var another = order with { Id = 103, CustomerName = "Другой заказчик" };
         var text = OrderCommentFormatter.Telegram([gas, hydro, order, another]);
         Assert.True(text.IndexOf("на Лазер", StringComparison.Ordinal) < text.IndexOf("на Кристалл", StringComparison.Ordinal));
         Assert.Contains("на Кристалл резка газом\n\n2,5 мм Ст3   на Гидроабразивная", text);
-        Assert.Contains("42  Иван (Другой заказчик)", text);
-        var collision = OrderCommentFormatter.Telegram([order, order with { Id = 104, DeliveryNumber = "ДРУГОЙ-12345" }]);
-        Assert.Contains("РП-00012345  Иван", collision); Assert.Contains("ДРУГОЙ-12345  Иван", collision);
+        Assert.Contains("12345  Иван (Другой заказчик)", text);
         Assert.Throws<ArgumentException>(() => OrderCommentFormatter.Telegram([order, order with { DeliveryNumber = "" }]));
         Assert.Equal("0  Иван (Пример)\n2,5 мм Ст3   на Лазер\n\n", OrderCommentFormatter.Telegram([order with { DeliveryNumber = "00000" }]));
     }
