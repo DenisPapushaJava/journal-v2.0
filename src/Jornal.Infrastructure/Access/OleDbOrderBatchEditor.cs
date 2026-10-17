@@ -130,6 +130,9 @@ public sealed class OleDbOrderBatchEditor(string path) : IOrderBatchEditor
         var row = AccessOrderMapper.Map(names.Select((name, index) => (name, value: reader.GetValue(index)))
             .ToDictionary(item => item.name, item => (object?)item.value, StringComparer.Ordinal));
         reader.Close();
-        return row with { CuttingTime = OleDbOrderExtras.Read(connection, transaction, id) };
+        row = row with { CuttingTime = OleDbOrderExtras.Read(connection, transaction, id) };
+        try { return row with { Annotations = OleDbOrderAnnotations.ReadOne(connection, transaction, id) }; }
+        catch (Exception exception) when (exception is OrderReadException or OleDbException or InvalidOperationException)
+        { return row with { AnnotationsUnavailable = true }; }
     }
 }

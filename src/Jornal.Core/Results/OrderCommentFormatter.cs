@@ -17,6 +17,8 @@ public static class OrderCommentFormatter
     {
         if (orders.Count == 0) throw new ArgumentException("Выберите заявки.");
         foreach (var order in orders) RequireDelivery(order);
+        if (orders.Any(order => order.AnnotationsUnavailable || order.AnnotationsNeedReview))
+            throw new ArgumentException("Не удалось проверить пометки выбранных заявок. Проверьте гибку в редакторе или обновите список (F5).");
         var groups = orders.GroupBy(order => (Number: Line(order.DeliveryNumber), Manager: Line(order.ManagerName), Customer: Line(order.CustomerName))).ToArray();
         var result = new StringBuilder();
         foreach (var group in groups)
@@ -35,7 +37,7 @@ public static class OrderCommentFormatter
                     .ThenBy(order => order.ThicknessMillimeters)
                     .ThenBy(order => Line(order.MaterialName), StringComparer.OrdinalIgnoreCase)
                     .ThenBy(order => order.Id))
-                    result.Append(Thickness(order)).Append(" мм ").Append(Line(order.MaterialName)).Append("  \n");
+                    result.Append(Thickness(order)).Append(" мм ").Append(Line(order.MaterialName)).Append(order.HasBending ? " ГИБКА" : "").Append("  \n");
                 result.Length--; // Прежний формат: подпись станка после последней строки группы.
                 var caption = machine.Key switch { "Плазма" => "Плазму", "Газо-кислородная" => "Кристалл резка газом", _ => machine.Key.Length > 0 ? machine.Key : "Станок не указан" };
                 result.Append(" на ").Append(caption);

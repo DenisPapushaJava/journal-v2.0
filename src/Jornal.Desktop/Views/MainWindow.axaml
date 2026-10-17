@@ -308,6 +308,22 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Гибка" SortMemberPath="HasBending" Width="68" MinWidth="60" IsReadOnly="True">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:OrderRowViewModel">
+                      <TextBlock Text="{Binding BendingText}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"
+                                 ui:TableCellPresentation.Hint="{Binding AnnotationHint}" AutomationProperties.Name="{Binding BendingDescription}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Комментарий" SortMemberPath="Comment" Width="200" MinWidth="120" IsReadOnly="True">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:OrderRowViewModel">
+                      <TextBlock Text="{Binding CommentText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                 ui:TableCellPresentation.Hint="{Binding AnnotationHint}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="БЛЦБ" Binding="{ReflectionBinding DeliveryNumber}" Width="144" MinWidth="128" />
                 <DataGridTemplateColumn Header="Статус" Width="128" MinWidth="128" SortMemberPath="StatusText">
                   <DataGridTemplateColumn.CellTemplate>

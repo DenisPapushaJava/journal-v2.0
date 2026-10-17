@@ -68,6 +68,7 @@ public partial class NewOrderViewModel
                 if (ImportPreview is { } previous) form.ApplyImport(previous, _importSourcePath);
                 for (var index = 0; index < Fields.Count; index++) form.Fields[index].Value = Fields[index].Value;
                 form.Material.NeedsReview = Material.NeedsReview;
+                form.Annotations.HasBending = Annotations.HasBending; form.Annotations.Comment = Annotations.Comment;
                 form._quote = _quote; form.PriceText = PriceText; form.PriceBreakdown = PriceBreakdown;
                 var current = new BatchSpecificationItem(this, form, ImportPreview?.FileName ?? "Текущая заявка", _importSourcePath) { HasParameters = true, IsReading = false };
                 BatchItems.Add(current);

@@ -18,6 +18,8 @@ public partial class NewOrderViewModel : ObservableObject
     {
         _creator = creator;
         InitialColor = initialColor;
+        Annotations.PropertyChanged += (_, e) =>
+        { if (e.PropertyName is nameof(OrderAnnotationsEditor.HasBending) or nameof(OrderAnnotationsEditor.Comment)) { if (_submitted) Validate(); NotifyBatchState(); } };
         IsLocalCopy = isLocalCopy;
         IsDatabase = isDatabase;
         foreach (var field in Fields) field.PropertyChanged += (_, e) =>
@@ -77,6 +79,7 @@ public partial class NewOrderViewModel : ObservableObject
     public OrderEntryField SheetCount { get; } = new("Количество листов *");
     public OrderEntryField Weight { get; } = new("Вес, кг *");
     public OrderEntryField CutLength { get; } = new("Длина реза, м *");
+    public OrderAnnotationsEditor Annotations { get; } = new();
     public OrderEntryField CuttingTime { get; } = new("Время резки, ч:мин");
     public OrderEntryField Coefficient { get; } = new("Коэффициент *", value: "1");
     public OrderEntryField MaterialId { get; } = new("ID материала HansLaser");
@@ -188,13 +191,14 @@ public partial class NewOrderViewModel : ObservableObject
             SheetCount.Value.Trim(), length, Weight.Value.Trim(), coefficient,
             IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "")
             { Machine = SelectedMachine, InitialColor = InitialColor, ExpectedQuote = _quote, PartCount = ImportPreview?.PartCount, PunchCount = ImportPreview?.PunchCount,
+                HasBending = Annotations.HasBending, Comment = Annotations.Comment,
                 CuttingDurationMinutes = CuttingDuration.TryParse(CuttingTime.Value, out var minutes) ? minutes : null };
     }
 
     internal bool ValidateBatchParameters()
     {
         Validate();
-        return !Fields.Where(field => field != Manager && field != Customer).Any(field => field.HasError);
+        return Annotations.Validate() && !Fields.Where(field => field != Manager && field != Customer).Any(field => field.HasError);
     }
 
     private void ShowQuote(CuttingPriceQuote quote)
@@ -254,7 +258,8 @@ public partial class NewOrderViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(Gas.Value)) Gas.Error = "Проверьте газ по спецификации.";
         }
         if (!CuttingDuration.TryParse(CuttingTime.Value, out _)) CuttingTime.Error = CuttingDuration.ValidationMessage;
-        HasValidationErrors = Fields.Any(field => field.HasError);
+        var annotationsValid = Annotations.Validate();
+        HasValidationErrors = !annotationsValid || Fields.Any(field => field.HasError);
         return !HasValidationErrors;
     }
 

@@ -8,12 +8,22 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 /// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
-public sealed partial class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IPriceEditor, IOrderMaintenance, IOrderDurationInitializer, IMachineCatalogReader, IMachineCreator
+public sealed partial class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IPriceEditor, IOrderMaintenance, IOrderDurationInitializer, IOrderAnnotationsInitializer, IMachineCatalogReader, IMachineCreator
 {
     private readonly Action<Process> _start = static process => { process.Start(); };
     internal AccessHostClient(string path, string? executable, Action<Process> start) : this(path, executable) => _start = start;
     public static string DefaultExecutable => System.IO.Path.Combine(AppContext.BaseDirectory, "AccessHost", "Jornal.AccessHost.exe");
     public static bool IsBundled => OperatingSystem.IsWindows() && File.Exists(DefaultExecutable);
+
+    public async Task PrepareAnnotationsAsync(CancellationToken cancellationToken = default)
+    {
+        try { await SendAsync(new(1, AccessHostOperation.PrepareAnnotations, System.IO.Path.GetFullPath(path)), cancellationToken); }
+        catch (OrderWriteException exception)
+        {
+            throw new OrderWriteException(OrderWriteFailure.NotSaved,
+                "Не удалось подготовить гибку и комментарии. Запрос сохранения заявки не отправлен. Для первой подготовки закройте остальные программы, проверьте права на базу и её папку, затем обновите список (F5).", exception);
+        }
+    }
 
     public async Task PrepareCuttingTimeAsync(CancellationToken cancellationToken = default) =>
         _ = await SendAsync(new(1, AccessHostOperation.PrepareCuttingTime, System.IO.Path.GetFullPath(path)), cancellationToken);
@@ -27,18 +37,21 @@ public sealed partial class AccessHostClient(string path, string? executable = n
     public async Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
     {
         change.Validate();
+        if (change.Values.Annotations is not null || change.Expected.Annotations is not null) await PrepareAnnotationsAsync(cancellationToken);
         return (await SendAsync(new(1, AccessHostOperation.UpdateOrder, System.IO.Path.GetFullPath(path), Edit: change), cancellationToken)).Record!;
     }
 
     public async Task DeleteAsync(OrderRecord expected, CancellationToken cancellationToken = default)
     {
         expected.Validate();
+        if (expected.Annotations is not null) await PrepareAnnotationsAsync(cancellationToken);
         await SendAsync(new(1, AccessHostOperation.DeleteOrder, System.IO.Path.GetFullPath(path), Record: expected), cancellationToken);
     }
 
     public async Task<OrderRecord> RestoreAsync(OrderRecord archived, CancellationToken cancellationToken = default)
     {
         archived.Validate();
+        if (archived.Annotations is not null) await PrepareAnnotationsAsync(cancellationToken);
         return (await SendAsync(new(1, AccessHostOperation.RestoreOrder, System.IO.Path.GetFullPath(path), Record: archived), cancellationToken)).Record!;
     }
 
@@ -53,6 +66,7 @@ public sealed partial class AccessHostClient(string path, string? executable = n
     public async Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default)
     {
         draft.Validate();
+        if (draft.HasBending || draft.Comment.Length > 0) await PrepareAnnotationsAsync(cancellationToken);
         var response = await SendAsync(new(1, AccessHostOperation.CreateOrder, System.IO.Path.GetFullPath(path), Draft: draft), cancellationToken);
         return response.Orders![0];
     }
@@ -60,11 +74,17 @@ public sealed partial class AccessHostClient(string path, string? executable = n
     public async Task<IReadOnlyList<OrderSummary>> CreateBatchAsync(IReadOnlyList<ManualOrderDraft> drafts, CancellationToken cancellationToken = default)
     {
         var snapshot = ManualOrderBatch.Snapshot(drafts);
+        if (snapshot.Any(draft => draft.HasBending || draft.Comment.Length > 0)) await PrepareAnnotationsAsync(cancellationToken);
         return (await SendAsync(new(1, AccessHostOperation.CreateOrders, System.IO.Path.GetFullPath(path), Drafts: snapshot), cancellationToken)).Orders!;
     }
 
-    public async Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
-        (await SendAsync(new(1, AccessHostOperation.Read, path), cancellationToken)).Orders!;
+    public async Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await SendAsync(new(1, AccessHostOperation.Read, path), cancellationToken);
+        return SupportedRows(response);
+    }
+    private static OrderSummary[] SupportedRows(AccessHostResponse response) => response.AnnotationsSupported ? response.Orders! :
+        response.Orders!.Select(row => row with { AnnotationsUnavailable = true }).ToArray();
 
     public async Task<PriceTable> ReadPriceTableAsync(string tableName, CancellationToken cancellationToken = default)
     {
@@ -91,14 +111,14 @@ public sealed partial class AccessHostClient(string path, string? executable = n
     }
 
     private async Task<IReadOnlyList<OrderSummary>> SendOrdersAsync(AccessHostRequest request, CancellationToken cancellationToken) =>
-        (await SendAsync(request, cancellationToken)).Orders!;
+        SupportedRows(await SendAsync(request, cancellationToken));
 
     private async Task<AccessHostResponse> SendAsync(AccessHostRequest request, CancellationToken cancellationToken)
     {
         request = request with { DiagnosticSessionId = AppDiagnostics.Current?.SessionId ?? Guid.NewGuid().ToString("N"), DiagnosticEventId = Guid.NewGuid().ToString("N") };
         cancellationToken.ThrowIfCancellationRequested();
         var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or
-            AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.PrepareCuttingTime or AccessHostOperation.UpdatePriceTable or AccessHostOperation.CreateMachine;
+            AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.PrepareCuttingTime or AccessHostOperation.UpdatePriceTable or AccessHostOperation.CreateMachine or AccessHostOperation.PrepareAnnotations;
         var dispatched = false;
         var stage = DiagnosticStage.LaunchAccessHost;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -176,6 +196,13 @@ public sealed partial class AccessHostClient(string path, string? executable = n
             }
             if (response.Failure is not null || response.ChangedQuote is not null || response.ChangedDraftIndex is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");
+            if (request.Operation == AccessHostOperation.PrepareAnnotations)
+            {
+                if (response.AnnotationsPrepared != true || !response.AnnotationsSupported || response.Orders is not null || response.Record is not null || response.PriceTable is not null || response.MaintenanceCompleted is not null || response.CuttingTimePrepared is not null || response.Machines is not null || response.Machine is not null)
+                    throw new InvalidDataException("Подготовка хранения пометок не подтверждена.");
+                return response;
+            }
+            if (response.AnnotationsPrepared is not null) throw new InvalidDataException("Пометки переданы для другой операции.");
             if (request.Operation is AccessHostOperation.ReadMachines or AccessHostOperation.CreateMachine)
             {
                 if (response.Orders is not null || response.Record is not null || response.MaintenanceCompleted is not null || response.CuttingTimePrepared is not null)
@@ -209,6 +236,8 @@ public sealed partial class AccessHostClient(string path, string? executable = n
             {
                 if (response.MaintenanceCompleted != true || response.Orders is not null || response.PriceTable is not null)
                     throw new InvalidDataException("Операция с полной записью не подтверждена.");
+                if (request.Operation == AccessHostOperation.ReadOrder && response.Record is not null && !response.AnnotationsSupported)
+                    throw new InvalidDataException("Модуль Access устарел. Гибка и комментарии не проверены.");
                 try { response.Record?.Validate(); }
                 catch (OrderWriteException exception) { throw new InvalidDataException("Некорректная полная запись в ответе хоста.", exception); }
                 if (request.Operation == AccessHostOperation.ReadOrder && response.Record is { } record && record.Id != request.OrderId ||
@@ -244,7 +273,7 @@ public sealed partial class AccessHostClient(string path, string? executable = n
                     foreach (var order in orders)
                     {
                         if (order is null) throw new InvalidDataException("Пустая строка в ответе модуля Access.");
-                        order.CuttingTime?.Validate();
+                        order.CuttingTime?.Validate(); order.Annotations?.Validate();
                     }
                 }
                 catch (OrderWriteException exception) { throw new InvalidDataException("Некорректное время в ответе модуля Access.", exception); }

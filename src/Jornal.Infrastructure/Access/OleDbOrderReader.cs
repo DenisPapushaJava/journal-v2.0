@@ -48,7 +48,17 @@ public static class OleDbOrderReader
             cancellationToken.ThrowIfCancellationRequested();
             reader.Close();
             var times = OleDbOrderExtras.ReadAll(connection);
-            return orders.Select(row => row with { CuttingTime = times.GetValueOrDefault(row.Id) }).ToArray();
+            var rows = orders.Select(row => row with { CuttingTime = times.GetValueOrDefault(row.Id) }).ToArray();
+            try
+            {
+                var annotations = OleDbOrderAnnotations.ReadAll(connection);
+                return rows.Select(row => row with { Annotations = annotations.GetValueOrDefault(row.Id) }).ToArray();
+            }
+            catch (Exception exception) when (exception is OleDbException or OrderReadException or InvalidOperationException)
+            {
+                AppDiagnostics.Capture(DiagnosticOperation.OrderRead, exception);
+                return rows.Select(row => row with { AnnotationsUnavailable = true }).ToArray();
+            }
         }
         catch (Exception exception) when (exception is OleDbException or InvalidOperationException)
         {

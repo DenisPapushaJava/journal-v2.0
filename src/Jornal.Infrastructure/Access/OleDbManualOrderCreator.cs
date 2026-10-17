@@ -29,6 +29,8 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
         var snapshot = ManualOrderBatch.Snapshot(drafts);
         if (snapshot.Any(draft => draft.CuttingDurationMinutes is not null))
             DiagnosticStages.RunAsync(DiagnosticStage.PrepareCuttingTime, () => new OleDbOrderExtras(path).PrepareCuttingTimeAsync(cancellationToken)).GetAwaiter().GetResult();
+        if (snapshot.Any(draft => draft.HasBending || draft.Comment.Length > 0))
+            new OleDbOrderAnnotations(path).PrepareAnnotationsAsync(cancellationToken).GetAwaiter().GetResult();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(30));
         var token = deadline.Token;
@@ -75,6 +77,7 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
                         if (id <= 0) throw new InvalidOperationException("MDB не вернула код новой заявки.");
                     }
                     DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, id, null, prepared.CuttingTime));
+                    DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderAnnotations.Write(connection, transaction, id, null, prepared.Annotations));
                     // До commit проверяем сохранённое представление. После commit к MDB больше не обращаемся.
                     var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => ReadCreated(connection, transaction, id));
                     if (saved != prepared with { Id = id }) throw new InvalidOperationException("MDB изменила значения новой заявки.");
@@ -152,7 +155,7 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
         var row = AccessOrderMapper.Map(columns.Select((name, index) => (name, value: (object?)reader.GetValue(index)))
             .ToDictionary(pair => pair.name, pair => pair.value, StringComparer.Ordinal));
         reader.Close();
-        return row with { CuttingTime = OleDbOrderExtras.Read(connection, transaction, id) };
+        return row with { CuttingTime = OleDbOrderExtras.Read(connection, transaction, id), Annotations = OleDbOrderAnnotations.ReadOne(connection, transaction, id) };
     }
 
     private static void Release(IDisposable? value)

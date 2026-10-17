@@ -47,6 +47,11 @@ try
         var machine = await new OleDbMachineCatalog(request.Path).CreateMachineAsync(creation);
         response = new(1, Machine: machine, PriceTable: new(machine.TableName, true, creation.Rates));
     }
+    else if (request.Operation == AccessHostOperation.PrepareAnnotations)
+    {
+        await new OleDbOrderAnnotations(request.Path).PrepareAnnotationsAsync();
+        response = new(1, AnnotationsPrepared: true);
+    }
     else if (request.Operation == AccessHostOperation.PrepareCuttingTime)
     {
         diagnosticStage = DiagnosticStage.PrepareCuttingTime;
@@ -100,7 +105,7 @@ catch (Exception exception)
         ? exception.Message : "Модуль Access не смог выполнить запрос.",
         Failure: failure, Diagnostic: CaptureHost(exception, failure));
 }
-await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response));
+await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response with { AnnotationsSupported = true }));
 return 0;
 
 DiagnosticReport? CaptureHost(Exception exception, OrderWriteFailure? failure)

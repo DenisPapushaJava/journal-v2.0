@@ -37,7 +37,7 @@
     <Grid Grid.Row="1" Margin="24,12" ColumnDefinitions="*,24,260">
       <Border Classes="panel">
         <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel x:Name="FormFields" Margin="16" Spacing="5" IsEnabled="{Binding CanEditFields}">
+          <StackPanel x:Name="FormFields" Margin="16,10" Spacing="3" IsEnabled="{Binding CanEditFields}">
             <TextBlock Text="Заявка и заказчик" Classes="section" />
             <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding OrderDate}" />
@@ -66,11 +66,13 @@
             </Grid>
             <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl x:Name="CuttingTimeInput" DataContext="{Binding CuttingTime}" />
+              <CheckBox x:Name="HasBendingCheckBox" Grid.Column="2" Content="Гибка" IsChecked="{Binding Annotations.HasBending, Mode=TwoWay}" MinHeight="28" VerticalAlignment="Center" />
             </Grid>
             <Grid ColumnDefinitions="*,24,*" IsVisible="{Binding IsHansLaser}">
               <ui:OrderEntryControl DataContext="{Binding MaterialId}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Gas}" />
             </Grid>
+            <ui:OrderAnnotationsControl x:Name="AnnotationsInput" DataContext="{Binding Annotations}" />
           </StackPanel>
         </ScrollViewer>
       </Border>

@@ -23,6 +23,8 @@ public sealed record ManualOrderDraft(
 {
     public CuttingMachine? Machine { get; init; }
     public long? CuttingDurationMinutes { get; init; }
+    public bool HasBending { get; init; }
+    public string Comment { get; init; } = "";
     public int InitialColor { get; init; } = OrderColors.None;
     public int? PartCount { get; init; }
     public int? PunchCount { get; init; }
@@ -34,6 +36,7 @@ public sealed record ManualOrderDraft(
 
     public void Validate()
     {
+        OrderAnnotations.ValidateComment(Comment);
         if (CuttingDurationMinutes is < 0 || CuttingDurationMinutes > OrderCuttingTime.MaximumMinutes)
             throw new OrderWriteException(OrderWriteFailure.NotSaved, CuttingDuration.ValidationMessage);
         var required = new[] { SpecificationNumber, ManagerName, CustomerName, MaterialName, SheetSize, SheetCount, WeightKilograms };
@@ -65,7 +68,8 @@ public sealed record ManualOrderDraft(
         MaterialId = MaterialId == "-1" ? "" : MaterialId, CuttingGas = CuttingGas == "-1" ? "" : CuttingGas,
         StoredOrderDateTime = OrderDate.ToDateTime(TimeOnly.MinValue), StoredCoefficient = StoredCoefficient
         };
-        return row with { CuttingTime = CuttingDurationMinutes is { } minutes ? OrderCuttingTime.For(row, minutes) : null };
+        return row with { CuttingTime = CuttingDurationMinutes is { } minutes ? OrderCuttingTime.For(row, minutes) : null,
+            Annotations = OrderAnnotations.For(row, HasBending, Comment) };
     }
 }
 

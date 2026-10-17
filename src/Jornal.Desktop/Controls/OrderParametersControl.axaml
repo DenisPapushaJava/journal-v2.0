@@ -26,10 +26,12 @@
             </Grid>
             <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding CuttingTime}" />
+              <CheckBox x:Name="HasBendingCheckBox" Grid.Column="2" Content="Гибка" IsChecked="{Binding Annotations.HasBending, Mode=TwoWay}" MinHeight="28" VerticalAlignment="Center" />
             </Grid>
             <Grid ColumnDefinitions="*,24,*" IsVisible="{Binding IsHansLaser}">
               <ui:OrderEntryControl DataContext="{Binding MaterialId}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Gas}" />
             </Grid>
+   <ui:OrderAnnotationsControl DataContext="{Binding Annotations}" />
  </StackPanel>
 </UserControl>

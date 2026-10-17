@@ -14,6 +14,13 @@ public sealed record OrderSummary(
     int? Color)
 {
     public OrderCuttingTime? CuttingTime { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OrderAnnotations? Annotations { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool AnnotationsUnavailable { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore] public bool AnnotationsNeedReview => Annotations is not null && !Annotations.Matches(this);
+    [System.Text.Json.Serialization.JsonIgnore] public bool HasBending => !AnnotationsUnavailable && !AnnotationsNeedReview && Annotations?.HasBending == true;
+    [System.Text.Json.Serialization.JsonIgnore] public string Comment => !AnnotationsUnavailable && !AnnotationsNeedReview ? Annotations?.Comment ?? "" : "";
     [System.Text.Json.Serialization.JsonIgnore] public long? CuttingDurationMinutes =>
         CuttingTime is { Minutes: >= 0 } time && time.Minutes <= OrderCuttingTime.MaximumMinutes && time.Matches(this) ? time.Minutes : null;
     [System.Text.Json.Serialization.JsonIgnore] public bool CuttingTimeNeedsReview => CuttingTime is not null && CuttingDurationMinutes is null;

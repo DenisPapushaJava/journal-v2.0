@@ -13,6 +13,7 @@ public sealed partial class BatchSpecificationItem : ObservableObject
         _owner = owner; Form = form; FileName = fileName; Path = path;
         RemoveCommand = new RelayCommand(() => owner.RemoveBatchItem(this), () => owner.CanAddFiles);
         foreach (var field in form.Fields) field.PropertyChanged += FieldChanged;
+        form.Annotations.PropertyChanged += AnnotationsChanged;
     }
     public string FileName { get; }
     public string DisplayName => (_owner.BatchItems.IndexOf(this) + 1) + ". " + FileName;
@@ -46,6 +47,10 @@ public sealed partial class BatchSpecificationItem : ObservableObject
             if (sender == Form.OrderDate || sender == Form.SpecificationNumber || sender == Form.CuttingType) _owner.UpdateDuplicateWarnings();
         }
     }
+    private void AnnotationsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (HasParameters && e.PropertyName is nameof(OrderAnnotationsEditor.HasBending) or nameof(OrderAnnotationsEditor.Comment)) Refresh();
+    }
     internal void Refresh()
     {
         _validParameters = HasParameters && Form.ValidateBatchParameters();
@@ -58,5 +63,6 @@ public sealed partial class BatchSpecificationItem : ObservableObject
     {
         CancelRead();
         foreach (var field in Form.Fields) field.PropertyChanged -= FieldChanged;
+        Form.Annotations.PropertyChanged -= AnnotationsChanged;
     }
 }
