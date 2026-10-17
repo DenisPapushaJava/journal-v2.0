@@ -14,8 +14,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  scope:
+    name: Состав проверок
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+      packaging: ${{ steps.scope.outputs.packaging }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: scope
+        run: python3 scripts/ci_scope.py scope
+
   build:
     name: Check (${{ matrix.os }})
+    needs: scope
+    # Обязательные имена Check сохраняются и при ошибке определения состава.
+    if: ${{ always() }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -28,33 +45,47 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Require valid scope
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          CHECK_CODE: ${{ needs.scope.outputs.code }}
+          CHECK_PACKAGING: ${{ needs.scope.outputs.packaging }}
+        run: ${{ matrix.python }} scripts/ci_scope.py gate
+      - name: Check repository settings
+        run: ${{ matrix.python }} scripts/ci_scope.py check
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        if: needs.scope.outputs.code == 'true'
         with:
           global-json-file: global.json
       - name: Check release tooling
         run: ${{ matrix.python }} -m unittest discover -s tests/release -v
-      - run: dotnet restore Jornal.Modern.slnx --locked-mode
-      - run: dotnet build Jornal.Modern.slnx -c Release --no-restore
+      - if: needs.scope.outputs.code == 'true'
+        run: dotnet restore Jornal.Modern.slnx --locked-mode
+      - if: needs.scope.outputs.code == 'true'
+        run: dotnet build Jornal.Modern.slnx -c Release --no-restore
       - name: Prepare Access read fixture
-        if: runner.os == 'Windows'
+        if: needs.scope.outputs.code == 'true' && runner.os == 'Windows'
         shell: pwsh
         run: ./tests/Fixtures/New-AccessFixture.ps1 -Destination "$env:RUNNER_TEMP/journal-synthetic.mdb"
-      - run: dotnet test tests/Jornal.Tests/Jornal.Tests.csproj -c Release --no-build --no-restore --logger "trx;LogFileName=tests.trx" --results-directory artifacts/test-results
+      - if: needs.scope.outputs.code == 'true'
+        run: dotnet test tests/Jornal.Tests/Jornal.Tests.csproj -c Release --no-build --no-restore --logger "trx;LogFileName=tests.trx" --results-directory artifacts/test-results
       - name: Package update artifacts
+        if: needs.scope.outputs.packaging == 'true'
         shell: bash
         run: ${{ matrix.python }} scripts/release.py package --version 2026.1.0-alpha.1 --runtime ${{ runner.os == 'Windows' && 'win-x64' || 'linux-x64' }} --updates
       - name: Test Linux update and restart
-        if: runner.os == 'Linux'
+        if: needs.scope.outputs.packaging == 'true' && runner.os == 'Linux'
         run: python3 scripts/test-update-install-linux.py
       - name: Test Windows install and restart
-        if: runner.os == 'Windows'
+        if: needs.scope.outputs.packaging == 'true' && runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/test-update-install.ps1
       - name: Test Windows offline installer and Access host
-        if: runner.os == 'Windows'
+        if: needs.scope.outputs.packaging == 'true' && runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/test-offline-install.ps1
       - name: Update packages
+        if: needs.scope.outputs.packaging == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: update-packages-${{ matrix.os }}
@@ -63,24 +94,24 @@ jobs:
           if-no-files-found: error
           compression-level: 0
       - name: Set up x86 SDK for native Jet tests
-        if: runner.os == 'Windows'
+        if: needs.scope.outputs.code == 'true' && runner.os == 'Windows'
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
           architecture: x86
       - name: Prepare required native Jet fixture
-        if: runner.os == 'Windows'
+        if: needs.scope.outputs.code == 'true' && runner.os == 'Windows'
         shell: pwsh
         run: |
           & "$env:WINDIR/SysWOW64/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File ./tests/Fixtures/New-AccessFixture.ps1 -Destination "$env:RUNNER_TEMP/journal-synthetic-x86.mdb" -RequireProvider
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Test native Access transactions
-        if: runner.os == 'Windows'
+        if: needs.scope.outputs.code == 'true' && runner.os == 'Windows'
         env:
           JOURNAL_REQUIRE_NATIVE_TESTS: '1'
         run: dotnet test tests/Jornal.Access.Tests/Jornal.Access.Tests.csproj -c Release --no-restore -p:PlatformTarget=x86 --logger "trx;LogFileName=native-tests.trx" --results-directory artifacts/test-results
       - name: Test results
-        if: always()
+        if: always() && needs.scope.outputs.code == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tests-${{ matrix.os }}
