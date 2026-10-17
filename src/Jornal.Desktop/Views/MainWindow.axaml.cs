@@ -77,7 +77,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (_viewModel?.IsUpdatingOrders == true || _viewModel?.Updates is { IsApplying: true, RestartScheduled: false }) e.Cancel = true;
+        if (_viewModel?.IsUpdatingOrders == true || _viewModel?.IsCopyingSelection == true || _viewModel?.Updates is { IsApplying: true, RestartScheduled: false }) e.Cancel = true;
         base.OnClosing(e);
     }
 
