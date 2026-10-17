@@ -229,10 +229,14 @@
           </Grid>
         </Grid>
         <Border x:Name="LoadErrorPanel" Grid.Row="2" IsVisible="{Binding HasError}" Background="{DynamicResource JournalDangerBackground}" CornerRadius="6" Padding="12" Margin="0,0,0,12">
-          <StackPanel Spacing="8">
-            <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-            <ui:WindowsSecurityHelp DataContext="{Binding AccessHostHelp}" />
-          </StackPanel>
+          <Grid ColumnDefinitions="*,8,Auto">
+            <StackPanel Spacing="8">
+              <TextBlock x:Name="JournalErrorText" Text="{Binding ErrorMessage}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+              <ui:WindowsSecurityHelp DataContext="{Binding AccessHostHelp}" />
+            </StackPanel>
+            <ui:JournalButton x:Name="DismissSelectionNoticeButton" Grid.Column="2" Label="Закрыть сообщение" Icon="x" IconOnly="True" Width="28" Height="28" Padding="0"
+                              VerticalAlignment="Top" IsVisible="{Binding HasSelectionNotice}" Command="{Binding DismissSelectionNoticeCommand}" ToolTip.Tip="Закрыть сообщение" />
+          </Grid>
         </Border>
         <Border x:Name="TablePanel" Grid.Row="3" Classes="panel" ClipToBounds="True">
           <Grid>

@@ -9,14 +9,14 @@ public static class OrderCommentFormatter
     private static readonly string[] LegacyOrder = ["Лазер", "HansLaser", "Плазма", "Газо-кислородная"];
     public static string Row(OrderSummary order)
     {
-        RequireDelivery(order);
+        RequireDeliveryNumbers([order]);
         return $"({Thickness(order)} мм)  {Line(order.SpecificationNumber)},  {Line(order.ManagerName)},  ({Line(order.CustomerName)}),  {Line(order.DeliveryNumber)}";
     }
 
     public static string Telegram(IReadOnlyList<OrderSummary> orders)
     {
         if (orders.Count == 0) throw new ArgumentException("Выберите заявки.");
-        foreach (var order in orders) RequireDelivery(order);
+        RequireDeliveryNumbers(orders);
         if (orders.Any(order => order.AnnotationsUnavailable || order.AnnotationsNeedReview))
             throw new ArgumentException("Не удалось проверить пометки выбранных заявок. Проверьте гибку в редакторе или обновите список (F5).");
         var groups = orders.GroupBy(order => (Number: Line(order.DeliveryNumber), Manager: Line(order.ManagerName), Customer: Line(order.CustomerName))).ToArray();
@@ -49,10 +49,21 @@ public static class OrderCommentFormatter
 
     public static string Line(string? value) => string.Join(" ", new string((value ?? "").Select(c => char.IsControl(c) ? ' ' : c).ToArray()).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     private static string Thickness(OrderSummary order) => order.ThicknessMillimeters?.ToString("0.############################", CultureInfo.GetCultureInfo("ru-RU")) ?? "";
-    private static void RequireDelivery(OrderSummary order)
+    public static void RequireDeliveryNumbers(IReadOnlyList<OrderSummary> orders)
     {
-        if (Line(order.DeliveryNumber).Length == 0)
-            throw new ArgumentException("Укажите БЛЦБ для заявки " + Line(order.SpecificationNumber) + ".");
+        var missing = orders.Where(order => Line(order.DeliveryNumber).Length == 0).ToArray();
+        if (missing.Length == 0) return;
+        static string Label(OrderSummary order)
+        {
+            var number = Line(order.SpecificationNumber);
+            if (number.Length == 0) return $"код {order.Id}";
+            var runes = number.EnumerateRunes().Take(49).ToArray();
+            return runes.Length <= 48 ? number : string.Concat(runes.Take(40)) + $"… (код {order.Id})";
+        }
+        if (missing.Length == 1) throw new ArgumentException("Укажите БЛЦБ для заявки " + Label(missing[0]) + ".");
+        var labels = string.Join(", ", missing.Take(5).Select(Label));
+        var remaining = missing.Length > 5 ? $", ещё {missing.Length - 5}" : "";
+        throw new ArgumentException($"Укажите БЛЦБ для заявок ({missing.Length}): {labels}{remaining}.");
     }
     private static string TelegramNumber(string value)
     {
