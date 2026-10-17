@@ -36,6 +36,7 @@ public sealed class OrderAnnotationsWindowTests
             Assert.True(form.Annotations.HasBending); Assert.Equal(comment.Text, form.Annotations.Comment);
             Assert.Equal(255, comment.MaxLength);
             AssertInside(newWindow, bending); AssertInside(newWindow, comment);
+            AssertBendingPosition(newWindow, bending, comment);
             var scroll = newWindow.FindControl<ScrollViewer>("FormScroll")!;
             Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 1);
             Save(newWindow, $"annotations-new-{dark}");
@@ -57,11 +58,12 @@ public sealed class OrderAnnotationsWindowTests
         try
         {
             editWindow.Show(); Dispatcher.UIThread.RunJobs();
-            var bending = editWindow.FindControl<CheckBox>("HasBendingCheckBox")!;
+            var bending = editWindow.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "HasBendingCheckBox");
             Assert.True(bending.IsChecked); bending.IsChecked = false;
             Dispatcher.UIThread.RunJobs(); Assert.Contains(edit.Changes, c => c.Label == "Гибка");
             var comment = editWindow.GetVisualDescendants().OfType<TextBox>().Single(c => c.Name == "OrderCommentInput");
             AssertInside(editWindow, comment);
+            AssertBendingPosition(editWindow, bending, comment);
             var scroll = editWindow.FindControl<ScrollViewer>("FormScroll")!;
             Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 1);
             Save(editWindow, $"annotations-edit-{dark}");
@@ -99,6 +101,17 @@ public sealed class OrderAnnotationsWindowTests
         Assert.True(control.IsEffectivelyVisible);
         var point = control.TranslatePoint(default, window)!.Value;
         Assert.True(point.Y >= 0 && point.Y + control.Bounds.Height <= window.ClientSize.Height);
+    }
+    private static void AssertBendingPosition(Window window, CheckBox bending, TextBox comment)
+    {
+        Assert.Equal("Нужна гибка", bending.Content);
+        var point = bending.TranslatePoint(default, window)!.Value;
+        var commentPoint = comment.TranslatePoint(default, window)!.Value;
+        Assert.Equal(commentPoint.X, point.X, 1);
+        Assert.True(point.Y + bending.Bounds.Height <= commentPoint.Y);
+        var lastFieldBottom = window.GetVisualDescendants().OfType<OrderEntryControl>().Where(control => control.IsEffectivelyVisible)
+            .Max(control => control.TranslatePoint(default, window)!.Value.Y + control.Bounds.Height);
+        Assert.True(lastFieldBottom <= point.Y);
     }
     private static void Save(Window window, string name)
     {

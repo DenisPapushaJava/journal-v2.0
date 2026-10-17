@@ -2,6 +2,8 @@
              xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
              x:Class="Jornal.Desktop.Controls.OrderAnnotationsControl" x:DataType="vm:OrderAnnotationsEditor">
   <Grid ColumnDefinitions="144,8,*" RowDefinitions="Auto,Auto,Auto">
+    <CheckBox x:Name="HasBendingCheckBox" Grid.Column="2" Content="Нужна гибка" IsChecked="{Binding HasBending, Mode=TwoWay}"
+              MinHeight="28" Margin="0,0,0,4" />
     <TextBlock Grid.Row="1" Text="Комментарий" Foreground="{DynamicResource JournalMuted}" FontWeight="Medium" FontSize="13" VerticalAlignment="Center" />
     <TextBox x:Name="OrderCommentInput" Grid.Row="1" Grid.Column="2" Text="{Binding Comment, Mode=TwoWay}" MaxLength="255" AcceptsReturn="True" TextWrapping="Wrap" Height="52" VerticalContentAlignment="Top" Classes.invalid="{Binding HasCommentError}" AutomationProperties.Name="Комментарий заявки">
       <TextBox.InnerRightContent>
