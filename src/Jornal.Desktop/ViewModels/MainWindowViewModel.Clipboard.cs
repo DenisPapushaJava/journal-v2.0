@@ -27,7 +27,7 @@ public partial class MainWindowViewModel
         try { var rows = ClipboardSelection(); text = telegram ? OrderCommentFormatter.Telegram(rows) : OrderCommentFormatter.Row(rows.Single()); }
         catch (ArgumentException exception) { ErrorMessage = exception.Message; return; }
         ErrorMessage = null; IsCopyingSelection = true; AppDiagnostics.Current?.Mark(DiagnosticOperation.Clipboard);
-        try { await clipboard.WriteTextAsync(text); UpdatedText = telegram ? "Комментарий для Telegram скопирован" : "Комментарий скопирован"; }
+        try { await clipboard.WriteTextAsync(text); UpdatedText = telegram ? "Задание на резку скопировано" : "Комментарий скопирован"; }
         catch (Exception exception) { ErrorMessage = AppDiagnostics.Describe(DiagnosticOperation.Clipboard, exception, "Не удалось скопировать комментарий."); }
         finally { IsCopyingSelection = false; }
     }
