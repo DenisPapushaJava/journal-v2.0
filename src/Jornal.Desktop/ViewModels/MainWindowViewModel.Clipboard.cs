@@ -53,7 +53,7 @@ public partial class MainWindowViewModel
     private OrderSummary[] ClipboardSelection() => Orders.Where(row => _selectedOrderIds.Contains(row.Id)).Select(row => row.Source).ToArray();
     private void NotifyClipboardAvailability()
     {
-        foreach (var name in new[] { nameof(CanCopyRowComment), nameof(CanCopyTelegramComment), nameof(CanPrepareFolders), nameof(RowCommentHint), nameof(CanGetColorCode) }) OnPropertyChanged(name);
+        foreach (var name in new[] { nameof(CanCopyRowComment), nameof(CanCopyTelegramComment), nameof(CanPrepareFolders), nameof(RowCommentHint) }) OnPropertyChanged(name);
     }
     partial void OnIsCopyingSelectionChanged(bool value) { NotifyJournalAvailability(); NotifyClipboardAvailability(); }
     partial void OnIsCopyingResultChanged(bool value) => NotifyClipboardAvailability();

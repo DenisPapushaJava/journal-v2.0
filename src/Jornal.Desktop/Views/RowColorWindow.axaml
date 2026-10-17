@@ -22,14 +22,30 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <Grid ColumnDefinitions="Auto,12,*">
+        <Grid ColumnDefinitions="Auto,12,*,8,Auto">
           <TextBlock Text="Цвет" VerticalAlignment="Center" />
           <TextBox x:Name="RowColorInput" Grid.Column="2" Text="{Binding Code, Mode=TwoWay}" MaxLength="11" MinHeight="36" AutomationProperties.Name="Цвет HEX или ARGB" />
+          <Button x:Name="MoreRowColors" Grid.Column="4" Classes="command" Content="Больше цветов" AutomationProperties.Name="Точный выбор цвета">
+            <Button.Flyout>
+              <Flyout Placement="TopEdgeAlignedRight" Opened="OnColorWheelOpened">
+                <StackPanel Spacing="10" Width="244" IsEnabled="{Binding !IsBusy}">
+                  <ui:ColorWheel x:Name="RowColorWheel" Width="244" Height="244" HsvColor="{Binding SpectrumColor, Mode=TwoWay}"
+                                 AutomationProperties.Name="Цветовой круг"
+                                 AutomationProperties.HelpText="Стрелки влево и вправо — оттенок, вверх и вниз — яркость. Shift и стрелки влево и вправо — насыщенность."
+                                 ToolTip.Tip="←/→ — оттенок · ↑/↓ — яркость · Shift+←/→ — насыщенность" />
+                  <Grid ColumnDefinitions="28,10,*">
+                    <Border CornerRadius="4" Background="{Binding PreviewBrush}" Height="24" />
+                    <TextBlock Grid.Column="2" Text="{Binding Hex}" VerticalAlignment="Center" />
+                  </Grid>
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
         </Grid>
         <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
         <Border x:Name="RowColorPreview" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource JournalBorder}" Padding="12,10">
           <Border.Background><MultiBinding Converter="{StaticResource OrderRowBackground}"><Binding Path="Argb" /><Binding Source="False" /><Binding Source="False" /><Binding Source="False" /><Binding Path="ActualThemeVariant" ElementName="RowColorPreview" /></MultiBinding></Border.Background>
-          <TextBlock Text="{Binding ArgbText, StringFormat='Код ARGB: {0}'}">
+          <TextBlock Text="Пример строки">
             <TextBlock.Foreground><MultiBinding Converter="{StaticResource OrderRowForeground}"><Binding Path="Argb" /><Binding Source="False" /><Binding Source="False" /><Binding Source="False" /><Binding Path="ActualThemeVariant" ElementName="RowColorPreview" /></MultiBinding></TextBlock.Foreground>
           </TextBlock>
         </Border>

@@ -16,26 +16,23 @@ public sealed class DailyToolsTests
     [InlineData("")] [InlineData("#12345")] [InlineData("# 12345")] [InlineData("#GGGGGG")] [InlineData("0")] [InlineData("2147483647")] [InlineData("4294967295")]
     public void InvalidOrTransparentColorCannotBeApplied(string text) => Assert.False(RowColorViewModel.TryParse(text, out _));
     [Fact]
-    public async Task ArbitraryColorChangesOnlySelectedColorsAndCodeCopyPreservesLetter()
+    public async Task ArbitraryColorChangesOnlySelectedColorsAndPreservesLetter()
     {
         var store = new DemoOrderStore(); var model = await BatchOrderTests.Model(store); var before = await store.ReadAsync(TestContext.Current.CancellationToken);
         var selected = model.Orders.Take(2).ToArray(); model.UpdateSelection(selected, selected[0]); model.ResultText = "Письмо";
-        var clipboard = new RecordingJournalClipboard(); var form = model.CreateRowColorForm(clipboard)!;
+        var form = model.CreateRowColorForm()!;
         form.Code = "#FF9DFF"; await form.ConfirmCommand.ExecuteAsync(null);
         Assert.False(form.HasError); Assert.False(model.HasError); Assert.False(model.RequiresReload);
         var ids = selected.Select(row => row.Id).ToHashSet(); var after = await store.ReadAsync(TestContext.Current.CancellationToken);
         foreach (var row in after) Assert.Equal(before.Single(old => old.Id == row.Id) with { Color = ids.Contains(row.Id) ? -25089 : row.Color }, row);
         Assert.Equal("Письмо", model.ResultText);
-        model.UpdateSelection([], null); Assert.Null(model.CreateRowColorForm(clipboard));
-        var code = model.CreateRowColorForm(clipboard, true)!; code.Code = "#FF9DFF"; await code.ConfirmCommand.ExecuteAsync(null);
-        Assert.Equal("-25089", clipboard.Text); Assert.Equal("Письмо", model.ResultText); Assert.Equal(after, await store.ReadAsync(TestContext.Current.CancellationToken));
-        clipboard.Failure = true; await code.ConfirmCommand.ExecuteAsync(null); Assert.True(code.HasError); Assert.False(model.IsCopyingSelection);
+        model.UpdateSelection([], null); Assert.Null(model.CreateRowColorForm());
     }
     [Fact]
     public async Task ColorConflictRetainsInputAndBlocksRepeatUntilRefresh()
     {
         var store = new DemoOrderStore(); var model = await BatchOrderTests.Model(store); var row = model.Orders[0]; model.UpdateSelection([row], row);
-        var form = model.CreateRowColorForm(new RecordingJournalClipboard())!; form.Code = "#AABBCC";
+        var form = model.CreateRowColorForm()!; form.Code = "#AABBCC";
         await store.SetColorAsync([(await store.ReadAsync(TestContext.Current.CancellationToken)).Single(order => order.Id == row.Id)], OrderColors.Ready, TestContext.Current.CancellationToken);
         await form.ConfirmCommand.ExecuteAsync(null);
         Assert.True(model.RequiresReload); Assert.True(form.HasError); Assert.Equal("#AABBCC", form.Code); Assert.False(form.ConfirmCommand.CanExecute(null));

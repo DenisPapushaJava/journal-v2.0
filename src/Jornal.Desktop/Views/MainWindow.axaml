@@ -170,7 +170,6 @@
                 <ui:JournalButton x:Name="SetCustomColorButton" Label="Цвет…" Icon="palette" Classes="outline" IsEnabled="{Binding CanUpdateSelectedOrders}" Click="OnSetCustomColorClick" ToolTip.Tip="Цвет выбранных заявок" />
                 <ui:JournalButton x:Name="ClearColorButton" Label="Снять цвет" Command="{Binding SetOrderColorCommand}"
                                   CommandParameter="{x:Static orders:OrderColors.None}" />
-                <ui:JournalButton x:Name="GetColorCodeButton" Label="Код цвета" Icon="hash" IsEnabled="{Binding CanGetColorCode}" Click="OnGetColorCodeClick" ToolTip.Tip="Выбрать цвет и скопировать код ARGB" />
               </ui:AdaptiveCommandPanel>
             </Grid>
           </Border>

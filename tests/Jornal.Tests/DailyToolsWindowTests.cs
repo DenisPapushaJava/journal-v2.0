@@ -9,8 +9,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Jornal.Desktop.Controls;
-using Jornal.Desktop.Clipboard;
-using Jornal.Core.Results;
+using Jornal.Core.Orders;
 using Jornal.Desktop.Customization;
 using Jornal.Desktop.ViewModels;
 using Jornal.Desktop.Views;
@@ -32,7 +31,8 @@ public sealed class DailyToolsWindowTests
             owner.Show(); await owner.LoadInitialOrdersAsync(); Pump();
             var table = owner.FindControl<DataGrid>("OrdersGrid")!; table.SelectedItems.Add(model.Orders[0]); Pump();
             Assert.True(owner.FindControl<JournalButton>("SetCustomColorButton")!.IsEnabled);
-            var form = model.CreateRowColorForm(new RecordingJournalClipboard())!;
+            Assert.Null(owner.FindControl<JournalButton>("GetColorCodeButton"));
+            var form = model.CreateRowColorForm()!;
             var color = new RowColorWindow { DataContext = form, Width = 500, Height = 440, RequestedThemeVariant = owner.ActualThemeVariant };
             var shown = color.ShowDialog(owner); Pump();
             form.Code = "#123456"; Pump();
@@ -54,20 +54,23 @@ public sealed class DailyToolsWindowTests
         finally { foreach (var settings in owner.OwnedWindows.ToArray()) { foreach (var child in settings.OwnedWindows.ToArray()) child.Close(); settings.Close(); } owner.Close(); }
     }
     [AvaloniaFact]
-    public async Task BusyColorCopyProtectsWindowsAndPreservesLetter()
+    public async Task BusyColorApplyProtectsWindowsAndPreservesLetter()
     {
-        var model = new MainWindowViewModel(new DemoOrderStore()); var owner = new MainWindow { DataContext = model };
-        var clipboard = new WaitingClipboard(); var form = model.CreateRowColorForm(clipboard, true)!;
-        var window = new RowColorWindow { DataContext = form };
+        var store = new DemoOrderStore(); var editor = new WaitingColorEditor(store);
+        var model = new MainWindowViewModel(store, store, editor); var owner = new MainWindow { DataContext = model };
+        RowColorWindow? window = null; Task? applying = null;
         try
         {
             owner.Show(); await owner.LoadInitialOrdersAsync(); Pump(); model.ResultText = "Письмо";
-            var shown = window.ShowDialog(owner); Pump(); var copying = form.ConfirmCommand.ExecuteAsync(null);
-            Assert.True(model.IsCopyingSelection); Assert.True(form.IsBusy); window.Close(); owner.Close();
+            model.UpdateSelection([model.Orders[0]], model.Orders[0]);
+            var form = model.CreateRowColorForm()!; form.Code = "#AABBCC";
+            window = new RowColorWindow { DataContext = form };
+            var shown = window.ShowDialog(owner); Pump(); applying = form.ConfirmCommand.ExecuteAsync(null);
+            Assert.True(model.IsUpdatingOrders); Assert.True(form.IsBusy); window.Close(); owner.Close();
             Assert.True(window.IsVisible); Assert.True(owner.IsVisible);
-            clipboard.Done.SetResult(); await copying; await shown; Pump(); Assert.False(model.IsCopyingSelection); Assert.Equal("Письмо", model.ResultText);
+            editor.Done.SetResult(); await applying; await shown; Pump(); Assert.False(model.IsUpdatingOrders); Assert.Equal("Письмо", model.ResultText);
         }
-        finally { clipboard.Done.TrySetResult(); window.Close(); owner.Close(); }
+        finally { editor.Done.TrySetResult(); if (applying is not null) await applying; window?.Close(); owner.Close(); }
     }
     [AvaloniaFact]
     public void ListSaveFailureKeepsDialogInputAndExistingSuggestions()
@@ -126,11 +129,12 @@ public sealed class DailyToolsWindowTests
         public PreferencesLoadResult Load() => new(new());
         public void Save(UiPreferences preferences) { if (Fail) throw new IOException("Тестовый отказ"); Saved = preferences; }
     }
-    private sealed class WaitingClipboard : IJournalClipboard
+    private sealed class WaitingColorEditor(DemoOrderStore store) : IOrderBatchEditor
     {
         public TaskCompletionSource Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public int MaximumFolderNameLength => 140;
-        public Task WriteTextAsync(string text) => Done.Task;
-        public Task WriteFoldersAsync(OrderFolderPlan plan) => throw new NotSupportedException();
+        public async Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<OrderSummary> expected, int color, CancellationToken cancellationToken = default)
+        { await Done.Task.WaitAsync(cancellationToken); return await store.SetColorAsync(expected, color, cancellationToken); }
+        public Task<IReadOnlyList<OrderSummary>> SetDeliveryNumberAsync(IReadOnlyCollection<OrderSummary> expected, string number, CancellationToken cancellationToken = default) =>
+            store.SetDeliveryNumberAsync(expected, number, cancellationToken);
     }
 }
