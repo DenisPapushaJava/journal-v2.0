@@ -96,6 +96,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         var form = new NewOrderViewModel(orderCreator!, _source?.IsLocalCopy == true,
             isDatabase: _source?.Path is not null && _source.IsLocalCopy == false, initialColor: EffectiveNewOrderColor);
         form.ExistingOrders = _allOrders;
+        form.PriceEditorFactory = CreatePriceEditor;
         form.Manager.Suggestions = _entrySuggestions.Managers;
         form.Customer.Suggestions = _entrySuggestions.Customers;
         form.SaveCommand.PropertyChanged += (_, e) =>

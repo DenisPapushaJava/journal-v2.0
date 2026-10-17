@@ -45,6 +45,9 @@ public partial class NewOrderViewModel : ObservableObject
         {
             if (e.PropertyName == nameof(OrderEntryField.Value)) { OnPropertyChanged(nameof(IsHansLaser)); OnPropertyChanged(nameof(HasPricing)); CalculatePriceCommand.NotifyCanExecuteChanged(); }
         };
+        InitializeThicknessOptions();
+        foreach (var field in new[] { CuttingType, MaterialId }) field.PropertyChanged += (_, e) =>
+        { if (!_applyingThicknessImport && e.PropertyName == nameof(OrderEntryField.Value)) ThicknessOptions.SourceChanged(); };
     }
 
     public int InitialColor { get; }
@@ -53,7 +56,7 @@ public partial class NewOrderViewModel : ObservableObject
     public AccessHostHelpViewModel AccessHostHelp { get; } = new();
     partial void OnPriceErrorChanged(string? value)
     {
-        if (value is null) HasPriceValidationError = false;
+        if (value is null) { HasPriceValidationError = false; _priceFailureKind = null; }
         if (value is null && SaveError is null) AccessHostHelp.ShowFor(null);
         SaveCommand.NotifyCanExecuteChanged();
     }
@@ -61,7 +64,7 @@ public partial class NewOrderViewModel : ObservableObject
     private IPriceReader? PriceReader => _creator as IPriceReader ??
         (SelectedMachine is not null ? (_creator as Jornal.Infrastructure.Demo.DemoOrderStore)?.Prices : null);
     public bool HasPricing => PriceReader is not null;
-    public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning || IsImporting || IsBatchReading;
+    public bool IsBusy => SaveCommand.IsRunning || CalculatePriceCommand.IsRunning || IsImporting || IsBatchReading || IsEditingPrices;
     [ObservableProperty] private string _priceText = "Не рассчитана";
     [ObservableProperty] private string _priceBreakdown = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPriceError))] private string? _priceError;
@@ -112,15 +115,22 @@ public partial class NewOrderViewModel : ObservableObject
         SaveError = IsBatchMode ? "Ввод восстановлен. Перед повторным добавлением проверьте список: пакет мог сохраниться." : "Ввод восстановлен. Перед повторным добавлением проверьте список: предыдущая заявка могла сохраниться.";
     }
 
-    private bool CanSave() => (!IsBatchMode ? !Material.NeedsReview && !HasPriceValidationError : CanSaveBatch) && !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning && !IsImporting && !HasPendingImport;
+    private bool CanSave() => (!IsBatchMode ? !Material.NeedsReview && !HasPriceValidationError && ThicknessOptions.CanSave : CanSaveBatch) && !IsSaved && !RequiresReload && !CalculatePriceCommand.IsRunning && !IsImporting && !HasPendingImport && !IsEditingPrices;
 
-    private bool CanCalculatePrice() => (!IsBatchMode || CanCalculateBatch) && !RequiresReload && HasPricing && !IsSaved && !SaveCommand.IsRunning && !IsImporting && !HasPendingImport;
+    private bool CanCalculatePrice() => (!IsBatchMode || CanCalculateBatch) && !RequiresReload && HasPricing && !IsSaved && !SaveCommand.IsRunning && !IsImporting && !HasPendingImport && !IsEditingPrices;
 
     [RelayCommand(CanExecute = nameof(CanCalculatePrice))]
     private async Task CalculatePriceAsync(CancellationToken cancellationToken)
     {
         AppDiagnostics.Current?.Mark(DiagnosticOperation.PriceRead);
+        try { await WaitForThicknessOptionsAsync(cancellationToken); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return; }
         if (!CanCalculatePrice()) return;
+        if (ThicknessOptions.IsActive || IsBatchMode)
+        {
+            await RefreshThicknessOptionsAsync(true, cancellationToken);
+            if (cancellationToken.IsCancellationRequested) return;
+        }
         if (IsBatchMode)
         {
             try { await CalculateBatchPricesAsync(cancellationToken); }
@@ -142,7 +152,7 @@ public partial class NewOrderViewModel : ObservableObject
             var result = await new CuttingPriceService(PriceReader!).CalculateResultAsync(
                 new(CuttingType.Value, thickness, length, coefficient, IsHansLaser ? MaterialId.Value.Trim() : null), cancellationToken);
             if (result.Quote is { } quote) ShowQuote(quote);
-            else { HasPriceValidationError = true; PriceError = result.Error; }
+            else { _priceFailureKind = result.Failure; HasPriceValidationError = true; PriceError = result.Error; }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception)
@@ -153,6 +163,7 @@ public partial class NewOrderViewModel : ObservableObject
     private async Task SaveAsync()
     {
         AppDiagnostics.Current?.Mark(DiagnosticOperation.OrderCreate);
+        await WaitForThicknessOptionsAsync();
         if (!CanSave()) return;
         if (IsBatchMode) { await SaveBatchAsync(); return; }
         _submitted = true;
@@ -194,7 +205,7 @@ public partial class NewOrderViewModel : ObservableObject
         {
             var result = await new CuttingPriceService(reader).CalculateResultAsync(draft.PriceRequest);
             if (result.Quote is not null) { PriceError = null; return true; }
-            HasPriceValidationError = true; PriceError = result.Error;
+            _priceFailureKind = result.Failure; HasPriceValidationError = true; PriceError = result.Error;
         }
         catch (Exception exception)
         {

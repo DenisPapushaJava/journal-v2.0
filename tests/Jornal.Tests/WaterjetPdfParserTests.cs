@@ -112,7 +112,8 @@ public sealed class WaterjetPdfParserTests
     public async Task AddingSecondFilePreservesFirstMaterialReviewAndRequiresReviewOfTheNewPosition(bool confirmed)
     {
         var store = new DemoOrderStore(); var machine = MachineCatalogTests.Machine();
-        await store.Prices.CreateMachineAsync(MachineCatalogTests.Creation(machine), TestContext.Current.CancellationToken);
+        var creation = MachineCatalogTests.Creation(machine);
+        await store.Prices.CreateMachineAsync(creation with { Rates = [.. creation.Rates, new(5m, "5", 170)] }, TestContext.Current.CancellationToken);
         var preview = SpecificationImportPreview.Create("Первый.pdf", new WaterjetPdfSpecificationParser().Parse(Document(), TestContext.Current.CancellationToken));
         var form = new NewOrderViewModel(store) { ImportReader = new PreviewReader(preview) };
         await form.LoadMachinesAsync(TestContext.Current.CancellationToken); form.ApplyImport(preview);
@@ -122,6 +123,7 @@ public sealed class WaterjetPdfParserTests
         Assert.Equal(!confirmed, form.BatchItems[0].Form.Material.NeedsReview);
         Assert.True(form.BatchItems[1].Form.Material.NeedsReview); Assert.False(form.SaveCommand.CanExecute(null));
         foreach (var item in form.BatchItems) item.Form.Material.ConfirmReviewCommand.Execute(null);
+        await form.WaitForThicknessOptionsAsync(TestContext.Current.CancellationToken);
         Assert.True(form.BatchItems.All(item => item.IsReady)); Assert.True(form.SaveCommand.CanExecute(null));
         Assert.Equal(3, (await store.ReadAsync(TestContext.Current.CancellationToken)).Count);
     }

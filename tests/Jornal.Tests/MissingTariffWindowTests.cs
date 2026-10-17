@@ -25,20 +25,16 @@ public sealed class MissingTariffWindowTests
         try
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
+            await form.WaitForThicknessOptionsAsync(TestContext.Current.CancellationToken); Dispatcher.UIThread.RunJobs();
             await form.SaveCommand.ExecuteAsync(null); Dispatcher.UIThread.RunJobs();
             var save = window.FindControl<JournalButton>("SaveButton")!;
             var calculate = window.FindControl<JournalButton>("CalculatePriceButton")!;
             Assert.False(save.IsEffectivelyEnabled); Assert.True(calculate.IsEffectivelyEnabled);
-            var error = window.GetVisualDescendants().OfType<TextBlock>().Single(block => block.IsEffectivelyVisible && block.Text == form.SaveError);
-            var point = error.TranslatePoint(default, window)!.Value;
-            Assert.True(point.X >= 0 && point.Y >= 0);
-            Assert.True(point.X + error.Bounds.Width <= window.ClientSize.Width + 1);
-            Assert.True(point.Y + error.Bounds.Height <= window.ClientSize.Height + 1);
             var list = window.GetVisualDescendants().OfType<ListBox>().Single(control => ReferenceEquals(control.ItemsSource, form.BatchItems));
             list.ScrollIntoView(form.BatchItems[1]); Dispatcher.UIThread.RunJobs();
-            var reason = window.GetVisualDescendants().OfType<TextBlock>().Single(block => block.IsEffectivelyVisible && block.Text == form.BatchItems[1].Form.PriceError);
+            var reason = window.GetVisualDescendants().OfType<TextBlock>().Single(block => block.IsEffectivelyVisible && block.Text == form.BatchItems[1].Form.Thickness.ChoiceError);
             var reasonPoint = reason.TranslatePoint(default, window)!.Value;
-            Assert.True(reasonPoint.Y >= 0 && reasonPoint.Y + reason.Bounds.Height < point.Y);
+            Assert.True(reasonPoint.Y >= 0 && reasonPoint.Y + reason.Bounds.Height < window.ClientSize.Height);
             var directory = Environment.GetEnvironmentVariable("JOURNAL_WINDOW_SMOKE_OUTPUT");
             if (!string.IsNullOrWhiteSpace(directory))
             {

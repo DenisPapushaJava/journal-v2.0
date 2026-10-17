@@ -42,14 +42,15 @@ public sealed class MissingTariffTests
             Assert.Equal(LocalJournalFixture.Orders.Length, (await store.ReadAsync(Token)).Count);
             Assert.True(form.BatchItems[0].IsReady);
             var failed = form.BatchItems[1];
-            Assert.False(failed.IsReady); Assert.Equal("Проверьте цену", failed.Status);
-            Assert.True(failed.Form.HasPriceValidationError);
-            Assert.Contains(machine.Name, failed.Form.PriceError);
-            Assert.Contains("80 мм", failed.Form.PriceError); Assert.Contains("«Прайсы»", failed.Form.PriceError);
-            Assert.Equal(failed.Form.PriceError, failed.Details);
+            Assert.False(failed.IsReady); Assert.Equal("Проверьте толщину", failed.Status);
+            Assert.True(failed.Form.ThicknessOptions.HasUnavailableValue);
+            Assert.Contains("80 мм", failed.Form.Thickness.ChoiceError);
+            Assert.True(failed.Form.ThicknessOptions.CanOpenPrices);
+            Assert.Equal(failed.Form.Thickness.ChoiceError, failed.Details);
+            if (calculateFirst) { Assert.True(failed.Form.HasPriceValidationError); Assert.Contains(machine.Name, failed.Form.PriceError); }
             Assert.Equal("Готово: 1 из 2", form.BatchSummary);
             Assert.False(form.SaveCommand.CanExecute(null)); Assert.True(form.CalculatePriceCommand.CanExecute(null));
-            if (!calculateFirst) Assert.Contains("карточке 2", form.SaveError);
+            Assert.Null(form.SaveError); // Известная недоступная толщина блокирует кнопку ещё до попытки записи.
             for (var index = 0; index < form.BatchItems.Count; index++)
             {
                 Assert.Equal(fields[index], form.BatchItems[index].Form.Fields.Select(field => field.Value));
@@ -77,13 +78,13 @@ public sealed class MissingTariffTests
         using var fixture = new LocalJournalFixture();
         var (store, _, form) = await BatchAsync(fixture);
         await form.SaveCommand.ExecuteAsync(null);
-        Assert.True(form.HasSaveError);
+        Assert.True(form.BatchItems[1].Form.ThicknessOptions.HasUnavailableValue);
         form.BatchItems[1].IsIncluded = false;
         Assert.Null(form.SaveError); Assert.True(form.SaveCommand.CanExecute(null));
         await form.SaveCommand.ExecuteAsync(null);
         Assert.True(form.IsSaved); Assert.Equal(70m, Assert.Single(form.CreatedOrders).ThicknessMillimeters);
         Assert.Equal(3, (await store.ReadAsync(Token)).Count);
-        Assert.True(form.BatchItems[1].Form.HasPriceError);
+        Assert.True(form.BatchItems[1].Form.ThicknessOptions.HasUnavailableValue);
     }
 
     [Fact]
@@ -194,6 +195,7 @@ public sealed class MissingTariffTests
         }
         form.BatchItems[1].Form.Thickness.Value = "80";
         form.BatchItems[1].Form.SpecificationNumber.Value = "0514-0079";
+        await form.WaitForThicknessOptionsAsync(Token);
         return (store, machine, form);
     }
 

@@ -21,9 +21,9 @@ public partial class NewOrderViewModel
     public bool IsBatchReading => BatchItems.Any(item => item.IsReading);
     public int IncludedCount => BatchItems.Count(item => item.IsIncluded);
     public string BatchSummary => $"Готово: {BatchItems.Count(item => item.IsIncluded && item.IsReady)} из {IncludedCount}";
-    public bool CanEditBatch => !SaveCommand.IsRunning && !CalculatePriceCommand.IsRunning && !IsSaved && !RequiresReload;
+    public bool CanEditBatch => !SaveCommand.IsRunning && !CalculatePriceCommand.IsRunning && !IsSaved && !RequiresReload && !IsEditingPrices;
     public bool CanAddFiles => CanEditBatch && !IsImporting && !HasPendingImport;
-    private bool CanSaveBatch => _creator is IManualOrderBatchCreator && IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.HasValidParameters && !item.Form.HasPriceValidationError);
+    private bool CanSaveBatch => _creator is IManualOrderBatchCreator && IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.HasValidParameters && !item.Form.HasPriceValidationError && item.Form.ThicknessOptions.CanSave);
     private bool CanCalculateBatch => IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.HasValidParameters);
 
     internal void NotifyBatchState()
@@ -90,12 +90,16 @@ public partial class NewOrderViewModel
             else pending.Add(item);
         }
         NotifyBatchState();
+        if (preserveCurrent) _ = BatchItems[0].Form.ThicknessOptions.RefreshAsync();
         await Task.WhenAll(pending.Select(item => ReadBatchItemAsync(item, cancellationToken)));
     }
 
     private NewOrderViewModel NewBatchForm()
     {
         var form = new NewOrderViewModel(_creator, IsLocalCopy, IsDatabase, InitialColor) { ImportReader = ImportReader, ExistingOrders = ExistingOrders };
+        form._thicknessSource.Stop(); form._thicknessSource = _thicknessSource; form.ThicknessOptions.UseSource(_thicknessSource);
+        form.ThicknessOptions.ReloadAll = () => RefreshThicknessOptionsAsync(true);
+        form.PriceEditorFactory = PriceEditorFactory;
         form.Manager.Suggestions = Manager.Suggestions; form.Customer.Suggestions = Customer.Suggestions;
         form.SetMachines(_machines); return form;
     }
@@ -115,6 +119,7 @@ public partial class NewOrderViewModel
             linked.Token.ThrowIfCancellationRequested();
             if (!BatchItems.Contains(item)) return;
             item.Form.ApplyImport(preview, item.Path);
+            _ = item.Form.ThicknessOptions.RefreshAsync(item.ReadCancellation);
             item.Form.Manager.Value = Manager.Value; item.Form.Customer.Value = Customer.Value;
             item.HasParameters = true;
             UpdateDuplicateWarnings();

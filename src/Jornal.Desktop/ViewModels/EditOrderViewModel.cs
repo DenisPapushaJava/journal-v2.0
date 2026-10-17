@@ -70,6 +70,9 @@ public partial class EditOrderViewModel : ObservableObject
         SaveCommand.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) NotifyBusy(); };
         CalculateCommand.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) NotifyBusy(); };
         RefreshCommand.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) NotifyBusy(); };
+        InitializeThicknessOptions();
+        foreach (var field in new[] { CuttingType, MaterialId }) field.PropertyChanged += (_, e) =>
+        { if (!_populating && e.PropertyName == nameof(OrderEntryField.Value)) ThicknessOptions.SourceChanged(); };
     }
 
     public OrderEntryField OrderDate { get; } = new("Дата");
@@ -103,8 +106,8 @@ public partial class EditOrderViewModel : ObservableObject
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasChanges))] private IReadOnlyList<OrderFieldChange> _changes = [];
     public bool HasChanges => Changes.Count > 0;
     public bool HasError => Error is not null;
-    public bool IsBusy => SaveCommand.IsRunning || CalculateCommand.IsRunning || RefreshCommand.IsRunning || IsImporting;
-    public bool CanSave => !Material.NeedsReview && !Annotations.NeedsReview && !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null;
+    public bool IsBusy => SaveCommand.IsRunning || CalculateCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || IsEditingPrices;
+    public bool CanSave => !Material.NeedsReview && !Annotations.NeedsReview && !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null && ThicknessOptions.CanSave;
     public bool CanRefresh => RequiresReload && !IsBusy && !HasPendingImport;
     partial void OnRequiresReloadChanged(bool value) => NotifyBusy();
     private void NotifyBusy()
@@ -124,6 +127,7 @@ public partial class EditOrderViewModel : ObservableObject
         _quote = null; PriceText = "Не рассчитана";
         OnPropertyChanged(nameof(HasCuttingTimeNotice)); OnPropertyChanged(nameof(HasMetadata)); OnPropertyChanged(nameof(MetadataText));
         RefreshChanges();
+        ThicknessOptions?.SourceChanged();
     }
 
     private void RefreshChanges()
@@ -216,6 +220,8 @@ public partial class EditOrderViewModel : ObservableObject
         Error = null; AccessHostHelp.ShowFor(null); _quote = null;
         try
         {
+            await ThicknessOptions.WaitForLoadAsync(cancellationToken);
+            if (ThicknessOptions.IsActive) await RefreshThicknessOptionsAsync(true, cancellationToken);
             var result = await new CuttingPriceService(_store).CalculateResultAsync(BuildChange().PriceRequest, cancellationToken);
             if (result.Quote is { } quote) ShowQuote(quote);
             else { PriceText = "Не рассчитана"; Error = result.Error; }
@@ -234,6 +240,8 @@ public partial class EditOrderViewModel : ObservableObject
         Error = null; AccessHostHelp.ShowFor(null);
         try
         {
+            await ThicknessOptions.WaitForLoadAsync();
+            if (!ThicknessOptions.CanSave || IsEditingPrices) return;
             var change = BuildChange();
             var result = await new CuttingPriceService(_store).CalculateResultAsync(change.PriceRequest);
             if (result.Quote is not { } quote)

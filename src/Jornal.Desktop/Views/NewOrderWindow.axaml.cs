@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Jornal.Desktop.Controls;
 using Jornal.Desktop.ViewModels;
+using Jornal.Infrastructure.Diagnostics;
 
 namespace Jornal.Desktop.Views;
 
@@ -16,6 +17,7 @@ public partial class NewOrderWindow : Window
     {
         InitializeComponent();
         ConfigureFileDrop();
+        AddHandler(OrderEntryControl.PricesRequestedEvent, OnThicknessPricesRequested);
         DataContextChanged += (_, _) =>
         {
             if (_viewModel is not null) _viewModel.Saved -= OnSaved;
@@ -24,17 +26,26 @@ public partial class NewOrderWindow : Window
         };
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         WindowSizing.FitToWorkingArea(this);
-        if (_viewModel is not null) _ = _viewModel.LoadMachinesAsync(_importLifetime.Token);
         this.GetVisualDescendants().OfType<OrderEntryControl>().FirstOrDefault(control => control.IsEffectivelyVisible)?.FocusInput();
+        var token = _importLifetime.Token;
+        _viewModel?.StartThicknessOptions();
+        try
+        {
+            if (_viewModel is not null)
+            { await _viewModel.LoadMachinesAsync(token); await _viewModel.RefreshThicknessOptionsAsync(cancellationToken: token); }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception exception)
+        { if (!token.IsCancellationRequested && _viewModel is not null) _viewModel.SaveError = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось загрузить толщины."); }
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (_viewModel?.SaveCommand.IsRunning == true && !_viewModel.IsSaved) e.Cancel = true;
+        if (_viewModel is { IsEditingPrices: true } || _viewModel?.SaveCommand.IsRunning == true && !_viewModel.IsSaved) e.Cancel = true;
         base.OnClosing(e);
     }
 
@@ -47,6 +58,7 @@ public partial class NewOrderWindow : Window
             _viewModel.CancelImportRead();
             _viewModel.ReplaceImportCommand.Cancel();
             _viewModel.CalculatePriceCommand.Cancel();
+            _viewModel.StopThicknessOptions();
             _viewModel.Saved -= OnSaved;
         }
         base.OnClosed(e);

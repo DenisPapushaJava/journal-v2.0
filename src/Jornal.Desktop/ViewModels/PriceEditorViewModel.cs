@@ -34,6 +34,7 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     PriceStorageKind storage = PriceStorageKind.SharedDatabase) : ObservableObject
 {
     private PriceTable? _snapshot;
+    public string? InitialTableName { get; set; }
     private PriceGroup _selectedGroup = PriceCatalog.Groups[0];
     private PriceProfile _selectedProfile = PriceCatalog.Groups[0].Profiles[0];
     public ObservableCollection<PriceGroup> Groups { get; } = new(PriceCatalog.Groups);
@@ -129,6 +130,15 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
         try
         {
             if (!IsEditing) await LoadMachineCatalogAsync(cancellationToken);
+            if (InitialTableName is { } initial && !IsEditing)
+            {
+                var group = Groups.FirstOrDefault(value => value.Profiles.Any(profile => profile.TableName == initial)) ??
+                    throw new PriceReadException("Прайс станка недоступен. Обновите каталог.");
+                InitialTableName = null;
+                _selectedGroup = group; _selectedProfile = group.Profiles.First(profile => profile.TableName == initial);
+                OnPropertyChanged(nameof(SelectedGroup)); OnPropertyChanged(nameof(Profiles)); OnPropertyChanged(nameof(SelectedProfile));
+                ProfileChanged();
+            }
             var table = await reader.ReadAsync(TableName, cancellationToken);
             table.Validate();
             if (table.Name != TableName) throw new PriceReadException("Получен прайс другого станка.");

@@ -26,24 +26,42 @@ public static class CuttingPriceCalculator
         if (request.ThicknessMillimeters <= 0 || request.CutLengthMeters < 0 || request.Coefficient <= 0)
             throw new PriceCalculationException(PriceCalculationFailure.InvalidParameters,
                 "Толщина и коэффициент должны быть больше нуля, длина — неотрицательным целым числом метров.");
-        if (machine is not null && (machine.Name != request.CuttingType || CuttingMachine.LegacyNames.Contains(request.CuttingType)))
-            throw new PriceCalculationException(PriceCalculationFailure.UnsupportedCuttingType, "Привязка станка не соответствует виду резки.");
-        var (table, minimum, maximum) = request.CuttingType switch
-        {
-            "Лазер" => (PriceTables.Laser, 0m, 20m),
-            "Плазма" => (PriceTables.Plasma, 2m, 32m),
-            "Газо-кислородная" => (PriceTables.GasOxygen, 16m, 200m),
-            "HansLaser" => (request.MaterialId switch
-            {
-                "1" => PriceTables.HansLaserId1, "2" => PriceTables.HansLaserId2, _ => PriceTables.Laser
-            }, 0m, 60m),
-            _ when machine is not null && machine.Name == request.CuttingType => (CustomTable(machine), 0m, decimal.MaxValue),
-            _ => throw new PriceCalculationException(PriceCalculationFailure.UnsupportedCuttingType, "Неизвестный вид резки.")
-        };
+        var (table, minimum, maximum) = SelectProfile(request.CuttingType, request.MaterialId, machine);
         if (request.ThicknessMillimeters < minimum || request.ThicknessMillimeters > maximum)
             throw new PriceCalculationException(PriceCalculationFailure.ThicknessOutOfRange,
                 "Толщина находится вне диапазона выбранного вида резки.");
         return table;
+    }
+
+    public static string SelectTableForMachine(string cuttingType, string? materialId, CuttingMachine? machine = null) =>
+        SelectProfile(cuttingType, materialId, machine).Table;
+
+    public static IReadOnlyList<decimal> AvailableThicknesses(string cuttingType, string? materialId, PriceTable table, CuttingMachine? machine = null)
+    {
+        var profile = SelectProfile(cuttingType, materialId, machine);
+        table.Validate();
+        if (table.Name != profile.Table) throw new ArgumentException("Получен прайс другого станка.");
+        return !table.HasRow ? [] : table.Rates.Where(rate => rate.RublesPerMeter is >= 0 &&
+            rate.ThicknessMillimeters >= profile.Minimum && rate.ThicknessMillimeters <= profile.Maximum)
+            .Select(rate => rate.ThicknessMillimeters).Order().ToArray();
+    }
+
+    private static (string Table, decimal Minimum, decimal Maximum) SelectProfile(string cuttingType, string? materialId, CuttingMachine? machine)
+    {
+        if (machine is not null && (machine.Name != cuttingType || CuttingMachine.LegacyNames.Contains(cuttingType)))
+            throw new PriceCalculationException(PriceCalculationFailure.UnsupportedCuttingType, "Привязка станка не соответствует виду резки.");
+        return cuttingType switch
+        {
+            "Лазер" => (PriceTables.Laser, 0m, 20m),
+            "Плазма" => (PriceTables.Plasma, 2m, 32m),
+            "Газо-кислородная" => (PriceTables.GasOxygen, 16m, 200m),
+            "HansLaser" => (materialId switch
+            {
+                "1" => PriceTables.HansLaserId1, "2" => PriceTables.HansLaserId2, _ => PriceTables.Laser
+            }, 0m, 60m),
+            _ when machine is not null && machine.Name == cuttingType => (CustomTable(machine), 0m, decimal.MaxValue),
+            _ => throw new PriceCalculationException(PriceCalculationFailure.UnsupportedCuttingType, "Неизвестный вид резки.")
+        };
     }
 
     private static string CustomTable(CuttingMachine machine) { machine.Validate(); return machine.TableName; }

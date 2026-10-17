@@ -66,6 +66,9 @@
     <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
   </Style>
+  <Style Selector="ComboBox.invalid /template/ Border#Background, ComboBox.invalid:pointerover /template/ Border#Background, ComboBox.invalid:focus /template/ Border#Background">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
+  </Style>
   <Style Selector="ComboBox:focus-visible /template/ Border#HighlightBackground">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />

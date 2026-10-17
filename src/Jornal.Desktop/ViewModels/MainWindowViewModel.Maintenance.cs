@@ -50,6 +50,7 @@ public partial class MainWindowViewModel
             return await backend.ReadRecordAsync(original.Id, token);
         });
         form.BusyChanged += (_, _) => IsUpdatingOrders = form.SaveCommand.IsRunning;
+        form.PriceEditorFactory = CreatePriceEditor;
         form.Manager.Suggestions = _entrySuggestions.Managers;
         form.Customer.Suggestions = _entrySuggestions.Customers;
         form.ReloadRequired += (_, _) =>

@@ -15,6 +15,7 @@ public partial class EditOrderViewModel
             _machines = CuttingMachine.Snapshot(await catalog.ReadMachinesAsync(cancellationToken));
             CuttingType.Choices = CuttingMachine.LegacyNames.Concat(_machines.Select(machine => machine.Name))
                 .Concat(string.IsNullOrWhiteSpace(CuttingType.Value) ? [] : new[] { CuttingType.Value }).Distinct().ToArray();
+            ThicknessOptions.SourceChanged();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception) { Error = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось загрузить каталог станков."); }

@@ -16,10 +16,23 @@
                      ItemsSource="{Binding Suggestions}" IsVisible="{Binding HasSuggestions}" MinHeight="36" FontSize="14"
                      IsTextCompletionEnabled="False" MinimumPrefixLength="1" FilterMode="Contains" MaxDropDownHeight="240"
                      Classes.invalid="{Binding HasError}" ToolTip.Tip="{Binding InputHint}" AutomationProperties.Name="{Binding Label}" />
-    <ComboBox x:Name="Choice" Grid.Column="2" ItemsSource="{Binding Choices}" SelectedItem="{Binding Value, Mode=TwoWay}"
+    <Grid Grid.Column="2" ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding HasChoices}">
+    <Grid>
+    <ComboBox x:Name="Choice" ItemsSource="{Binding Choices}" SelectedItem="{Binding SelectedChoice, Mode=TwoWay}"
               IsVisible="{Binding HasChoices}" MinHeight="36" FontSize="14" HorizontalAlignment="Stretch"
-              ToolTip.Tip="{Binding InputHint}" AutomationProperties.Name="{Binding Label}" />
-    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Error}" IsVisible="{Binding HasError}" TextWrapping="Wrap" Margin="0,4,0,0"
+              IsEnabled="{Binding !IsChoiceLoading}"
+              Classes.invalid="{Binding HasDisplayError}" ToolTip.Tip="{Binding InputHint}" AutomationProperties.Name="{Binding Label}" AutomationProperties.HelpText="{Binding DisplayError}" />
+    <TextBlock Text="{Binding UnlistedChoice}" Margin="12,0,36,0" VerticalAlignment="Center" IsHitTestVisible="False"
+               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource JournalText}" />
+    </Grid>
+    <ProgressBar Height="2" VerticalAlignment="Bottom" IsIndeterminate="True" IsVisible="{Binding IsChoiceLoading}" />
+    <ui:JournalButton Grid.Column="1" Label="Прайсы" Icon="columns-3" IconOnly="True" Width="28" Height="28" Padding="0" Margin="4,0,0,0"
+                      IsVisible="{Binding HasThicknessOptions}" IsEnabled="{Binding ThicknessOptions.CanOpenPrices}"
+                      Click="OnPricesClick" ToolTip.Tip="Открыть прайс станка" />
+    <ui:JournalButton Grid.Column="2" Label="Обновить толщины" Icon="refresh-cw" IconOnly="True" Width="28" Height="28" Padding="0" Margin="2,0,0,0"
+                      IsVisible="{Binding HasThicknessOptions}" Command="{Binding ThicknessOptions.ReloadCommand}" ToolTip.Tip="Обновить толщины" />
+    </Grid>
+    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding DisplayError}" IsVisible="{Binding HasDisplayError}" TextWrapping="Wrap" Margin="0,4,0,0"
                Foreground="{DynamicResource JournalDangerForeground}" FontSize="12" />
     <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding ImportHint}" IsVisible="{Binding HasImportHint}" ToolTip.Tip="{Binding ImportEvidence}"
                Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
