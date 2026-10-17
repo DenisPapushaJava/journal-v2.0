@@ -7,15 +7,19 @@ using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
 
 namespace Jornal.Parsing.Documents;
 
-public sealed class DocumentReader
+public sealed class DocumentReader(DocumentReadLimits? limits = null)
 {
     public async Task<SourceDocument> ReadAsync(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Path.GetExtension(path).ToLowerInvariant() switch
+        var kind = DocumentFormats.FromPath(path) ?? throw new NotSupportedException("Поддерживаются только HTML и текстовые PDF.");
+        var maximum = limits ?? new DocumentReadLimits();
+        if (new FileInfo(path).Length > maximum.MaximumBytes)
+            throw new DocumentRejectedException(DocumentRejection.TooLarge, $"Файл превышает допустимый размер ({maximum.MaximumBytes / 1024 / 1024} МБ).");
+        return kind switch
         {
-            ".html" or ".htm" => await ReadHtmlAsync(path, cancellationToken),
-            ".pdf" => await Task.Run(() => ReadPdf(path, cancellationToken), cancellationToken),
+            DocumentKind.Html => await ReadHtmlAsync(path, cancellationToken),
+            DocumentKind.Pdf => await Task.Run(() => ReadPdf(path, maximum, cancellationToken), cancellationToken),
             _ => throw new NotSupportedException("Поддерживаются только HTML и текстовые PDF.")
         };
     }
@@ -59,9 +63,11 @@ public sealed class DocumentReader
         return text.ToString();
     }
 
-    private static SourceDocument ReadPdf(string path, CancellationToken cancellationToken)
+    private static SourceDocument ReadPdf(string path, DocumentReadLimits limits, CancellationToken cancellationToken)
     {
         using var document = PdfDocument.Open(path);
+        if (document.NumberOfPages > limits.MaximumPdfPages)
+            throw new DocumentRejectedException(DocumentRejection.TooManyPages, $"В PDF больше {limits.MaximumPdfPages} страниц.");
         var pages = new List<PdfPage>();
         foreach (var page in document.GetPages())
         {

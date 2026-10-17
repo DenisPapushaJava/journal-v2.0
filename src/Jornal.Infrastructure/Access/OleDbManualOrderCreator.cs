@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Data;
 using System.Data.OleDb;
 using System.Diagnostics;
@@ -8,19 +9,25 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 [SupportedOSPlatform("windows")]
-public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, IPriceReader
+public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, IPriceReader, IManualOrderBatchCreator
 {
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) =>
         OleDbPriceReader.ReadAsync(path, tableName, cancellationToken);
 
     public Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default) =>
-        Task.Run(() => Create(draft, cancellationToken), cancellationToken);
+        Task.Run(() => Create([draft], false, cancellationToken)[0], cancellationToken);
 
-    private OrderSummary Create(ManualOrderDraft draft, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<OrderSummary>> CreateBatchAsync(IReadOnlyList<ManualOrderDraft> drafts, CancellationToken cancellationToken = default)
     {
-        draft.Validate();
-        if (draft.CuttingDurationMinutes is not null)
-            new OleDbOrderExtras(path).PrepareCuttingTimeAsync(cancellationToken).GetAwaiter().GetResult();
+        var snapshot = ManualOrderBatch.Snapshot(drafts);
+        return Task.Run(() => Create(snapshot, true, cancellationToken), cancellationToken);
+    }
+
+    private IReadOnlyList<OrderSummary> Create(IReadOnlyList<ManualOrderDraft> drafts, bool batch, CancellationToken cancellationToken)
+    {
+        var snapshot = ManualOrderBatch.Snapshot(drafts);
+        if (snapshot.Any(draft => draft.CuttingDurationMinutes is not null))
+            DiagnosticStages.RunAsync(DiagnosticStage.PrepareCuttingTime, () => new OleDbOrderExtras(path).PrepareCuttingTimeAsync(cancellationToken)).GetAwaiter().GetResult();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(30));
         var token = deadline.Token;
@@ -32,44 +39,58 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
             token.ThrowIfCancellationRequested();
             if (!string.Equals(Path.GetExtension(path), ".mdb", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
                 throw new OrderWriteException(OrderWriteFailure.NotSaved, "Файл MDB недоступен. Проверьте путь и подключение к общей папке.");
-            connection = OleDbAccessConnection.Create(path, writable: true);
-            connection.Open();
+            connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: true));
+            DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             token.ThrowIfCancellationRequested();
-            transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+            transaction = DiagnosticStages.Run(DiagnosticStage.BeginTransaction, () => connection.BeginTransaction(IsolationLevel.ReadCommitted));
             try
             {
-                var table = OleDbPriceReader.Read(connection, transaction, CuttingPriceCalculator.SelectTable(draft.PriceRequest), token);
-                var quote = draft.Calculate(table);
-                var prepared = draft.ToOrder(0, quote.StoredPrice);
-                token.ThrowIfCancellationRequested();
-                using (var insert = Insert(connection, transaction, prepared))
-                    if (insert.ExecuteNonQuery() != 1) throw new InvalidOperationException("INSERT не подтвердил одну новую заявку.");
-                int id;
-                using (var identity = connection.CreateCommand())
+                var tables = new Dictionary<string, PriceTable>();
+                var preparedRows = new List<OrderSummary>();
+                for (var index = 0; index < snapshot.Length; index++)
                 {
-                    identity.Transaction = transaction;
-                    identity.CommandTimeout = 10;
-                    identity.CommandText = "SELECT @@IDENTITY";
-                    id = checked(Convert.ToInt32(identity.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture));
-                    if (id <= 0) throw new InvalidOperationException("MDB не вернула код новой заявки.");
+                    var draft = snapshot[index];
+                    token.ThrowIfCancellationRequested();
+                    var name = CuttingPriceCalculator.SelectTable(draft.PriceRequest);
+                    if (!tables.TryGetValue(name, out var table))
+                        tables[name] = table = OleDbPriceReader.Read(connection, transaction, name, token);
+                    try { preparedRows.Add(draft.ToOrder(0, DiagnosticStages.Run(DiagnosticStage.CalculatePrice, () => draft.Calculate(table)).StoredPrice)); }
+                    catch (OrderPriceChangedException changed) when (batch) { throw new OrderBatchPriceChangedException(index, changed.Quote); }
                 }
-                OleDbOrderExtras.Write(connection, transaction, id, null, prepared.CuttingTime);
-                // До commit проверяем сохранённое представление. После commit к MDB больше не обращаемся.
-                var saved = ReadCreated(connection, transaction, id);
-                if (saved != prepared with { Id = id }) throw new InvalidOperationException("MDB изменила значения новой заявки.");
+                var savedRows = new List<OrderSummary>();
+                foreach (var prepared in preparedRows)
+                {
+                    token.ThrowIfCancellationRequested();
+                    using (var insert = Insert(connection, transaction, prepared))
+                        if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, insert.ExecuteNonQuery) != 1) throw new InvalidOperationException("INSERT не подтвердил одну новую заявку.");
+                    int id;
+                    using (var identity = connection.CreateCommand())
+                    {
+                        identity.Transaction = transaction;
+                        identity.CommandTimeout = 10;
+                        identity.CommandText = "SELECT @@IDENTITY";
+                        id = checked(Convert.ToInt32(DiagnosticStages.Run(DiagnosticStage.ReadBack, identity.ExecuteScalar), System.Globalization.CultureInfo.InvariantCulture));
+                        if (id <= 0) throw new InvalidOperationException("MDB не вернула код новой заявки.");
+                    }
+                    DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, id, null, prepared.CuttingTime));
+                    // До commit проверяем сохранённое представление. После commit к MDB больше не обращаемся.
+                    var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => ReadCreated(connection, transaction, id));
+                    if (saved != prepared with { Id = id }) throw new InvalidOperationException("MDB изменила значения новой заявки.");
+                    savedRows.Add(saved);
+                }
                 token.ThrowIfCancellationRequested();
                 commitStarted = true;
-                transaction.Commit();
-                return saved;
+                DiagnosticStages.Run(DiagnosticStage.CommitTransaction, transaction.Commit);
+                return savedRows;
             }
             catch (Exception exception)
             {
                 var rollbackFailed = false;
-                try { transaction.Rollback(); }
-                catch (Exception rollback) { rollbackFailed = true; Trace.TraceError("MDB create rollback failed: {0}", rollback); }
+                try { DiagnosticStages.Run(DiagnosticStage.RollbackTransaction, transaction.Rollback); }
+                catch (Exception rollback) { rollbackFailed = true; AppDiagnostics.Capture(DiagnosticOperation.OrderCreate, rollback); }
                 if (commitStarted || rollbackFailed)
                     throw new OrderWriteException(OrderWriteFailure.OutcomeUnknown,
-                        "Не удалось подтвердить добавление заявки. Она могла сохраниться. Обновите список и проверьте его перед повтором, чтобы не создать дубликат.", exception);
+                        "Не удалось подтвердить добавление. Заявки могли сохраниться. Обновите список и проверьте его перед повтором, чтобы не создать дубликат.", exception);
                 throw;
             }
         }
@@ -134,7 +155,7 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
 
     private static void Release(IDisposable? value)
     {
-        try { value?.Dispose(); }
-        catch (Exception exception) { Trace.TraceError("MDB create cleanup failed: {0}", exception); }
+        try { DiagnosticStages.Run(DiagnosticStage.ReleaseResources, () => value?.Dispose()); }
+        catch (Exception exception) { AppDiagnostics.Capture(DiagnosticOperation.OrderCreate, exception); }
     }
 }

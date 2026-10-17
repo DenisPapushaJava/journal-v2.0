@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Data;
 using System.Data.OleDb;
 using System.Runtime.Versioning;
@@ -10,7 +11,7 @@ public static class OleDbOrderReader
 {
     public static Task<IReadOnlyList<OrderSummary>> ReadAsync(string path, CancellationToken cancellationToken = default) =>
         // OLE DB синхронен: соединение и reader живут на одном рабочем потоке, UI не блокируется.
-        Task.Run<IReadOnlyList<OrderSummary>>(() => Read(path, cancellationToken), cancellationToken);
+        Task.Run<IReadOnlyList<OrderSummary>>(() => DiagnosticStages.Run(DiagnosticStage.ReadOrders, () => Read(path, cancellationToken)), cancellationToken);
 
     public static string? FindProvider()
     {
@@ -28,8 +29,8 @@ public static class OleDbOrderReader
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var connection = OleDbAccessConnection.Create(path, writable: false);
-            connection.Open();
+            using var connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: false));
+            DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             cancellationToken.ThrowIfCancellationRequested();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT * FROM [Orders]";

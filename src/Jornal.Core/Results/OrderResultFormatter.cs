@@ -9,12 +9,13 @@ public static class OrderResultFormatter
     private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("ru-RU");
     private static readonly StringComparer MaterialComparer = StringComparer.Create(Culture, ignoreCase: true);
 
-    public static string Format(IReadOnlyList<OrderSummary> orders)
+    public static string Format(IReadOnlyList<OrderSummary> orders, ResultPriceSettings? pricing = null)
     {
         if (orders.Any(order => order.StoredCuttingPrice is null))
             throw new ArgumentException("Для результата нужна рассчитанная стоимость каждой заявки.", nameof(orders));
         if (orders.Count == 0) return string.Empty;
-        // Меняется только порядок заявок в новой порции; формат строк и исходный список сохраняются.
+        pricing = (pricing ?? new()).Normalize();
+        // Сортируем весь выбранный набор; формат строк и исходный список сохраняются.
         orders = orders.OrderBy(order => order.ThicknessMillimeters is null)
             .ThenBy(order => order.ThicknessMillimeters)
             .ThenBy(order => order.MaterialName, MaterialComparer).ToArray();
@@ -29,7 +30,8 @@ public static class OrderResultFormatter
         {
             var row = rows[index];
             // Прежнее округление Convert.ToInt32 — к чётному. Currency не ограничиваем диапазоном Int32.
-            var price = Math.Max(500, decimal.Round(orders[index].StoredCuttingPrice!.Value, 0, MidpointRounding.ToEven));
+            var price = decimal.Round(orders[index].StoredCuttingPrice!.Value, 0, MidpointRounding.ToEven);
+            if (pricing.UseMinimumPrice) price = Math.Max(pricing.MinimumPrice, price);
             row[4] = price.ToString("0", Culture);
             for (var column = 0; column < row.Length; column++)
                 row[column] = new string(' ', Math.Max(0, widths[column] - row[column].Length) * 2) + row[column];

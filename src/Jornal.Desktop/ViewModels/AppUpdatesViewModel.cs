@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -38,9 +39,9 @@ public partial class AppUpdatesViewModel : ObservableObject
     public string CurrentVersion => _updater.CurrentVersion;
     public bool IsInstalled => _updater.IsInstalled;
     public string InstallationHint => OperatingSystem.IsWindows()
-        ? "Для установки со всеми необходимыми компонентами используйте OfflineSetup.exe из раздела выпусков."
-        : "Для обновления из программы запустите Journal из AppImage из раздела выпусков.";
-    [ObservableProperty] private string _status = "Проверьте, появилась ли новая версия Journal.";
+        ? "Для обновлений установите приложение через OfflineSetup.exe."
+        : "Для обновлений запустите приложение из AppImage.";
+    [ObservableProperty] private string _status = "Проверка ещё не выполнялась.";
     [ObservableProperty] private string? _error;
     [ObservableProperty] private string? _preferencesWarning;
     [ObservableProperty] private bool _isBusy;
@@ -70,7 +71,7 @@ public partial class AppUpdatesViewModel : ObservableObject
     partial void OnIncludePreviewChanged(bool value)
     {
         _update = null; HasUpdate = false; IsDownloaded = false; ReleaseNotes = ""; AvailableVersion = ""; Error = null;
-        Status = "Канал изменён. Нажмите «Проверить обновления».";
+        Status = "Канал обновлений изменён.";
         SavePreferences();
     }
     partial void OnCheckAutomaticallyChanged(bool value)
@@ -78,7 +79,7 @@ public partial class AppUpdatesViewModel : ObservableObject
         SavePreferences();
         _lastCheckCompleted = null;
         _automaticChecksWake?.Cancel();
-        if (!IsBusy) Status = value ? "Автопроверка включена." : "Автопроверка отключена. Можно проверить обновления вручную.";
+        if (!IsBusy) Status = value ? "Автопроверка включена." : "Автопроверка отключена.";
     }
     private void SavePreferences()
     {
@@ -86,7 +87,7 @@ public partial class AppUpdatesViewModel : ObservableObject
         try { _preferencesStore.Save(new(IncludePreview: IncludePreview, CheckAutomatically: CheckAutomatically)); PreferencesWarning = null; }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            Trace.TraceWarning("Update preferences could not be saved: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.Update, exception);
             PreferencesWarning = "Не удалось сохранить настройки обновлений. Выбор действует до закрытия программы. Проверьте доступ к папке профиля.";
         }
     }
@@ -151,12 +152,12 @@ public partial class AppUpdatesViewModel : ObservableObject
             HasUpdate = _update is not null;
             AvailableVersion = _update?.Version ?? "";
             ReleaseNotes = string.IsNullOrWhiteSpace(_update?.Notes) ? "Описание изменений не добавлено." : _update.Notes;
-            Status = HasUpdate ? $"Доступна версия {AvailableVersion}. Загрузка начнётся по вашей команде." : "Новых версий в выбранном канале не найдено.";
+            Status = HasUpdate ? $"Доступна версия {AvailableVersion}." : "Обновлений нет.";
         }
         catch (OperationCanceledException) { if (!quiet) Status = "Проверка отменена."; }
         catch (Exception exception)
         {
-            if (quiet) Trace.TraceWarning("Background update check failed: {0}", exception);
+            if (quiet) AppDiagnostics.Capture(DiagnosticOperation.Update, exception);
             else Fail(exception, "Не удалось проверить обновления. Проверьте интернет и повторите попытку. Можно продолжать работу с журналом.");
         }
         finally
@@ -184,9 +185,9 @@ public partial class AppUpdatesViewModel : ObservableObject
                         DownloadProgress = Math.Max(DownloadProgress, Math.Clamp(value, 0, 100));
             }), cancellationToken);
             lock (_progressLock) { IsDownloaded = true; DownloadProgress = 100; }
-            Status = "Обновление загружено. Установите его, когда будете готовы перезапустить Journal.";
+            Status = "Обновление загружено.";
         }
-        catch (OperationCanceledException) { Status = "Загрузка отменена. Её можно повторить."; }
+        catch (OperationCanceledException) { Status = "Загрузка отменена."; }
         catch (Exception exception) { Fail(exception, "Не удалось загрузить или проверить пакет. Текущая версия продолжает работать. Повторите загрузку."); }
         finally { lock (_progressLock) { ++_downloadOperation; IsDownloading = false; } IsBusy = false; }
     }
@@ -208,5 +209,5 @@ public partial class AppUpdatesViewModel : ObservableObject
         catch (Exception exception) { Fail(exception, "Не удалось подготовить обновление. Journal остаётся открыт. " + (exception is InvalidOperationException ? exception.Message : "Проверьте доступ к папке приложения и профилю, затем повторите попытку.")); }
         finally { IsApplying = false; IsBusy = false; }
     }
-    private void Fail(Exception exception, string message) { Trace.TraceWarning("App update failed: {0}", exception); Error = message; Status = "Обновление не выполнено."; }
+    private void Fail(Exception exception, string message) { Error = AppDiagnostics.WithCode(message, AppDiagnostics.Capture(DiagnosticOperation.Update, exception)); Status = "Обновление не выполнено."; }
 }

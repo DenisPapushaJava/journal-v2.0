@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Globalization;
 using Jornal.Core.Pricing;
 using Jornal.Core.Orders;
@@ -11,26 +12,39 @@ public interface ISpecificationImportService
     Task<SpecificationImportPreview> ReadAsync(string path, CancellationToken cancellationToken);
 }
 
-public sealed class SpecificationImportService : ISpecificationImportService
+public sealed class SpecificationImportService(SpecificationProfileCatalog? profiles = null, DocumentReadLimits? limits = null) : ISpecificationImportService
 {
-    public static string? CheckFiles(IReadOnlyList<string> paths) => paths.Count != 1
-        ? "Перетащите одну спецификацию. Несколько файлов пока не импортируются одновременно."
-        : string.IsNullOrWhiteSpace(paths[0]) ? "Перетащите файл из локальной или подключённой сетевой папки. Папки не импортируются."
-        : Path.GetExtension(paths[0]).ToLowerInvariant() is not (".html" or ".htm" or ".pdf")
-            ? "Выберите HTML БЛОК/Wintech (.html, .htm) или PDF HansLaser (.pdf)."
+    public static string? CheckDropFiles(IReadOnlyList<string> paths)
+    {
+        if (paths.Count <= 1) return CheckFiles(paths);
+        if (paths.Count > ManualOrderBatch.MaximumCount) return $"В одном пакете — до {ManualOrderBatch.MaximumCount} файлов.";
+        return paths.Any(path => CheckFiles([path]) is null) ? null : "В наборе нет поддерживаемых спецификаций.";
+    }
+    public static string? CheckFiles(IReadOnlyList<string> paths, SpecificationProfileCatalog? profiles = null) => paths.Count != 1
+        ? "Перетащите одну спецификацию."
+        : string.IsNullOrWhiteSpace(paths[0]) ? "Нужен доступный файл. Папки не импортируются."
+        : (profiles ?? SpecificationProfileCatalog.Default).SupportedExtensions.Contains(Path.GetExtension(paths[0]), StringComparer.OrdinalIgnoreCase) == false
+            ? "Поддерживаются " + (profiles ?? SpecificationProfileCatalog.Default).SupportedDescription + "."
             : null;
 
     public Task<SpecificationImportPreview> ReadAsync(string path, CancellationToken cancellationToken)
     {
-        if (CheckFiles([path]) is { } error) throw new NotSupportedException(error);
+        if (CheckFiles([path], profiles) is { } error) throw new DocumentRejectedException(DocumentRejection.UnsupportedFileType, error);
         return Task.Run(async () =>
         {
-            var document = await new DocumentReader().ReadAsync(path, cancellationToken);
-            var report = document.Kind == DocumentKind.Pdf ? new HansPdfSpecificationParser().Parse(document, cancellationToken) :
-                new BlockHtmlSpecificationParser().Parse(document, cancellationToken);
+            SourceDocument document;
+            try
+            {
+                document = await DiagnosticStages.RunAsync(DiagnosticStage.ReadSpecification, () => new DocumentReader(limits).ReadAsync(path, cancellationToken));
+            }
+            catch (UnauthorizedAccessException) { throw new DocumentRejectedException(DocumentRejection.FileUnavailable, "Нет доступа к файлу."); }
+            catch (IOException) { throw new DocumentRejectedException(DocumentRejection.FileUnavailable, "Файл недоступен для чтения."); }
+            catch (UglyToad.PdfPig.Core.PdfDocumentFormatException)
+            { throw new DocumentRejectedException(DocumentRejection.InvalidDocument, "Не удалось прочитать PDF: файл повреждён или защищён."); }
+            var report = DiagnosticStages.Run(DiagnosticStage.ParseSpecification, () => (profiles ?? SpecificationProfileCatalog.Default).Parse(document, cancellationToken));
             cancellationToken.ThrowIfCancellationRequested();
-            return SpecificationImportPreview.Create(Path.GetFileName(path), report);
-        }, cancellationToken);
+            return DiagnosticStages.Run(DiagnosticStage.NormalizeSpecification, () => SpecificationImportPreview.Create(Path.GetFileName(path), report, profiles));
+        }, cancellationToken).WaitAsync(cancellationToken);
     }
 }
 
@@ -46,8 +60,10 @@ public sealed record SpecificationImportPreview(string FileName, SpecificationPa
         : "Время резки не распознано";
     public string Counts => $"Детали: {PartCount?.ToString() ?? "не распознано"} · Пробивки: {PunchCount?.ToString() ?? "не распознано"}";
 
-    public static SpecificationImportPreview Create(string fileName, SpecificationParseResult report)
+    public static SpecificationImportPreview Create(string fileName, SpecificationParseResult report, SpecificationProfileCatalog? profiles = null)
     {
+        if (!report.IsRecognized)
+            throw new DocumentRejectedException(DocumentRejection.UnrecognizedSpecification, "Формат спецификации не распознан.");
         var fields = new Dictionary<string, ImportedField>();
         bool Bad(SpecificationField field) => report.Issues.Any(issue => issue.Field == field && issue.Severity == SpecificationIssueSeverity.Error);
         void Add(string name, SpecificationField field, string? value, IEnumerable<SpecificationValueSource>? sources)
@@ -77,8 +93,8 @@ public sealed record SpecificationImportPreview(string FileName, SpecificationPa
         Add("SheetCount", SpecificationField.SheetCount, report.SheetCount is { } count ? Number(count.Value) : null, report.SheetCount?.Sources);
         Add("Weight", SpecificationField.Weight, report.WeightKilograms is { } weight ? Number(weight.Value) : null, report.WeightKilograms?.Sources);
         Add("CutLength", SpecificationField.CutLength, report.CutLengthMillimeters is { } length && !Bad(SpecificationField.CutLength)
-            ? (report.Profile == HansPdfSpecificationParser.Profile ? HansSpecificationNormalizer.LegacyCutLengthMeters(length.Value) :
-                BlockSpecificationNormalizer.LegacyCutLengthMeters(length.Value)).ToString(CultureInfo.InvariantCulture) : null, report.CutLengthMillimeters?.Sources);
+            ? (profiles ?? SpecificationProfileCatalog.Default).NormalizeCutLengthMeters(report.Profile, length.Value).ToString(CultureInfo.InvariantCulture)
+            : null, report.CutLengthMillimeters?.Sources);
         Add("CuttingTime", SpecificationField.CuttingDuration, report.CuttingDuration is { } duration
             ? CuttingDuration.Format(CuttingDuration.RoundUpMinutes(duration.Value)) : null, report.CuttingDuration?.Sources);
         Add("MaterialId", SpecificationField.MaterialId, report.MaterialId?.Value, report.MaterialId?.Sources);

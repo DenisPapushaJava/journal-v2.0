@@ -93,7 +93,7 @@ public sealed class MaintenanceWindowTests
         {
             var badge = window.FindControl<Border>("TrashBadge")!;
             Assert.True(badge.IsVisible); Assert.InRange(badge.Bounds.Width, 16, 28);
-            AssertVisible(window, "TrashButton", "DatabaseSettingsButton", "UpdatesButton", "ThemeButton");
+            AssertVisible(window, "TrashButton", "SettingsButton", "UpdatesButton", "ThemeButton");
             Save(window, $"trash-badge-{dark}");
         }
         finally { window.Close(); }
@@ -149,7 +149,10 @@ public sealed class MaintenanceWindowTests
     public async Task ConflictKeepsInputAndRequiresExplicitReviewBeforeRebasing()
     {
         var backend = new OrderMaintenanceTests.Backend(); var form = Form(backend);
+        Assert.False(form.HasChanges);
         form.Customer.Value = "Моя правка";
+        Assert.Equal(backend.Current!.Customer, Assert.Single(form.Changes).Before);
+        Assert.Equal("Моя правка", Assert.Single(form.Changes).After);
         await form.CalculateCommand.ExecuteAsync(null);
         backend.Current = backend.Current! with { Customer = "Чужая правка", Manager = "Другой менеджер" };
         await form.SaveCommand.ExecuteAsync(null);
@@ -160,6 +163,8 @@ public sealed class MaintenanceWindowTests
         await form.SaveCommand.ExecuteAsync(null); Assert.Equal(0, backend.Updates);
         form.RebaseCommand.Execute(null);
         Assert.Equal("Другой менеджер", form.Manager.Value); Assert.Equal("Моя правка", form.Customer.Value);
+        Assert.Equal("Чужая правка", Assert.Single(form.Changes).Before);
+        Assert.Equal("Моя правка", Assert.Single(form.Changes).After);
         Assert.False(form.RequiresReload);
         await form.SaveCommand.ExecuteAsync(null); await form.SaveCommand.ExecuteAsync(null);
         Assert.Equal("Моя правка", backend.Current!.Customer); Assert.Equal("Другой менеджер", backend.Current.Manager);
@@ -208,6 +213,12 @@ public sealed class MaintenanceWindowTests
             AssertVisible(editWindow, "SaveButton", "CancelButton", "CalculatePriceButton");
             var fields = editWindow.FindControl<ScrollViewer>("FormScroll")!;
             Assert.True(fields.Extent.Height <= fields.Viewport.Height + 1);
+            edit.Customer.Value = "Новый заказчик"; edit.Weight.Value = "45,2"; edit.CuttingTime.Value = "36:47";
+            Dispatcher.UIThread.RunJobs(); Assert.Equal(3, edit.Changes.Count);
+            AssertVisible(editWindow, "OrderChangesPanel", "SaveButton", "CancelButton", "CalculatePriceButton");
+            Save(editWindow, $"edit-changes-{dark}");
+            edit.Customer.Value = original.Customer!;
+            Assert.DoesNotContain(edit.Changes, change => change.Label == edit.Customer.Label);
             editWindow.Close(); editWindow = null;
             Assert.Equal(result, model.ResultText); Assert.Equal(original, await store.ReadRecordAsync(original.Id, TestContext.Current.CancellationToken));
             var confirm = (await model.CreateTrashFormAsync(TestContext.Current.CancellationToken))!;

@@ -1,13 +1,14 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Jornal.Infrastructure.Diagnostics;
 using Jornal.Core.Orders;
 using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Access;
 
 /// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
-public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IPriceReader, IOrderMaintenance, IOrderDurationInitializer
+public sealed class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IOrderMaintenance, IOrderDurationInitializer
 {
     private readonly Action<Process> _start = static process => { process.Start(); };
     internal AccessHostClient(string path, string? executable, Action<Process> start) : this(path, executable) => _start = start;
@@ -50,6 +51,12 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
         return response.Orders![0];
     }
 
+    public async Task<IReadOnlyList<OrderSummary>> CreateBatchAsync(IReadOnlyList<ManualOrderDraft> drafts, CancellationToken cancellationToken = default)
+    {
+        var snapshot = ManualOrderBatch.Snapshot(drafts);
+        return (await SendAsync(new(1, AccessHostOperation.CreateOrders, System.IO.Path.GetFullPath(path), Drafts: snapshot), cancellationToken)).Orders!;
+    }
+
     public async Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
         (await SendAsync(new(1, AccessHostOperation.Read, path), cancellationToken)).Orders!;
 
@@ -82,10 +89,12 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
 
     private async Task<AccessHostResponse> SendAsync(AccessHostRequest request, CancellationToken cancellationToken)
     {
+        request = request with { DiagnosticSessionId = AppDiagnostics.Current?.SessionId ?? Guid.NewGuid().ToString("N"), DiagnosticEventId = Guid.NewGuid().ToString("N") };
         cancellationToken.ThrowIfCancellationRequested();
-        var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or
+        var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or
             AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.PrepareCuttingTime;
         var dispatched = false;
+        var stage = DiagnosticStage.LaunchAccessHost;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromMinutes(2));
         using var process = new Process
@@ -106,40 +115,59 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             error = process.StandardError.ReadToEndAsync(deadline.Token);
             // После начала отправки записи любой обрыв считается неподтверждённым исходом.
             dispatched = true;
+            stage = DiagnosticStage.SendAccessRequest;
             await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(request).AsMemory(), deadline.Token);
             process.StandardInput.Close();
+            stage = DiagnosticStage.ReadAccessResponse;
             await process.WaitForExitAsync(deadline.Token);
             if (AccessHostBlockedException.IsExitCode(process.ExitCode))
                 throw new AccessHostBlockedException(process.ExitCode);
-            var response = JsonSerializer.Deserialize<AccessHostResponse>(await output);
+            var responseJson = await output;
             _ = await error;
+            stage = DiagnosticStage.ValidateAccessResponse;
+            var response = JsonSerializer.Deserialize<AccessHostResponse>(responseJson);
             if (response is null || response.Protocol != 1 || process.ExitCode != 0)
                 throw new InvalidDataException("Некорректный ответ модуля Access.");
+            if (response.Diagnostic is { } diagnostic)
+            {
+                diagnostic.Validate();
+                if (response.Error is null || diagnostic.EventId != request.DiagnosticEventId || diagnostic.SessionId != request.DiagnosticSessionId ||
+                    diagnostic.Component != DiagnosticComponent.AccessHost || diagnostic.Operation != AccessHostDiagnostics.Operation(request.Operation) ||
+                    diagnostic.WriteFailure != response.Failure)
+                    throw new InvalidDataException("Некорректная диагностика модуля Access.");
+                AppDiagnostics.Current?.Record(diagnostic);
+            }
             if (response.Error is not null)
             {
                 if (response.Failure is { } failure && !Enum.IsDefined(failure))
                     throw new InvalidDataException("Неизвестный результат записи.");
                 if (response.ChangedQuote is { } quote)
                 {
-                    if (request.Operation is not (AccessHostOperation.CreateOrder or AccessHostOperation.UpdateOrder) || response.Failure != OrderWriteFailure.NotSaved ||
+                    if (request.Operation is not (AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or AccessHostOperation.UpdateOrder) || response.Failure != OrderWriteFailure.NotSaved ||
                         response.Orders is not null || response.PriceTable is not null || response.Record is not null || response.MaintenanceCompleted is not null)
                         throw new InvalidDataException("Некорректный ответ об изменении прайса.");
                     try
                     {
-                        var priceRequest = request.Draft?.PriceRequest ?? request.Edit!.PriceRequest;
+                        if (request.Operation == AccessHostOperation.CreateOrders && (request.Drafts is null || response.ChangedDraftIndex is not { } index || index < 0 || index >= request.Drafts.Length) ||
+                            request.Operation != AccessHostOperation.CreateOrders && response.ChangedDraftIndex is not null)
+                            throw new InvalidDataException("Некорректный индекс изменившегося прайса.");
+                        var priceRequest = request.Operation == AccessHostOperation.CreateOrders ? request.Drafts![response.ChangedDraftIndex!.Value].PriceRequest :
+                            request.Draft?.PriceRequest ?? request.Edit!.PriceRequest;
                         var calculated = CuttingPriceCalculator.Calculate(priceRequest,
                             new(quote.TableName, true, [new(priceRequest.ThicknessMillimeters, quote.ThicknessColumn, quote.RublesPerMeter)]));
                         if (calculated != quote) throw new ArgumentException("Цена не соответствует параметрам.");
                     }
                     catch (Exception exception) when (exception is ArgumentException or PriceCalculationException)
                     { throw new InvalidDataException("Некорректная новая цена в ответе модуля Access.", exception); }
+                    if (request.Operation == AccessHostOperation.CreateOrders) throw new OrderBatchPriceChangedException(response.ChangedDraftIndex!.Value, quote);
                     if (request.Operation == AccessHostOperation.UpdateOrder) throw new OrderEditPriceChangedException(quote);
                     throw new OrderPriceChangedException(quote);
                 }
-                if (write) throw new OrderWriteException(response.Failure ?? OrderWriteFailure.OutcomeUnknown, response.Error);
-                throw new OrderReadException(response.Error);
+                if (response.ChangedDraftIndex is not null) throw new InvalidDataException("Индекс цены без новой цены.");
+                if (write) throw AppDiagnostics.Attach(new OrderWriteException(response.Failure ?? OrderWriteFailure.OutcomeUnknown, response.Error), response.Diagnostic);
+                throw AppDiagnostics.Attach(new OrderReadException(response.Error), response.Diagnostic);
             }
-            if (response.Failure is not null || response.ChangedQuote is not null)
+            if (response.Failure is not null || response.ChangedQuote is not null || response.ChangedDraftIndex is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");
             if (request.Operation == AccessHostOperation.PrepareCuttingTime)
             {
@@ -192,6 +220,20 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
             if (request.Operation == AccessHostOperation.CreateOrder && response.Orders![0] is { } created &&
                 created != request.Draft!.ToOrder(created.Id, created.StoredCuttingPrice))
                 throw new InvalidDataException("Поля созданной заявки не соответствуют запросу.");
+            if (request.Operation == AccessHostOperation.CreateOrders)
+            {
+                var createdRows = response.Orders!;
+                var drafts = request.Drafts!;
+                if (createdRows.Length != drafts.Length || createdRows.Select(row => row.Id).Distinct().Count() != drafts.Length)
+                    throw new InvalidDataException("Модуль Access не подтвердил весь пакет.");
+                for (var index = 0; index < drafts.Length; index++)
+                {
+                    var row = createdRows[index];
+                    if (row.Id <= 0 || row.StoredCuttingPrice is not { } price || price < 0 || row != drafts[index].ToOrder(row.Id, price) ||
+                        drafts[index].ExpectedQuote is { } expected && expected.StoredPrice != price)
+                        throw new InvalidDataException("Поля созданного пакета не соответствуют запросу.");
+                }
+            }
             return response;
         }
         catch (OrderReadException) { throw; }
@@ -199,6 +241,7 @@ public sealed class AccessHostClient(string path, string? executable = null) : I
         catch (Exception exception) when (exception is AccessHostBlockedException or IOException or InvalidDataException or System.ComponentModel.Win32Exception or
             InvalidOperationException or JsonException or OperationCanceledException)
         {
+            DiagnosticStages.Tag(exception, stage);
             var blocked = exception as AccessHostBlockedException ??
                 (exception is System.ComponentModel.Win32Exception native && !dispatched && AccessHostBlockedException.IsLaunchCode(native.NativeErrorCode)
                     ? new AccessHostBlockedException(native.NativeErrorCode, native) : null);

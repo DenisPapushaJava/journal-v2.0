@@ -3,7 +3,7 @@ using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Demo;
 
-public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor
+public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor, IManualOrderBatchCreator
 {
     private readonly object _gate = new();
     private int _lastIssuedId = 3;
@@ -40,6 +40,20 @@ public sealed class DemoOrderStore : IOrderReader, IManualOrderCreator, IOrderBa
             var order = draft.ToOrder(++_lastIssuedId, null);
             _orders.Insert(0, order);
             return Task.FromResult(order);
+        }
+    }
+
+    public Task<IReadOnlyList<OrderSummary>> CreateBatchAsync(IReadOnlyList<ManualOrderDraft> drafts, CancellationToken cancellationToken = default)
+    {
+        var snapshot = ManualOrderBatch.Snapshot(drafts);
+        lock (_gate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var rows = snapshot.Select((draft, index) => draft.ToOrder(checked(_lastIssuedId + index + 1), null)).ToArray();
+            cancellationToken.ThrowIfCancellationRequested();
+            _orders.InsertRange(0, rows);
+            _lastIssuedId = rows[^1].Id;
+            return Task.FromResult<IReadOnlyList<OrderSummary>>(rows);
         }
     }
 

@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Jornal.Desktop.ViewModels;
@@ -22,7 +23,7 @@ public partial class WindowsSecurityHelp : UserControl
         try { return await launch(new Uri(SettingsUri)) ? null : ManualInstructions; }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            System.Diagnostics.Trace.TraceError("Windows Security settings could not be opened: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.Preferences, exception);
             return ManualInstructions;
         }
     }

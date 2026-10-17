@@ -16,7 +16,7 @@ public partial class MainWindowViewModel
     public IReadOnlyList<decimal> ResultFontSizes => ResultTextStyle.FontSizes;
     public IBrush ResultTextBrush => new ImmutableSolidColorBrush(Color.Parse(ResultTextColor));
     public IBrush ResultFeedbackBrush => new ImmutableSolidColorBrush(Color.Parse(HasResultError ? "#A83632" : "#5D6777"));
-    public string ResultColorDescription => $"Цвет всего результата: {ResultTextColor}";
+    public string ResultColorDescription => $"Цвет текста: {ResultTextColor}";
     public ResultTextStyle CaptureResultStyle() => new ResultTextStyle
         { FontSizePoints = ResultFontSizePoints, ColorHex = ResultTextColor }.Normalize();
     public void ApplyResultStyle(ResultTextStyle style)

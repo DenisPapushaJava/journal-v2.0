@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Data;
 using System.Data.OleDb;
 using System.Diagnostics;
@@ -24,9 +25,9 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
         if (id <= 0) throw new ArgumentOutOfRangeException(nameof(id));
         try
         {
-            using var connection = OleDbAccessConnection.Create(path, writable: false);
-            connection.Open();
-            var result = Read(connection, null, id);
+            using var connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: false));
+            DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
+            var result = DiagnosticStages.Run(DiagnosticStage.ReadOrders, () => Read(connection, null, id));
             cancellationToken.ThrowIfCancellationRequested();
             return result;
         }
@@ -39,16 +40,16 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
         change.Validate();
         return PrepareAndWrite(change.Values.CuttingTime is not null, (connection, transaction, token) =>
         {
-            if (Read(connection, transaction, change.Expected.Id) != change.Expected) throw Conflict();
+            if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, change.Expected.Id)) != change.Expected) throw Conflict();
             var table = OleDbPriceReader.Read(connection, transaction, CuttingPriceCalculator.SelectTable(change.PriceRequest), token);
-            var values = change.Calculate(table);
+            var values = DiagnosticStages.Run(DiagnosticStage.CalculatePrice, () => change.Calculate(table));
             using var command = Command(connection, transaction);
             command.CommandText = "UPDATE [Orders] SET " + string.Join(", ", Names.Skip(1).Select(name => $"[{name}] = ?"));
             AddValues(command, values, skipId: true);
             command.CommandText += Where(command, change.Expected);
-            if (command.ExecuteNonQuery() != 1) throw Conflict();
-            OleDbOrderExtras.Write(connection, transaction, values.Id, change.Expected.CuttingTime, values.CuttingTime);
-            var saved = Read(connection, transaction, values.Id);
+            if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw Conflict();
+            DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, values.Id, change.Expected.CuttingTime, values.CuttingTime));
+            var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => Read(connection, transaction, values.Id));
             if (saved != values) throw new InvalidOperationException("MDB изменила сохраняемые поля.");
             return saved!;
         }, cancellationToken);
@@ -60,14 +61,14 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
         await Write((connection, transaction, token) =>
         {
             // Проверяем полный контракт до DELETE, включая отсутствие дополнительных полей.
-            if (Read(connection, transaction, expected.Id) != expected) throw Conflict();
+            if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, expected.Id)) != expected) throw Conflict();
             using var relations = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Foreign_Keys, null);
             if (relations is null || relations.Rows.Cast<DataRow>().Any(row => string.Equals(row["PK_TABLE_NAME"] as string, "Orders", StringComparison.OrdinalIgnoreCase)))
                 throw new OrderWriteException(OrderWriteFailure.NotSaved, "У Orders есть зависимые таблицы либо связи не удалось проверить. Удаление остановлено: архив одной строки не сохраняет связанные записи.");
             using var command = Command(connection, transaction);
             command.CommandText = "DELETE FROM [Orders]" + Where(command, expected);
-            if (command.ExecuteNonQuery() != 1) throw Conflict();
-            OleDbOrderExtras.Write(connection, transaction, expected.Id, expected.CuttingTime, null);
+            if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw Conflict();
+            DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, expected.Id, expected.CuttingTime, null));
             return true;
         }, cancellationToken);
     }
@@ -77,14 +78,14 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
         archived.Validate();
         return PrepareAndWrite(archived.CuttingTime is not null, (connection, transaction, token) =>
         {
-            if (Read(connection, transaction, archived.Id) is not null)
+            if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, archived.Id)) is not null)
                 throw new OrderWriteException(OrderWriteFailure.Conflict, "Исходный код уже занят. Существующая заявка не заменена; копия осталась в корзине.");
             using var command = Command(connection, transaction);
             command.CommandText = "INSERT INTO [Orders] (" + string.Join(", ", Names.Select(name => $"[{name}]")) + ") VALUES (" + string.Join(", ", Names.Select(_ => "?")) + ")";
             AddValues(command, archived);
-            if (command.ExecuteNonQuery() != 1) throw new InvalidOperationException("INSERT не подтвердил восстановление.");
-            OleDbOrderExtras.Write(connection, transaction, archived.Id, null, archived.CuttingTime);
-            var saved = Read(connection, transaction, archived.Id);
+            if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw new InvalidOperationException("INSERT не подтвердил восстановление.");
+            DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, archived.Id, null, archived.CuttingTime));
+            var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => Read(connection, transaction, archived.Id));
             if (saved != archived) throw new InvalidOperationException("MDB изменила восстановленные поля.");
             return saved!;
         }, cancellationToken);
@@ -92,7 +93,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
 
     private async Task<T> PrepareAndWrite<T>(bool needsTime, Func<OleDbConnection, OleDbTransaction, CancellationToken, T> action, CancellationToken token)
     {
-        if (needsTime) await new OleDbOrderExtras(path).PrepareCuttingTimeAsync(token);
+        if (needsTime) await DiagnosticStages.RunAsync(DiagnosticStage.PrepareCuttingTime, () => new OleDbOrderExtras(path).PrepareCuttingTimeAsync(token));
         return await Write(action, token);
     }
 
@@ -108,22 +109,22 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
             deadline.Token.ThrowIfCancellationRequested();
             if (!File.Exists(path) || !string.Equals(Path.GetExtension(path), ".mdb", StringComparison.OrdinalIgnoreCase))
                 throw new IOException("MDB недоступна.");
-            connection = OleDbAccessConnection.Create(path, writable: true);
-            connection.Open();
-            transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+            connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: true));
+            DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
+            transaction = DiagnosticStages.Run(DiagnosticStage.BeginTransaction, () => connection.BeginTransaction(IsolationLevel.ReadCommitted));
             try
             {
                 var result = action(connection, transaction, deadline.Token);
                 deadline.Token.ThrowIfCancellationRequested();
                 committing = true;
-                transaction.Commit();
+                DiagnosticStages.Run(DiagnosticStage.CommitTransaction, transaction.Commit);
                 return result;
             }
             catch (Exception exception)
             {
                 var rollbackFailed = false;
-                try { transaction.Rollback(); }
-                catch (Exception rollback) { rollbackFailed = true; Trace.TraceError("MDB maintenance rollback: {0}", rollback); }
+                try { DiagnosticStages.Run(DiagnosticStage.RollbackTransaction, transaction.Rollback); }
+                catch (Exception rollback) { rollbackFailed = true; AppDiagnostics.Capture(DiagnosticOperation.OrderEdit, rollback); }
                 if (committing || rollbackFailed)
                     throw new OrderWriteException(OrderWriteFailure.OutcomeUnknown,
                         "Результат записи не подтверждён. Изменение могло примениться. Обновите список (F5) и проверьте запись перед повтором.", exception);
@@ -139,7 +140,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance
 
     private static void Release(IDisposable? value)
     {
-        try { value?.Dispose(); } catch (Exception exception) { Trace.TraceError("MDB maintenance cleanup: {0}", exception); }
+        try { DiagnosticStages.Run(DiagnosticStage.ReleaseResources, () => value?.Dispose()); } catch (Exception exception) { AppDiagnostics.Capture(DiagnosticOperation.OrderEdit, exception); }
     }
 
     private static OrderWriteException Conflict() => new(OrderWriteFailure.Conflict,

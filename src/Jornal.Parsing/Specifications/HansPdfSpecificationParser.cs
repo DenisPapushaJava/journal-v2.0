@@ -4,9 +4,13 @@ using Jornal.Parsing.Documents;
 
 namespace Jornal.Parsing.Specifications;
 
-public sealed partial class HansPdfSpecificationParser
+public sealed partial class HansPdfSpecificationParser : ISpecificationProfile
 {
     public const string Profile = "hans-pdf/v1";
+    public string Id => Profile;
+    public string DisplayName => "HansLaser";
+    public DocumentKind DocumentKind => DocumentKind.Pdf;
+    public int NormalizeCutLengthMeters(decimal millimeters) => HansSpecificationNormalizer.LegacyCutLengthMeters(millimeters);
     private sealed record Label(string Key, IReadOnlyList<PdfWord> Words)
     {
         public double Left => Words.Min(word => word.Left);
@@ -50,13 +54,18 @@ public sealed partial class HansPdfSpecificationParser
         var candidates = Enum.GetValues<SpecificationField>().ToDictionary(field => field, _ => new List<Candidate>());
         var layouts = new List<SpecificationValue<SheetLayout>>();
         var counts = new List<int>(); var rowCount = 0; var foundSheetHeader = false;
+        var hasSummaryStructure = false;
         foreach (var page in document.Pages)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var tolerance = PdfLayout.Tolerance(page.Words);
             var lines = PdfLayout.Lines(page.Words, tolerance);
             var section = lines.ToList().FindIndex(IsSection);
-            ReadSummary(page, lines.Take(section < 0 ? lines.Count : section).ToArray(), tolerance, candidates, issues);
+            var summaryLines = lines.Take(section < 0 ? lines.Count : section).ToArray();
+            var summaryLabels = summaryLines.SelectMany(line => Labels(line, key => Summary.ContainsKey(key) ? key : null)).Select(label => label.Key).ToArray();
+            hasSummaryStructure |= summaryLabels.Contains("заказ") && new[] { "длинарезамм", "длинарезам", "общиеколводеталей", "общееколводеталей", "общееколичестводеталей", "пробивки" }
+                .Where(summaryLabels.Contains).Select(label => Summary[label]).Distinct().Count() >= 2;
+            ReadSummary(page, summaryLines, tolerance, candidates, issues);
             var inDetails = false;
             for (var index = 0; index < lines.Count; index++)
             {
@@ -105,7 +114,11 @@ public sealed partial class HansPdfSpecificationParser
         }
         return new(Profile, header, cutting, material, dimensions.Length == 1 ? new(dimensions[0], layouts.SelectMany(layout => layout.Sources).ToArray()) : null,
             sheets, length, weight, parts, punches, duration, issues)
-            { SheetLayouts = layouts, MaterialId = materialId, CuttingGas = gas };
+            {
+                SheetLayouts = layouts, MaterialId = materialId, CuttingGas = gas,
+                IsRecognized = hasSummaryStructure && (foundSheetHeader || candidates[SpecificationField.Header].Any(candidate =>
+                    candidate.Text.Contains("HANSLASER", StringComparison.OrdinalIgnoreCase)))
+            };
     }
 
     private static void ReadSummary(PdfPage page, IReadOnlyList<PdfLayout.Line> lines, double tolerance,

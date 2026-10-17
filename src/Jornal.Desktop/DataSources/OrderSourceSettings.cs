@@ -74,8 +74,8 @@ public sealed record OrderSource(string? Path, IOrderReader Reader, IManualOrder
 {
     public IOrderMaintenance? Maintenance { get; init; }
     public string Description => Error is not null ? "Источник не подключён" : Path is null ?
-        "Деможурнал · до закрытия программы" : IsLocalCopy ? "Локальная тестовая копия · изменения сохраняются" :
-            $"{System.IO.Path.GetFileName(Path)} · {(Creator is not null ? "создание, статусы и БЛЦБ" : Editor is null ? "только чтение" : "статусы и БЛЦБ")}";
+        "Деможурнал · без сохранения" : IsLocalCopy ? "Локальная тестовая копия" :
+            System.IO.Path.GetFileName(Path) + (Creator is not null ? "" : Editor is null ? " · только чтение" : " · статусы и БЛЦБ");
     public string Details => Error ?? Path ?? "Вымышленные заявки. Изменения хранятся в памяти текущего сеанса.";
 }
 

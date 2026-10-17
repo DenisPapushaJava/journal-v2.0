@@ -51,7 +51,8 @@ public sealed class ResultFormattingWindowTests
                 Assert.True(bounds.Top >= 0 && bounds.Bottom <= height && bounds.Right <= width);
             }
             var panel = window.FindControl<Border>("ResultPanel")!;
-            Assert.Equal(106, window.FindControl<Grid>("ResultSlot")!.Bounds.Height);
+            Assert.True(window.FindControl<Grid>("ResultSlot")!.Bounds.Height >= ScreenLayout.MinimumResultHeight);
+            Assert.Equal(window.FindControl<Grid>("DockBoard")!.Bounds.Height, panel.Bounds.Height);
             var inputBounds = new Rect(text.Bounds.Size).TransformToAABB(text.TransformToVisual(panel)!.Value);
             foreach (var control in new Control[] { bar, window.FindControl<StackPanel>("ResultActions")! })
             {

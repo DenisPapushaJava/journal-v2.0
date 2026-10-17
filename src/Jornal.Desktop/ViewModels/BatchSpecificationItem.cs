@@ -1,0 +1,62 @@
+using System.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+
+namespace Jornal.Desktop.ViewModels;
+
+public sealed partial class BatchSpecificationItem : ObservableObject
+{
+    private readonly NewOrderViewModel _owner;
+    private readonly CancellationTokenSource _readCancellation = new();
+    public BatchSpecificationItem(NewOrderViewModel owner, NewOrderViewModel form, string fileName, string? path = null)
+    {
+        _owner = owner; Form = form; FileName = fileName; Path = path;
+        RemoveCommand = new RelayCommand(() => owner.RemoveBatchItem(this), () => owner.CanAddFiles);
+        foreach (var field in form.Fields) field.PropertyChanged += FieldChanged;
+    }
+    public string FileName { get; }
+    public string DisplayName => (_owner.BatchItems.IndexOf(this) + 1) + ". " + FileName;
+    internal string? Path { get; }
+    internal CancellationToken ReadCancellation => _readCancellation.Token;
+    public NewOrderViewModel Form { get; }
+    [ObservableProperty] private bool _isIncluded = true;
+    [ObservableProperty] private bool _isReading = true;
+    [ObservableProperty] private bool _hasParameters;
+    [ObservableProperty] private string? _failure;
+    [ObservableProperty] private string? _warning;
+    private bool _validParameters;
+    public double CardOpacity => IsIncluded ? 1 : 0.65;
+    public bool HasFailure => Failure is not null;
+    public bool HasWarning => Warning is not null;
+    public bool IsReady => !IsReading && HasParameters && !HasFailure && _validParameters;
+    public string Status => IsReading ? "Читаем…" : HasFailure ? "Не принят" : IsReady ? "Готово" : "Проверьте поля";
+    public string? Details => Failure ?? Warning ?? Form.ImportPreview?.Diagnostics;
+    public bool CanEdit => _owner.CanEditBatch;
+    public IRelayCommand RemoveCommand { get; }
+    partial void OnIsIncludedChanged(bool value) { OnPropertyChanged(nameof(CardOpacity)); _owner.NotifyBatchState(); }
+    partial void OnIsReadingChanged(bool value) => Refresh();
+    partial void OnHasParametersChanged(bool value) => Refresh();
+    partial void OnFailureChanged(string? value) { OnPropertyChanged(nameof(HasFailure)); Refresh(); }
+    partial void OnWarningChanged(string? value) { OnPropertyChanged(nameof(HasWarning)); OnPropertyChanged(nameof(Details)); }
+    private void FieldChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(OrderEntryField.Value) && HasParameters)
+        {
+            Refresh();
+            if (sender == Form.OrderDate || sender == Form.SpecificationNumber || sender == Form.CuttingType) _owner.UpdateDuplicateWarnings();
+        }
+    }
+    internal void Refresh()
+    {
+        _validParameters = HasParameters && Form.ValidateBatchParameters();
+        OnPropertyChanged(nameof(IsReady)); OnPropertyChanged(nameof(Status)); OnPropertyChanged(nameof(Details));
+        _owner.NotifyBatchState();
+    }
+    internal void NotifyOwnerState() { OnPropertyChanged(nameof(DisplayName)); OnPropertyChanged(nameof(CanEdit)); RemoveCommand.NotifyCanExecuteChanged(); }
+    internal void CancelRead() { _readCancellation.Cancel(); Form.CalculatePriceCommand.Cancel(); }
+    internal void Detach()
+    {
+        CancelRead();
+        foreach (var field in Form.Fields) field.PropertyChanged -= FieldChanged;
+    }
+}

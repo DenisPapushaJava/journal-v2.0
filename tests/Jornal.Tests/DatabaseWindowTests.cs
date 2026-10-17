@@ -27,14 +27,13 @@ public sealed class DatabaseWindowTests
         try
         {
             window.Show(); Pump();
-            Click(window, "DatabaseSettingsButton");
-            var dialog = Assert.Single(window.OwnedWindows.OfType<DatabaseSettingsWindow>());
-            var form = (DatabaseSettingsViewModel)dialog.DataContext!;
+            var dialog = OpenSourceSettings(window);
+            var form = ((SettingsViewModel)dialog.DataContext!).Database!;
             form.UseDatabase = true; form.DatabasePath = OrderSourceTests.DatabasePath; Pump();
             Click(dialog, "ConnectDatabaseButton");
-            Assert.True(model.IsLoadingOrders); Assert.True(window.FindControl<Border>("LoadingState")!.IsVisible);
+            Assert.True(model.IsLoadingOrders); Assert.True(window.FindDescendant<Border>("LoadingState")!.IsVisible);
             Assert.False(model.ShowEmptyState);
-            Click(dialog, "CancelDatabaseButton");
+            Click(dialog, "CloseSettingsButton");
             await form.ConnectCommand.ExecutionTask!; Pump();
             Assert.False(dialog.IsVisible); Assert.False(model.IsLoadingOrders); Assert.Null(model.DatabasePath);
             Assert.Equal(3, model.Orders.Count); Assert.True(model.CanCreateOrder);
@@ -68,7 +67,7 @@ public sealed class DatabaseWindowTests
                 Assert.Equal(order.DeliveryNumber ?? "", row.DeliveryNumber);
             }
             Assert.Equal(OperatingSystem.IsWindows(), model.CanCreateOrder);
-            var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            var table = window.FindDescendant<DataGrid>("OrdersGrid")!;
             table.SelectAll(); Pump(); Click(window, "AddResultButton");
             Assert.False(model.HasResultError, model.ResultMessage);
             SaveScreenshot(window, $"database-local-{(dark ? "dark" : "light")}");
@@ -91,7 +90,7 @@ public sealed class DatabaseWindowTests
             model.SearchText = "Тест 4321"; Pump();
             Assert.Equal(4321, Assert.Single(model.Orders).Id);
             model.SearchText = ""; Pump(); Assert.Equal(5000, model.Orders.Count);
-            var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            var table = window.FindDescendant<DataGrid>("OrdersGrid")!;
             table.ScrollIntoView(model.Orders.Last(), table.Columns[2]); Pump();
             Assert.InRange(window.GetVisualDescendants().OfType<DataGridRow>().Count(), 1, 100);
         }
@@ -121,13 +120,13 @@ public sealed class DatabaseWindowTests
             window.Show(); Pump();
             Click(window, "DatabaseModeButton");
             Assert.True(form.UseDatabase);
-            window.FindControl<TextBox>("DatabasePathInput")!.Text = "неполный путь";
+            window.FindDescendant<TextBox>("DatabasePathInput")!.Text = "неполный путь";
             Click(window, "ConnectDatabaseButton");
             Assert.True(form.HasError);
             foreach (var name in new[] { "DatabaseConnectionError", "CancelDatabaseButton", "ConnectDatabaseButton" })
-                InBounds(window, window.FindControl<Control>(name)!);
+                InBounds(window, window.FindDescendant<Control>(name)!);
             SaveScreenshot(window, $"database-{width}-{(dark ? "dark" : "light")}-error");
-            window.FindControl<TextBox>("DatabasePathInput")!.Text = OrderSourceTests.DatabasePath;
+            window.FindDescendant<TextBox>("DatabasePathInput")!.Text = OrderSourceTests.DatabasePath;
             Pump(); Assert.False(form.HasError);
             SaveScreenshot(window, $"database-{width}-{(dark ? "dark" : "light")}");
             Click(window, "ConnectDatabaseButton");
@@ -148,36 +147,43 @@ public sealed class DatabaseWindowTests
         try
         {
             window.Show(); Pump();
-            Click(window, "DatabaseSettingsButton");
-            var dialog = Assert.Single(window.OwnedWindows.OfType<DatabaseSettingsWindow>());
-            var form = (DatabaseSettingsViewModel)dialog.DataContext!;
+            var dialog = OpenSourceSettings(window);
+            var form = ((SettingsViewModel)dialog.DataContext!).Database!;
             form.UseDatabase = true; form.DatabasePath = OrderSourceTests.DatabasePath;
             Pump();
-            dialog.FindControl<TextBox>("DatabasePathInput")!.Focus();
+            dialog.FindDescendant<TextBox>("DatabasePathInput")!.Focus();
             dialog.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
             window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null); Pump();
             Assert.True(form.IsConnected, form.Error);
-            var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            Click(dialog, "CloseSettingsButton");
+            var table = window.FindDescendant<DataGrid>("OrdersGrid")!;
             table.SelectAll(); Pump();
             foreach (var name in new[] { "NewOrderButton", "DeliveryNumberButton", "SetWorkButton", "SetReadyButton", "ClearColorButton" })
-                Assert.False(window.FindControl<JournalButton>(name)!.IsEffectivelyEnabled, name);
-            Assert.True(window.FindControl<JournalButton>("AddResultButton")!.IsEffectivelyEnabled);
-            Assert.True(window.FindControl<JournalButton>("DatabaseSettingsButton")!.IsEffectivelyEnabled);
+                Assert.False(window.FindDescendant<JournalButton>(name)!.IsEffectivelyEnabled, name);
+            Assert.True(window.FindDescendant<JournalButton>("AddResultButton")!.IsEffectivelyEnabled);
+            Assert.True(window.FindDescendant<JournalButton>("SettingsButton")!.IsEffectivelyEnabled);
             Click(window, "AddResultButton");
             Assert.Contains("1235", model.ResultText);
             Assert.Equal(1234.5678m, model.Orders[0].StoredCuttingPrice);
-            Assert.Contains("только чтение", window.FindControl<TextBlock>("SourceDescriptionText")!.Text);
-            InBounds(window, window.FindControl<Control>("DatabaseSettingsButton")!);
-            InBounds(window, window.FindControl<Control>("SearchBox")!);
+            Assert.Contains("только чтение", window.FindDescendant<TextBlock>("SourceDescriptionText")!.Text);
+            InBounds(window, window.FindDescendant<Control>("SettingsButton")!);
+            InBounds(window, window.FindDescendant<Control>("SearchBox")!);
             SaveScreenshot(window, $"database-main-{(dark ? "dark" : "light")}");
-            Click(window, "DatabaseSettingsButton");
-            dialog = Assert.Single(window.OwnedWindows.OfType<DatabaseSettingsWindow>());
-            dialog.FindControl<TextBox>("DatabasePathInput")!.Text = "Не сохранять";
+            dialog = OpenSourceSettings(window);
+            dialog.FindDescendant<TextBox>("DatabasePathInput")!.Text = "Не сохранять";
             dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); Pump();
             Assert.False(dialog.IsVisible); Assert.Equal(OrderSourceTests.DatabasePath, model.DatabasePath);
         }
         finally { foreach (var child in window.OwnedWindows.ToArray()) child.Close(); window.Close(); }
+    }
+
+    private static SettingsWindow OpenSourceSettings(MainWindow window)
+    {
+        Click(window, "SettingsButton");
+        var dialog = Assert.Single(window.OwnedWindows.OfType<SettingsWindow>());
+        ((SettingsViewModel)dialog.DataContext!).SelectedIndex = (int)SettingsSection.Database;
+        Pump(); return dialog;
     }
 
     private static void InBounds(Window window, Control control)
@@ -187,7 +193,7 @@ public sealed class DatabaseWindowTests
     }
     private static void Click(Window window, string name)
     {
-        var control = window.FindControl<Control>(name)!;
+        var control = window.FindDescendant<Control>(name)!;
         var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
         window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();
     }

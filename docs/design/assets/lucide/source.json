@@ -12,6 +12,7 @@
     "palette",
     "sun-moon",
     "settings-2",
+    "settings",
     "message-square",
     "hash",
     "columns-3",
@@ -23,6 +24,7 @@
     "panels-top-left",
     "grip-vertical",
     "check",
-    "rotate-ccw"
+    "rotate-ccw",
+    "ban"
   ]
 }

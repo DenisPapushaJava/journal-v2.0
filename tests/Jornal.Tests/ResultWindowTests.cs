@@ -114,6 +114,47 @@ public sealed class ResultWindowTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RebuildingAfterSelectionChangesReplacesTheTextAndKeepsAllSelectedRowsSorted(bool dark)
+    {
+        var model = new MainWindowViewModel(new DemoOrderStore()) { IsDarkTheme = dark };
+        var window = new MainWindow { DataContext = model, Width = 1366, Height = 768 };
+        try
+        {
+            window.Show();
+            Pump();
+            var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            var text = window.FindControl<TextBox>("ResultTextBox")!;
+            var rows = model.Orders.OrderBy(row => row.ThicknessMillimeters).ToArray();
+            table.SelectedItem = rows[2];
+            Pump();
+            Click(window, "AddResultButton");
+            Assert.Single(text.Text!.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+            Assert.Contains("16x1500x6000,", text.Text);
+
+            table.SelectedItem = rows[0];
+            Pump();
+            Click(window, "AddResultButton");
+            Assert.Single(text.Text!.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+            Assert.Contains("2,5x1250x2500,", text.Text);
+            Assert.DoesNotContain("16x1500x6000,", text.Text);
+
+            table.SelectAll();
+            Pump();
+            Click(window, "AddResultButton");
+            var lines = text.Text!.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            Assert.Equal(3, lines.Length);
+            Assert.Contains("2,5x1250x2500,", lines[0]);
+            Assert.Contains("6x1500x3000,", lines[1]);
+            Assert.Contains("16x1500x6000,", lines[2]);
+            Assert.Equal(3, table.SelectedItems.Count);
+            SaveScreenshot(window, $"result-rebuilt-{(dark ? "dark" : "light")}");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public async Task ClipboardAdapterRejectsUnavailableClipboardWithoutChangingResult()
     {

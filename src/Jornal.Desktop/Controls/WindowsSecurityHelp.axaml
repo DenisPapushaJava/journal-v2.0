@@ -5,7 +5,7 @@
   <StackPanel Spacing="6">
     <ui:JournalButton x:Name="OpenWindowsSecurityButton" Label="Открыть параметры Windows" Icon="settings-2"
                       Click="OnOpenClick" HorizontalAlignment="Left"
-                      ToolTip.Tip="Откроется раздел «Безопасность Windows». Настройки защиты не изменяются." />
+                      ToolTip.Tip="Безопасность Windows" />
     <TextBlock Text="{Binding OpenError}" IsVisible="{Binding HasOpenError}" TextWrapping="Wrap"
                Foreground="{DynamicResource JournalDangerForeground}" AutomationProperties.LiveSetting="Polite" />
   </StackPanel>

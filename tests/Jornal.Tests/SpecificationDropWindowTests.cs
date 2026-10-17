@@ -18,7 +18,7 @@ using Xunit;
 
 namespace Jornal.Tests;
 
-public sealed class SpecificationDropWindowTests
+public sealed partial class SpecificationDropWindowTests
 {
     [AvaloniaTheory]
     [InlineData(false, false)]
@@ -114,11 +114,11 @@ public sealed class SpecificationDropWindowTests
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
             using var sample = new SpecificationImportTests.Sample();
-            using var files = await Transfer(window, sample.Path, sample.Path);
-            Assert.Equal(DragDropEffects.None, Drag(window, DragDrop.DragOverEvent, files).DragEffects);
-            Assert.Contains("одну", model.SpecificationOverlayDescription);
-            Drag(window, DragDrop.DropEvent, files); Assert.Contains("одну", model.ErrorMessage);
             var unsupportedPath = Path.ChangeExtension(sample.Path, ".txt"); File.WriteAllText(unsupportedPath, "Not a specification");
+            using var files = await Transfer(window, unsupportedPath, unsupportedPath);
+            Assert.Equal(DragDropEffects.None, Drag(window, DragDrop.DragOverEvent, files).DragEffects);
+            Assert.Contains("нет поддерживаемых", model.SpecificationOverlayDescription);
+            Drag(window, DragDrop.DropEvent, files); Assert.Contains("нет поддерживаемых", model.SpecificationImportError);
             using var unsupported = await Transfer(window, unsupportedPath);
             Assert.Equal(DragDropEffects.None, Drag(window, DragDrop.DragOverEvent, unsupported).DragEffects);
             Assert.Contains("PDF", model.SpecificationOverlayDescription);

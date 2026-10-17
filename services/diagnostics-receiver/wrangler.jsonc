@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "journal-diagnostics",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-17",
+  "workers_dev": true,
+  "observability": {
+    "enabled": false
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "REPORTS",
+        "class_name": "Reports"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "Reports"
+      ]
+    }
+  ],
+  "vars": {
+    "GITHUB_OWNER": "DenisPapushaJava",
+    "GITHUB_REPOSITORY": "journal-reports",
+    "GITHUB_APP_ID": "5352675",
+    "GITHUB_INSTALLATION_ID": "172253414"
+  }
+}

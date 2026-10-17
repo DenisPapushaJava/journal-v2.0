@@ -43,7 +43,9 @@ public sealed class NewOrderWindowTests
             Assert.True(scroll.Viewport.Height > 200);
             Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 1,
                 $"All HansLaser fields should fit: extent {scroll.Extent}, viewport {scroll.Viewport}");
-            Assert.All(window.GetVisualDescendants().OfType<OrderEntryControl>(), field => Assert.True(field.Bounds.Width >= 200));
+            var visibleFields = window.GetVisualDescendants().OfType<OrderEntryControl>().Where(control => control.IsEffectivelyVisible).ToArray();
+            Assert.Equal(form.Fields.Count, visibleFields.Length);
+            Assert.All(visibleFields, entry => Assert.True(entry.Bounds.Width >= 200));
             var directory = Environment.GetEnvironmentVariable("JOURNAL_SCREENSHOT_DIR");
             if (directory is not null)
             {

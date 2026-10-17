@@ -9,7 +9,7 @@ namespace Jornal.Tests;
 public sealed class ResultViewModelTests
 {
     [Fact]
-    public async Task EachNewBatchIsSortedWhileExistingEditsAndTableOrderAreKept()
+    public async Task EachBuildReplacesPreviousTextAndSortsTheCurrentSelectionWithoutChangingTableOrder()
     {
         var model = await Model();
         var rows = model.Orders.ToArray();
@@ -18,18 +18,26 @@ public sealed class ResultViewModelTests
 
         model.AddOrdersToResult(rows.Reverse());
         var lines = model.ResultText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal(4, lines.Length);
-        Assert.Equal("Примечание заказчику", lines[0]);
-        Assert.Contains("Лист 2,5x1250x2500,", lines[1]);
-        Assert.Contains("6x1500x3000,", lines[2]);
-        Assert.Contains("16x1500x6000,", lines[3]);
+        Assert.Equal(3, lines.Length);
+        Assert.DoesNotContain("Примечание заказчику", model.ResultText);
+        Assert.Contains("Лист 2,5x1250x2500,", lines[0]);
+        Assert.Contains("6x1500x3000,", lines[1]);
+        Assert.Contains("16x1500x6000,", lines[2]);
         Assert.Equal(originalIds, model.Orders.Select(row => row.Id));
 
-        var previousText = model.ResultText;
         model.AcceptCreatedOrder(ResultOutputTests.Order() with { Id = 4, ThicknessMillimeters = 1 });
         model.AddOrdersToResult([model.Orders.Single(row => row.Id == 4)]);
-        Assert.StartsWith(previousText, model.ResultText);
-        Assert.Contains("Лист 1x1250x2500,", model.ResultText[previousText.Length..]);
+        Assert.Single(model.ResultText.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        Assert.StartsWith("Лист 1x1250x2500,", model.ResultText);
+        Assert.DoesNotContain("6x1500x3000,", model.ResultText);
+
+        model.AddOrdersToResult(model.Orders.Reverse());
+        lines = model.ResultText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(4, lines.Length);
+        Assert.Contains("1x1250x2500,", lines[0]);
+        Assert.Contains("2,5x1250x2500,", lines[1]);
+        Assert.Contains("6x1500x3000,", lines[2]);
+        Assert.Contains("16x1500x6000,", lines[3]);
 
         var clipboard = new RecordingClipboard();
         await model.CopyResultAsync(clipboard);
@@ -37,13 +45,13 @@ public sealed class ResultViewModelTests
     }
 
     [Fact]
-    public async Task AddingIsDeduplicatedByIdAcrossRefreshAndClearKeepsSelection()
+    public async Task RebuildingTheSameSelectionAfterReloadDoesNotDuplicateRowsAndClearKeepsSelection()
     {
         var model = await Model();
         var rows = model.Orders.ToArray();
         model.UpdateSelection(rows, rows[0]);
         Assert.True(model.CanAddResult);
-        model.AddOrdersToResult(rows);
+        model.AddOrdersToResult(rows.Concat(rows));
         var original = model.ResultText;
         Assert.Equal(3, original.Count(character => character == '\n'));
         model.AddOrdersToResult(rows);
@@ -60,7 +68,7 @@ public sealed class ResultViewModelTests
     }
 
     [Fact]
-    public async Task BatchWithUncalculatedPriceLeavesResultAndDeduplicationUntouched()
+    public async Task SelectionWithUncalculatedPriceLeavesThePreviousResultUntouched()
     {
         var model = await Model();
         model.AddOrdersToResult([model.Orders[0]]);
@@ -74,18 +82,37 @@ public sealed class ResultViewModelTests
         Assert.Equal(original, model.ResultText);
         model.AddOrdersToResult([known]);
         Assert.False(model.HasResultError);
+        Assert.Single(model.ResultText.Split('\n', StringSplitOptions.RemoveEmptyEntries));
         Assert.Contains("5083H111", model.ResultText);
     }
 
     [Fact]
-    public async Task EditsAreKeptWhenAppendingAndCanBeCopiedWithoutSelectedRows()
+    public async Task ReplacementKeepsOnlyCurrentOrderIdsAndEmptySelectionPreservesThePreparedResult()
+    {
+        var store = new DemoOrderStore();
+        var model = new MainWindowViewModel(store);
+        model.InitializeSource(new(Path.Combine(Path.GetTempPath(), "synthetic-result.mdb"), store));
+        await model.ReloadCommand.ExecuteAsync(null);
+        var rows = model.Orders.ToArray();
+        model.AddOrdersToResult(rows);
+        Assert.Equal(3, model.CaptureUpdateDraft().ResultOrderIds.Length);
+
+        model.AddOrdersToResult([rows[1]]);
+        Assert.Equal(rows[1].Id, Assert.Single(model.CaptureUpdateDraft().ResultOrderIds));
+        var text = model.ResultText;
+        model.AddOrdersToResult([]);
+        Assert.Equal(text, model.ResultText);
+        Assert.Equal(rows[1].Id, Assert.Single(model.CaptureUpdateDraft().ResultOrderIds));
+        model.ClearResultCommand.Execute(null);
+        Assert.Empty(model.CaptureUpdateDraft().ResultOrderIds);
+    }
+
+    [Fact]
+    public async Task ManualEditsAreCopiedAsShownAndReplacedOnlyByExplicitRebuilding()
     {
         var model = await Model();
         model.AddOrdersToResult([model.Orders[0]]);
         model.ResultText = "Примечание заказчику\n" + model.ResultText.TrimEnd();
-        model.AddOrdersToResult([model.Orders[1]]);
-        Assert.StartsWith("Примечание заказчику\n", model.ResultText);
-        Assert.Contains("резка Лазер\nЛист", model.ResultText);
         model.SearchText = "нет совпадений";
         Assert.False(model.CanAddResult);
         Assert.True(model.CanCopyResult);
@@ -93,10 +120,11 @@ public sealed class ResultViewModelTests
         await model.CopyResultAsync(clipboard);
         Assert.Equal(model.ResultText, clipboard.Content!.Text);
         Assert.Contains("Примечание заказчику", clipboard.Content.Html);
-        model.ResultText = "";
         model.ResetFiltersCommand.Execute(null);
-        model.AddOrdersToResult([model.Orders[0]]);
+        model.AddOrdersToResult([model.Orders[1]]);
         Assert.Single(model.ResultText.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        Assert.DoesNotContain("Примечание заказчику", model.ResultText);
+        Assert.Contains("5083H111", model.ResultText);
     }
 
     [Fact]
@@ -112,6 +140,9 @@ public sealed class ResultViewModelTests
         Assert.True(model.HasResultError);
         Assert.Equal(original, model.ResultText);
         Assert.True(model.CanCopyResult);
+        model.AddOrdersToResult([model.Orders[0]]);
+        Assert.Equal(original, model.ResultText);
+        Assert.False(model.HasResultError);
         clipboard.Fail = false;
         await model.CopyResultAsync(clipboard);
         Assert.False(model.HasResultError);

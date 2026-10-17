@@ -20,7 +20,7 @@
       </StackPanel>
     </Border>
     <Grid Grid.Row="1" Margin="24,16" RowDefinitions="Auto,12,*,12,Auto,8,36,8,Auto" IsEnabled="{Binding !SaveCommand.IsRunning}">
-      <TextBlock IsVisible="{Binding HasDifferentNumbers}" Text="У выбранных заявок разные номера. Новый номер будет применён ко всем."
+      <TextBlock IsVisible="{Binding HasDifferentNumbers}" Text="Разные номера — новое значение применится ко всем."
                  TextWrapping="Wrap" Foreground="{DynamicResource JournalAccent}" />
       <Border x:Name="SpecificationsPanel" Grid.Row="2" Classes="panel" Padding="12,8" MinHeight="40">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -34,12 +34,11 @@
       <TextBlock Grid.Row="4" Text="БЛЦБ" FontWeight="SemiBold" />
       <Grid Grid.Row="6" ColumnDefinitions="*,8,Auto">
         <TextBox x:Name="DeliveryNumberInput" Text="{Binding Number, Mode=TwoWay}" MinHeight="36"
-                 Classes.invalid="{Binding HasError}" PlaceholderText="Например, БЛЦБ-00012345"
+                 Classes.invalid="{Binding HasError}"
                  AutomationProperties.Name="Номер БЛЦБ для выбранных заявок" />
-        <ui:JournalButton x:Name="ClearNumberButton" Grid.Column="2" Label="Очистить номер" Icon="x" Command="{Binding ClearNumberCommand}"
-                          ToolTip.Tip="Убрать номер у выбранных заявок после сохранения" />
+        <ui:JournalButton x:Name="ClearNumberButton" Grid.Column="2" Label="Очистить номер" Icon="x" Command="{Binding ClearNumberCommand}" />
       </Grid>
-      <TextBlock x:Name="DeliveryNumberError" Grid.Row="8" Text="{Binding FeedbackText}" Classes="muted" Classes.error="{Binding HasError}"
+      <TextBlock x:Name="DeliveryNumberError" Grid.Row="8" Text="{Binding Error}" IsVisible="{Binding HasError}" Classes="error"
                  TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
     </Grid>
     <Border Grid.Row="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"

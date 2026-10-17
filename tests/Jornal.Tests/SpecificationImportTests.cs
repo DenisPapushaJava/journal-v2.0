@@ -99,9 +99,11 @@ public sealed class SpecificationImportTests
         Assert.Equal("Изменено вручную", form.Weight.ImportHint);
         using var unknown = new Sample("<html><body>Незнакомый отчёт</body></html>");
         var blank = new NewOrderViewModel(new DemoOrderStore());
+        var original = blank.Fields.Select(field => field.Value).ToArray();
         await blank.RequestImportAsync(unknown.Path, TestContext.Current.CancellationToken);
-        Assert.Empty(blank.OrderDate.Value); Assert.Empty(blank.CuttingType.Value); Assert.Empty(blank.Coefficient.Value);
-        Assert.True(blank.HasImportDiagnostics);
+        Assert.Equal(original, blank.Fields.Select(field => field.Value));
+        Assert.False(blank.HasImport); Assert.True(blank.HasImportError);
+        Assert.Contains("не распознан", blank.ImportError);
     }
 
     [Fact]

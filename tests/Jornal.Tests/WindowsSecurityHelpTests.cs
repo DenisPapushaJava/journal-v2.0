@@ -108,7 +108,7 @@ public sealed class WindowsSecurityHelpTests
             try
             {
                 creationWindow.Show(); await creation.SaveCommand.ExecuteAsync(null); Dispatcher.UIThread.RunJobs();
-                AssertHelpVisible(creationWindow); Assert.True(creationWindow.FindControl<JournalButton>("SaveButton")!.IsEnabled);
+                AssertHelpVisible(creationWindow); Assert.True(creationWindow.FindDescendant<JournalButton>("SaveButton")!.IsEnabled);
                 SaveScreenshot(creationWindow, "blocked-create", dark);
             }
             finally { creationWindow.Close(); }
@@ -119,7 +119,7 @@ public sealed class WindowsSecurityHelpTests
     private static void AssertHelpVisible(Window window)
     {
         var help = Assert.Single(window.GetVisualDescendants().OfType<WindowsSecurityHelp>());
-        var button = help.FindControl<JournalButton>("OpenWindowsSecurityButton")!;
+        var button = help.FindDescendant<JournalButton>("OpenWindowsSecurityButton")!;
         Assert.True(button.IsEffectivelyVisible); Assert.True(button.IsEnabled);
         var bounds = new Rect(button.Bounds.Size).TransformToAABB(button.TransformToVisual(window)!.Value);
         Assert.True(bounds.Width > 150 && bounds.Left >= 0 && bounds.Right <= window.Width + 1 && bounds.Top >= 0 && bounds.Bottom <= window.Height + 1, bounds.ToString());

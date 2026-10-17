@@ -31,9 +31,10 @@ public partial class MainWindow
         if (DroppedFiles(e) is not { } paths || _viewModel is not { } model) return;
         _specificationDragGeneration++;
         e.Handled = true; e.DragEffects = DragDropEffects.None;
-        if (model.IsImportingSpecification || OwnedWindows.Count > 0) return;
-        model.SpecificationDropError = model.ImportAvailabilityError ?? SpecificationImportService.CheckFiles(paths);
-        model.SpecificationOverlayDescription = model.SpecificationDropError ?? "HTML БЛОК/Wintech или PDF HansLaser · затем проверьте поля новой заявки";
+        if (!model.IsDraggingSpecification) model.SpecificationImportError = null;
+        model.SpecificationDropError = model.IsImportingSpecification ? "Дождитесь завершения импорта." :
+            OwnedWindows.Count > 0 ? "Закройте открытое окно." : model.ImportAvailabilityError ?? SpecificationImportService.CheckDropFiles(paths);
+        model.SpecificationOverlayDescription = model.SpecificationDropError ?? "";
         model.IsDraggingSpecification = true;
         if (model.SpecificationDropError is null) e.DragEffects = DragDropEffects.Copy;
     }
@@ -76,6 +77,9 @@ public partial class MainWindow
         if (_viewModel?.IsImportingSpecification == true)
             Dispatcher.UIThread.Post(() =>
             { if (IsVisible && _viewModel?.IsImportingSpecification == true) CancelSpecificationImportButton.Focus(); });
+        else if (_viewModel?.HasSpecificationImportError == true)
+            Dispatcher.UIThread.Post(() =>
+            { if (IsVisible && _viewModel?.HasSpecificationImportError == true && !_viewModel.IsDraggingSpecification) DismissSpecificationImportErrorButton.Focus(); });
         else
         {
             var focus = _focusBeforeSpecification; _focusBeforeSpecification = null;

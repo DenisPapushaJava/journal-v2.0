@@ -15,6 +15,7 @@ public partial class NewOrderWindow : Window
     public NewOrderWindow()
     {
         InitializeComponent();
+        ConfigureFileDrop();
         DataContextChanged += (_, _) =>
         {
             if (_viewModel is not null) _viewModel.Saved -= OnSaved;
@@ -26,8 +27,8 @@ public partial class NewOrderWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        OrderWindowSizing.FitToWorkingArea(this);
-        this.GetVisualDescendants().OfType<OrderEntryControl>().First().FocusInput();
+        WindowSizing.FitToWorkingArea(this);
+        this.GetVisualDescendants().OfType<OrderEntryControl>().FirstOrDefault(control => control.IsEffectivelyVisible)?.FocusInput();
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

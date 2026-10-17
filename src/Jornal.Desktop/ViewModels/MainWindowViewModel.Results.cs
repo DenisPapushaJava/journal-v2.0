@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,7 +13,7 @@ public partial class MainWindowViewModel
     private int _selectedCount;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanClearResult)), NotifyPropertyChangedFor(nameof(CanCopyResult))]
     private string _resultText = string.Empty;
-    private const string DefaultResultMessage = "Для письма · текст можно поправить";
+    private const string DefaultResultMessage = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowResultFeedback))] private string _resultMessage = DefaultResultMessage;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowResultFeedback)), NotifyPropertyChangedFor(nameof(ResultFeedbackBrush))]
     private bool _hasResultError;
@@ -37,7 +38,7 @@ public partial class MainWindowViewModel
         if (!CanEditResult) return;
         var visible = Orders.ToDictionary(row => row.Id, row => row.Source);
         var orders = selected.Select(row => row.Id).Distinct()
-            .Where(id => visible.ContainsKey(id) && !_resultOrderIds.Contains(id)).Select(id => visible[id]).ToArray();
+            .Where(visible.ContainsKey).Select(id => visible[id]).ToArray();
         var unpriced = orders.Where(order => order.StoredCuttingPrice is null).ToArray();
         if (unpriced.Length > 0)
         {
@@ -50,14 +51,15 @@ public partial class MainWindowViewModel
         if (orders.Length == 0)
         {
             HasResultError = false;
-            ResultMessage = "Выбранные заявки уже добавлены в результат";
+            ResultMessage = "Выберите заявки";
             return;
         }
-        var addition = OrderResultFormatter.Format(orders);
-        var separator = ResultText.Length > 0 && !ResultText.EndsWith('\n') && !ResultText.EndsWith('\r') ? "\n" : "";
-        ResultText += separator + addition;
+        var result = OrderResultFormatter.Format(orders, CaptureResultPricing());
+        ResultText = result;
+        _resultOrderIds.Clear();
         foreach (var order in orders) _resultOrderIds.Add(order.Id);
-        ResultMessage = $"Добавлено заявок: {orders.Length} · можно копировать в письмо";
+        HasResultError = false;
+        ResultMessage = $"Сформировано заявок: {orders.Length}";
     }
 
     [RelayCommand]
@@ -67,11 +69,12 @@ public partial class MainWindowViewModel
         ResultText = string.Empty;
         _resultOrderIds.Clear();
         HasResultError = false;
-        ResultMessage = "Результат очищен · выбор заявок сохранён";
+        ResultMessage = "Результат очищен";
     }
 
     public async Task CopyResultAsync(IResultClipboard clipboard)
     {
+        AppDiagnostics.Current?.Mark(DiagnosticOperation.Clipboard);
         if (!CanCopyResult) return;
         var text = ResultText;
         var style = CaptureResultStyle();
@@ -81,11 +84,11 @@ public partial class MainWindowViewModel
         try
         {
             await clipboard.WriteAsync(ResultClipboardContent.FromText(text, style));
-            ResultMessage = "Скопировано · вставьте в письмо через Ctrl+V";
+            ResultMessage = "Скопировано";
         }
         catch (Exception exception)
         {
-            Trace.TraceError("Result clipboard write failed: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.Clipboard, exception);
             HasResultError = true;
             ResultMessage = "Не удалось скопировать. Результат сохранён — попробуйте ещё раз.";
         }

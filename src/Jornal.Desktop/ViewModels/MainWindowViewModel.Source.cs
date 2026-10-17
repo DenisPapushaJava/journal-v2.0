@@ -1,3 +1,4 @@
+using Jornal.Infrastructure.Diagnostics;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Jornal.Core.Orders;
@@ -8,16 +9,15 @@ namespace Jornal.Desktop.ViewModels;
 public partial class MainWindowViewModel
 {
     private OrderSource? _source;
-    public string SourceDescription => _source?.Description ?? "Демонстрационные данные · без подключения к базе";
+    public string SourceDescription => _source?.Description ?? "Деможурнал · без сохранения";
     public string SourceDetails => _source?.Details ?? "Демонстрационный источник";
     public string? DatabasePath => _source?.Path;
-    private string BatchStorageDescription => _source?.IsLocalCopy == true ? "Изменения сохраняются в локальной тестовой копии; исходная MDB не меняется" :
-        _source?.Path is not null ? "Статусы и БЛЦБ сохраняются в MDB" : "Деморежим · до закрытия программы";
+    private string BatchStorageDescription => _source?.IsLocalCopy == true ? "Изменения сохраняются в локальной копии" :
+        _source?.Path is not null ? "Изменения сохраняются в MDB" : "Деморежим · без сохранения";
     private string StorageSuffix => _source?.IsLocalCopy == true ? "сохранено в локальной копии" :
         _source?.Path is not null ? "сохранено в MDB" : "до закрытия программы";
-    public string NewOrderHint => _source?.IsLocalCopy == true ? "Добавить заявку в локальную тестовую копию с расчётом по её прайсам" :
-        _source?.Path is not null ? orderCreator is null ? "Для создания заявки в MDB используйте Windows" :
-            "Добавить заявку в MDB с расчётом по её текущему прайсу" : "Добавить заявку в деможурнал текущего сеанса";
+    public string? NewOrderHint => orderCreator is null && _source?.Path is not null
+        ? "Изменение MDB доступно в Windows" : null;
     public bool CanConfigureSource => sourceManager is not null && CanUseJournal && !IsCopyingResult;
 
     public void InitializeSource(OrderSource source)
@@ -27,8 +27,8 @@ public partial class MainWindowViewModel
         NotifySourceChanged();
     }
 
-    public DatabaseSettingsViewModel? CreateDatabaseSettingsForm() => CanConfigureSource
-        ? new(DatabasePath, ConnectSourceAsync) : null;
+    public DatabaseSettingsViewModel? CreateDatabaseSettingsForm() => sourceManager is not null
+        ? new(DatabasePath, ConnectSourceAsync) { CurrentSource = SourceDescription } : null;
 
     private async Task<string?> ConnectSourceAsync(string? path, CancellationToken cancellationToken)
     {
@@ -68,7 +68,7 @@ public partial class MainWindowViewModel
         catch (OrderReadException) { throw; }
         catch (Exception exception)
         {
-            Trace.TraceError("Order source connection failed: {0}", exception);
+            AppDiagnostics.Capture(DiagnosticOperation.OrderRead, exception);
             return exception is OrderReadException ? exception.Message :
                 "Не удалось подключить базу или сохранить путь. Прежний источник и список сохранены — попробуйте ещё раз.";
         }

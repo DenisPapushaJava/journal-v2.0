@@ -8,7 +8,7 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Local;
 
 // Отдельная локальная копия для разработки. Этот адаптер никогда не открывает MDB для записи.
-public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor, IPriceReader, IOrderMaintenance
+public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreator, IOrderBatchEditor, IManualOrderBatchCreator, IPriceReader, IOrderMaintenance
 {
     public const string Extension = ".journal-test.json";
     private const long MaximumSize = 128 * 1024 * 1024;
@@ -48,6 +48,23 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
             var order = draft.ToOrder(book.LastIssuedId + 1, quote.StoredPrice);
             return (book with { LastIssuedId = order.Id, Orders = [.. book.Orders, order] }, order);
         }, cancellationToken);
+
+    public Task<IReadOnlyList<OrderSummary>> CreateBatchAsync(IReadOnlyList<ManualOrderDraft> drafts, CancellationToken cancellationToken = default)
+    {
+        var snapshot = ManualOrderBatch.Snapshot(drafts);
+        return WriteAsync<IReadOnlyList<OrderSummary>>(book =>
+        {
+            if ((long)book.LastIssuedId + snapshot.Length > int.MaxValue)
+                throw new OrderWriteException(OrderWriteFailure.NotSaved, "Закончился диапазон номеров локальных записей.");
+            var rows = snapshot.Select((draft, index) =>
+            {
+                var table = book.Prices.Single(price => price.Name == CuttingPriceCalculator.SelectTable(draft.PriceRequest));
+                try { return draft.ToOrder(book.LastIssuedId + index + 1, draft.Calculate(table).StoredPrice); }
+                catch (OrderPriceChangedException changed) { throw new OrderBatchPriceChangedException(index, changed.Quote); }
+            }).ToArray();
+            return (book with { LastIssuedId = rows[^1].Id, Orders = [.. book.Orders, .. rows] }, rows);
+        }, cancellationToken);
+    }
 
     public Task<IReadOnlyList<OrderSummary>> SetColorAsync(IReadOnlyCollection<OrderSummary> expected, int color,
         CancellationToken cancellationToken = default) => UpdateAsync(OrderBatchChange.ForColor(expected, color), cancellationToken);

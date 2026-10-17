@@ -4,9 +4,13 @@ using Jornal.Parsing.Documents;
 
 namespace Jornal.Parsing.Specifications;
 
-public sealed partial class BlockHtmlSpecificationParser
+public sealed partial class BlockHtmlSpecificationParser : ISpecificationProfile
 {
     public const string Profile = "block-html/v1";
+    public string Id => Profile;
+    public string DisplayName => "БЛОК/Wintech";
+    public DocumentKind DocumentKind => DocumentKind.Html;
+    public int NormalizeCutLengthMeters(decimal millimeters) => BlockSpecificationNormalizer.LegacyCutLengthMeters(millimeters);
     private sealed record Cell(int Table, int Row, int Column, string Raw, string Text);
     private sealed record Pair(Cell Label, Cell Value, string Text, string Unit = "");
     private sealed record Material(string Name, decimal? Thickness);
@@ -26,6 +30,7 @@ public sealed partial class BlockHtmlSpecificationParser
         var headers = new List<Pair>(); var sheets = new List<Pair>(); var dimensions = new List<Pair>(); var materials = new List<Pair>();
         var summary = new[] { SpecificationField.PartCount, SpecificationField.PunchCount, SpecificationField.CutLength,
             SpecificationField.Weight, SpecificationField.CuttingDuration }.ToDictionary(field => field, _ => new List<Pair>());
+        var sheetSection = false; var detailSection = false; var totalSection = false;
         foreach (var table in tables)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -33,6 +38,8 @@ public sealed partial class BlockHtmlSpecificationParser
             var totalRow = Array.FindIndex(table, row => row.Any(cell => LabelKey(cell.Text) == "всего по заказу"));
             if (detailTable)
             {
+                detailSection |= table.Any(row => row.Any(cell => Is(cell.Text, "Одна деталь"))) &&
+                    table.Any(row => row.Any(cell => Is(cell.Text, "Все детали")));
                 foreach (var row in table)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -47,6 +54,8 @@ public sealed partial class BlockHtmlSpecificationParser
             }
             if (totalRow >= 0)
             {
+                var labels = table.Skip(totalRow).SelectMany(row => row).Select(cell => Field(cell.Text)).Where(field => field.HasValue).Distinct().ToArray();
+                totalSection |= labels.Length >= 2 && labels.Any(field => field is SpecificationField.CutLength or SpecificationField.PartCount or SpecificationField.PunchCount);
                 foreach (var row in table.Skip(totalRow))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -66,6 +75,8 @@ public sealed partial class BlockHtmlSpecificationParser
                 dimensions.AddRange(Pairs(row, SpecificationField.Dimensions));
                 materials.AddRange(Pairs(row, SpecificationField.Material));
             }
+            var metadata = table.SelectMany(row => row).Select(cell => Field(cell.Text)).ToArray();
+            sheetSection |= metadata.Contains(SpecificationField.SheetCount) && metadata.Contains(SpecificationField.Dimensions);
         }
         if (headers.Count == 0 && summary.Values.All(candidates => candidates.Count == 0))
             return Unsupported("Не найдены заголовок и итоговый раздел спецификации БЛОК. Документ не распознан.");
@@ -105,7 +116,11 @@ public sealed partial class BlockHtmlSpecificationParser
             catch (ArgumentOutOfRangeException) { issues.Add(new(SpecificationField.CutLength, "LengthOutOfRange", "Длина реза не помещается в прежнее поле метров MDB.")); }
         }
         return new(Profile, headerValue, cuttingType, materialValue,
-            dimensionsValue, sheetValue, length, weight, parts, punches, duration, issues) { SheetLayouts = layouts };
+            dimensionsValue, sheetValue, length, weight, parts, punches, duration, issues)
+        {
+            SheetLayouts = layouts,
+            IsRecognized = headers.Count > 0 && (totalSection || sheetSection && detailSection) || sheetSection && detailSection && totalSection
+        };
     }
 
     private static IReadOnlyList<SpecificationValue<SheetLayout>> ReadLayouts(IReadOnlyList<Pair> pairs, List<SpecificationIssue> issues)

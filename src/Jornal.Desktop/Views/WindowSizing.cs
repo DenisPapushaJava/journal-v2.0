@@ -3,7 +3,7 @@ using Avalonia.Controls;
 
 namespace Jornal.Desktop.Views;
 
-internal static class OrderWindowSizing
+internal static class WindowSizing
 {
     public static void FitToWorkingArea(Window window)
     {

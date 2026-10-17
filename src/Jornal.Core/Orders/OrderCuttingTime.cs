@@ -28,7 +28,7 @@ public sealed record OrderCuttingTime(long Minutes, string ParametersHash)
 
 public static class CuttingDuration
 {
-    public const string ValidationMessage = "Укажите ЧЧ:ММ, например 29:46; часы могут превышать 24. Пусто — время неизвестно.";
+    public const string ValidationMessage = "Укажите время в формате ЧЧ:ММ.";
     public static bool TryParse(string text, out long? minutes)
     {
         minutes = null;

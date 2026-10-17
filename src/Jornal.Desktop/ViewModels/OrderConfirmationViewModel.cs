@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Jornal.Infrastructure.Diagnostics;
 
 namespace Jornal.Desktop.ViewModels;
 
@@ -35,7 +36,7 @@ public partial class OrderConfirmationViewModel(string title, string details, st
         }
         catch (Exception exception)
         {
-            Error = exception.Message; AccessHostHelp.ShowFor(exception);
+            Error = AppDiagnostics.Describe(DiagnosticOperation.Trash, exception, "Не удалось выполнить действие."); AccessHostHelp.ShowFor(exception);
             RequiresReload = exception is Jornal.Core.Orders.OrderWriteException { RequiresReload: true };
             failed?.Invoke(exception);
         }

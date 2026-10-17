@@ -34,7 +34,8 @@ public sealed class ScreenCustomizationTests
             Assert.True(model.IsCustomizing);
             Assert.False(model.CanCreateOrder);
             Assert.False(model.ReloadCommand.CanExecute(null));
-            Assert.False(Find<CheckBox>(window, "SelectAllRowsBox").IsEnabled);
+            Assert.False(Find<DataGrid>(window, "OrdersGrid").GetVisualDescendants().OfType<CheckBox>()
+                .First(box => box.Classes.Contains("row-selection")).IsEffectivelyEnabled);
             Assert.False(Find<Grid>(window, "FiltersPanel").IsEffectivelyEnabled);
             foreach (var name in new[] { "OrdersMoveHandle", "ClipboardMoveHandle", "StatusMoveHandle", "ResultMoveHandle", "SaveLayoutButton", "CancelLayoutButton", "ResetLayoutButton" })
             {
@@ -131,7 +132,8 @@ public sealed class ScreenCustomizationTests
             Pump();
             Click(window, "PersonalizeButton");
             Click(window, "ResetLayoutButton");
-            Assert.Equal(0, Grid.GetColumn(Find<Border>(window, "OrdersCommands")));
+            Assert.Equal(2, Grid.GetColumn(Find<Border>(window, "OrdersCommands")));
+            Assert.True(Find<Grid>(window, "DockArea").IsVisible);
             Assert.All(table.Columns, column => Assert.True(column.IsVisible));
             Assert.Equal("5083", model.SearchText);
             Assert.Single(table.SelectedItems);
@@ -145,6 +147,7 @@ public sealed class ScreenCustomizationTests
             Click(window, "SaveLayoutButton");
             Assert.True(store.Value!.Layout.ResultAboveCommands);
             Assert.Equal(106, store.Value.Layout.ResultHeight);
+            Assert.NotNull(store.Value.Layout.Workspace);
             Assert.True(model.IsDarkTheme);
             Assert.All(store.Value.Layout.Columns, column => Assert.True(column.Visible));
         }
@@ -305,7 +308,7 @@ public sealed class ScreenCustomizationTests
     {
         var orders = new DemoOrderStore();
         var model = new MainWindowViewModel(orders, orders) { IsDarkTheme = dark };
-        var window = new MainWindow(preferences ?? new MemoryUiPreferencesStore()) { DataContext = model, Width = width, Height = height };
+        var window = new MainWindow(new LegacyDefaultsStore(preferences ?? new MemoryUiPreferencesStore(), dark)) { DataContext = model, Width = width, Height = height };
         window.Show();
         Pump();
         return (window, model);
@@ -350,6 +353,17 @@ public sealed class ScreenCustomizationTests
         using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize((int)window.Width, (int)window.Height));
         bitmap.Render(window);
         bitmap.Save(Path.Combine(directory, name + ".png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+    }
+    // Этот набор проверяет сохранение прежней компоновки профилей версии 1.
+    // Новая компоновка без профиля проверяется отдельно в WorkspaceLayoutTests.
+    private sealed class LegacyDefaultsStore(IUiPreferencesStore inner, bool dark) : IUiPreferencesStore
+    {
+        public PreferencesLoadResult Load()
+        {
+            var loaded = inner.Load();
+            return loaded with { Preferences = loaded.Preferences ?? new UiPreferences { DarkTheme = dark, Layout = new ScreenLayout() } };
+        }
+        public void Save(UiPreferences preferences) => inner.Save(preferences);
     }
     private sealed class FailingStore : IUiPreferencesStore
     {

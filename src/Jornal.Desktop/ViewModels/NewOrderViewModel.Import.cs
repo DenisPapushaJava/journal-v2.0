@@ -1,15 +1,18 @@
+using Jornal.Infrastructure.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Jornal.Desktop.Import;
+using Jornal.Parsing.Documents;
 
 namespace Jornal.Desktop.ViewModels;
 
 public partial class NewOrderViewModel
 {
     private CancellationTokenSource? _importReadCancellation;
+    private string? _importSourcePath;
     public ISpecificationImportService ImportReader { get; set; } = new SpecificationImportService();
-    public void CancelImportRead() => _importReadCancellation?.Cancel();
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasImport)), NotifyPropertyChangedFor(nameof(HasImportDiagnostics)), NotifyPropertyChangedFor(nameof(StorageDescription))]
+    public void CancelImportRead() { _importReadCancellation?.Cancel(); foreach (var item in BatchItems) item.CancelRead(); }
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasImport)), NotifyPropertyChangedFor(nameof(HasImportDiagnostics))]
     private SpecificationImportPreview? _importPreview;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasImportError))] private string? _importError;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(IsBusy))] private bool _isImporting;
@@ -29,11 +32,11 @@ public partial class NewOrderViewModel
     };
 
     partial void OnIsImportingChanged(bool value)
-    { SaveCommand.NotifyCanExecuteChanged(); CalculatePriceCommand.NotifyCanExecuteChanged(); }
+    { NotifyBatchState(); }
     partial void OnPendingImportPathChanged(string? value)
-    { SaveCommand.NotifyCanExecuteChanged(); CalculatePriceCommand.NotifyCanExecuteChanged(); }
+    { NotifyBatchState(); }
 
-    public void ApplyImport(SpecificationImportPreview preview)
+    public void ApplyImport(SpecificationImportPreview preview, string? sourcePath = null)
     {
         if (IsSaved || SaveCommand.IsRunning || RequiresReload) return;
         _submitted = false;
@@ -42,12 +45,13 @@ public partial class NewOrderViewModel
             var value = preview.Fields[name]; field.ApplyImport(value.Value, value.Evidence);
         }
         HasValidationErrors = false; SaveError = null; ImportError = null;
-        ImportPreview = preview;
+        ImportPreview = preview; _importSourcePath = sourcePath;
         _quote = null; PriceText = "Не рассчитана"; PriceBreakdown = ""; PriceError = null;
     }
 
     public async Task RequestImportAsync(string path, CancellationToken cancellationToken)
     {
+        if (IsBatchMode) { await AddBatchFilesAsync([path], cancellationToken); return; }
         if (IsBusy || IsSaved || RequiresReload) return;
         if (ImportFields.Any(pair => pair.Value.Value.Length > 0 && (pair.Key != nameof(Coefficient) || pair.Value.Value != "1")))
         { PendingImportPath = path; return; }
@@ -65,6 +69,7 @@ public partial class NewOrderViewModel
 
     private async Task ImportFileAsync(string path, CancellationToken cancellationToken)
     {
+        AppDiagnostics.Current?.Mark(DiagnosticOperation.SpecificationImport);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _importReadCancellation = cancellation;
         IsImporting = true; ImportError = null;
@@ -72,11 +77,12 @@ public partial class NewOrderViewModel
         {
             var preview = await ImportReader.ReadAsync(path, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
-            ApplyImport(preview);
+            ApplyImport(preview, path);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (DocumentRejectedException exception) { ImportError = exception.Message; }
         catch (Exception exception) when (exception is not OutOfMemoryException)
-        { ImportError = "Не удалось прочитать спецификацию. Прежний ввод сохранён. " + exception.Message; }
+        { ImportError = AppDiagnostics.Describe(DiagnosticOperation.SpecificationImport, exception, "Не удалось прочитать спецификацию. Прежний ввод сохранён."); }
         finally { _importReadCancellation = null; IsImporting = false; }
     }
 }

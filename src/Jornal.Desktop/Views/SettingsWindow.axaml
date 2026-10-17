@@ -1,0 +1,106 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
+        xmlns:settings="using:Jornal.Desktop.Controls.Settings"
+        x:Class="Jornal.Desktop.Views.SettingsWindow" x:DataType="vm:SettingsViewModel"
+        Title="Настройки · Journal" Width="900" Height="660" MinWidth="800" MinHeight="580"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="ListBox.settings-nav">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.settings-nav ListBoxItem">
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector="ListBox.settings-nav ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource JournalSelection}" />
+      <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+    </Style>
+  </Window.Styles>
+  <Grid RowDefinitions="*,Auto" ColumnDefinitions="188,*">
+    <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,*" Margin="12,0">
+        <TextBlock Text="Настройки" FontSize="20" FontWeight="SemiBold" Margin="12,20,0,24" />
+        <ListBox x:Name="SettingsNavigation" Grid.Row="1" Classes="settings-nav" SelectionMode="AlwaysSelected"
+                 SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}" IsEnabled="{Binding CanNavigate}"
+                 AutomationProperties.Name="Разделы настроек">
+          <ListBoxItem Content="Общие" />
+          <ListBoxItem Content="База данных" />
+          <ListBoxItem Content="Обновления" />
+          <ListBoxItem Content="Диагностика" />
+          <ListBoxItem Content="О программе" />
+        </ListBox>
+      </Grid>
+    </Border>
+    <Grid Grid.Column="1">
+      <Grid x:Name="GeneralSettingsPage" IsVisible="{Binding IsGeneral}" RowDefinitions="Auto,*">
+        <TextBlock Text="Общие" FontSize="20" FontWeight="SemiBold" Margin="24,20" />
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="24,0,24,24" Spacing="24">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Оформление" FontWeight="SemiBold" />
+              <CheckBox x:Name="SettingsDarkThemeCheckBox" Content="Тёмная тема" IsChecked="{Binding Journal.IsDarkTheme, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Spacing="12">
+              <TextBlock Text="Результат для письма" FontWeight="SemiBold" />
+              <CheckBox x:Name="UseResultMinimumPriceCheckBox" Content="Использовать минимальную цену"
+                        IsChecked="{Binding Journal.UseResultMinimumPrice, Mode=TwoWay}" />
+              <Grid ColumnDefinitions="Auto,12,132" HorizontalAlignment="Left" IsEnabled="{Binding Journal.UseResultMinimumPrice}">
+                <TextBlock Text="Минимальная цена, ₽" VerticalAlignment="Center" />
+                <TextBox x:Name="ResultMinimumPriceInput" Grid.Column="2" Text="{Binding Journal.ResultMinimumPriceText, Mode=TwoWay}"
+                         TextAlignment="Right" MinHeight="36" LostFocus="OnMinimumPriceLostFocus"
+                         AutomationProperties.Name="Минимальная цена для письма в рублях" />
+              </Grid>
+              <TextBlock Text="{Binding Journal.ResultMinimumPriceError}" IsVisible="{Binding Journal.HasResultMinimumPriceError}"
+                         Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Spacing="12">
+              <TextBlock Text="Компоновка" FontWeight="SemiBold" />
+              <ui:JournalButton x:Name="CustomizeFromSettingsButton" Label="Настроить экран" Icon="panels-top-left"
+                                HorizontalAlignment="Left" IsEnabled="{Binding CanCustomize}" Click="OnCustomizeClick" />
+            </StackPanel>
+            <settings:NewOrderColorPanel DataContext="{Binding Journal}" />
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+      <Grid IsVisible="{Binding IsDatabase}">
+        <Grid IsVisible="{Binding HasDatabase}" IsEnabled="{Binding Journal.CanConfigureSource}">
+          <settings:DatabaseSettingsPanel x:Name="DatabasePage" DataContext="{Binding Database}" />
+        </Grid>
+        <TextBlock Text="Подключение к источнику недоступно." IsVisible="{Binding !HasDatabase}" Margin="24" TextWrapping="Wrap" />
+      </Grid>
+      <Grid IsVisible="{Binding IsUpdates}">
+        <settings:AppUpdatesPanel x:Name="UpdatesPage" DataContext="{Binding Updates}" />
+      </Grid>
+      <Grid IsVisible="{Binding IsDiagnostics}">
+        <Grid IsVisible="{Binding HasDiagnostics}">
+          <settings:DiagnosticsPanel x:Name="DiagnosticsPage" DataContext="{Binding Diagnostics}" />
+        </Grid>
+        <StackPanel IsVisible="{Binding !HasDiagnostics}" Margin="24" Spacing="16">
+          <TextBlock Text="Диагностика" FontSize="20" FontWeight="SemiBold" />
+          <TextBlock Text="Диагностика в этом запуске недоступна." TextWrapping="Wrap" />
+        </StackPanel>
+      </Grid>
+      <ScrollViewer x:Name="AboutSettingsPage" IsVisible="{Binding IsAbout}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="24,20" Spacing="20">
+          <TextBlock Text="О программе" FontSize="20" FontWeight="SemiBold" />
+          <StackPanel Spacing="8">
+            <TextBlock Text="Journal · Журнал заявок" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding Updates.CurrentVersion, StringFormat='Версия {0}'}" Classes="muted" />
+          </StackPanel>
+          <ui:JournalButton x:Name="OpenProjectButton" Label="Проект на GitHub" Click="OnOpenProjectClick" HorizontalAlignment="Left" />
+          <TextBlock Text="{Binding LinkError}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+    <Border Grid.Row="1" Grid.ColumnSpan="2" Padding="24,12" Background="{DynamicResource JournalSurface}"
+            BorderBrush="{DynamicResource JournalBorder}" BorderThickness="0,1,0,0">
+      <ui:JournalButton x:Name="CloseSettingsButton" Label="Закрыть" HorizontalAlignment="Right"
+                        Click="OnCloseClick" IsEnabled="{Binding CanClose}" />
+    </Border>
+  </Grid>
+</Window>

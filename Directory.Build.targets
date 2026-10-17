@@ -1,0 +1,21 @@
+<Project>
+  <!-- Только сведения сборки: во время работы приложения Git не запускается. -->
+  <Target Name="JournalBuildProvenance" BeforeTargets="GetAssemblyAttributes"
+          DependsOnTargets="InitializeSourceControlInformation" Condition="'$(UsingMicrosoftNETSdk)' == 'true'">
+    <Exec Command="git -C &quot;$(MSBuildThisFileDirectory)&quot; status --porcelain --untracked-files=normal"
+          ConsoleToMSBuild="true" StandardOutputImportance="Low" StandardErrorImportance="Low"
+          IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" Condition="'$(SourceRevisionId)' != ''">
+      <Output TaskParameter="ConsoleOutput" ItemName="_JournalGitStatus" />
+      <Output TaskParameter="ExitCode" PropertyName="_JournalGitStatusExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <_JournalBuildDirty>unknown</_JournalBuildDirty>
+      <_JournalBuildDirty Condition="'$(_JournalGitStatusExitCode)' == '0'">false</_JournalBuildDirty>
+      <_JournalBuildDirty Condition="'$(_JournalGitStatusExitCode)' == '0' and @(_JournalGitStatus->Count()) &gt; 0">true</_JournalBuildDirty>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyMetadata Include="Journal.BuildCommit" Value="$(SourceRevisionId)" />
+      <AssemblyMetadata Include="Journal.BuildDirty" Value="$(_JournalBuildDirty)" />
+    </ItemGroup>
+  </Target>
+</Project>
