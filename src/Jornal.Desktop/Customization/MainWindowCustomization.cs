@@ -87,6 +87,7 @@ public sealed partial class MainWindowCustomization
                 model.ApplyResultStyle(profile.ResultFormatting ?? new());
                 model.ApplyResultPricing(profile.ResultPricing ?? new());
                 model.ApplyNewOrderColor(profile.NewOrderColor ?? new());
+                model.ApplyEntrySuggestions(profile.EntrySuggestions ?? new());
             }
         }
         Apply(loaded.Preferences?.Layout ?? ScreenLayout.CreateDefault());
@@ -193,7 +194,8 @@ public sealed partial class MainWindowCustomization
         try
         {
             _store.Save(new UiPreferences { DarkTheme = Model?.IsDarkTheme == true, Layout = layout,
-                ResultFormatting = Model?.CaptureResultStyle() ?? new(), ResultPricing = Model?.CaptureResultPricing() ?? new(), NewOrderColor = Model?.CaptureNewOrderColor() ?? new() });
+                ResultFormatting = Model?.CaptureResultStyle() ?? new(), ResultPricing = Model?.CaptureResultPricing() ?? new(), NewOrderColor = Model?.CaptureNewOrderColor() ?? new(),
+                EntrySuggestions = Model?.CaptureEntrySuggestions() ?? new() });
             if (Model is { } model) model.PreferencesError = null;
             return true;
         }

@@ -1,4 +1,28 @@
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="AutoCompleteBox">
+    <Setter Property="Background" Value="{DynamicResource JournalInput}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalControlBorder}" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="AutoCompleteBox /template/ TextBox#PART_TextBox">
+    <Setter Property="Background" Value="{DynamicResource JournalInput}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalControlBorder}" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+  <Style Selector="AutoCompleteBox:not(:disabled) /template/ Border#PART_SuggestionsContainer">
+    <Setter Property="Background" Value="{DynamicResource JournalSurface}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalControlBorder}" />
+  </Style>
+  <Style Selector="AutoCompleteBox /template/ TextBox#PART_TextBox:pointerover /template/ Border#PART_BorderElement, AutoCompleteBox /template/ TextBox#PART_TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource JournalInput}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="AutoCompleteBox.invalid /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
+  </Style>
   <!-- Fluent меняет кисти внутри шаблонов при наведении/фокусе. Все состояния
        обычных полей используют палитру Journal; редактор письма оформлен отдельно. -->
   <Style Selector="TextBox:not(.result-editor)">

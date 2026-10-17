@@ -23,8 +23,11 @@ public sealed class JsonUiPreferencesStore(string path) : IUiPreferencesStore
             var preferences = JsonSerializer.Deserialize<UiPreferences>(stream, Options);
             if (preferences is null || preferences.Version != 1 || preferences.Layout is null)
                 return new(null, "Настройки экрана несовместимы с этой версией. Используется стандартный вид.");
+            EntrySuggestions suggestions; string? error = null;
+            try { suggestions = (preferences.EntrySuggestions ?? new()).Normalize(); }
+            catch (ArgumentException) { suggestions = new(); error = "Списки менеджеров и заказчиков повреждены. Используются пустые списки."; }
             return new(preferences with { Layout = preferences.Layout.Normalize(), ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize(),
-                ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize() });
+                ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize(), EntrySuggestions = suggestions }, error);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -44,7 +47,8 @@ public sealed class JsonUiPreferencesStore(string path) : IUiPreferencesStore
             {
                 JsonSerializer.Serialize(stream, preferences with { Layout = preferences.Layout.Normalize(),
                     ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize(),
-                    ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize() }, Options);
+                    ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize(),
+                    EntrySuggestions = (preferences.EntrySuggestions ?? new()).Normalize() }, Options);
                 stream.Flush(flushToDisk: true);
             }
             File.Move(temporary, path, overwrite: true);
