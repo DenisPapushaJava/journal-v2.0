@@ -99,7 +99,7 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     public bool CanSave => IsEditing && !IsLoading && !IsSaving && !RequiresReload && !ShowAddRate && HasChanges && Rows.All(row => !row.HasError);
     public bool CanRefresh => !IsLoading && !IsSaving && (!IsEditing || RequiresReload);
     public bool CanCancel => IsEditing && !IsLoading && !IsSaving;
-    public bool CanClose => !IsSaving;
+    public bool CanClose => !IsSaving && !IsExportDialogOpen;
     public bool IsBusy => IsLoading || IsSaving;
     public bool CanBrowse => !IsSaving && !IsLoading;
     public bool HasInvalidPrices => IsEditing && Rows.Any(row => row.HasError);
@@ -115,7 +115,7 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     {
         foreach (var name in new[] { nameof(CanNavigate), nameof(CanEdit), nameof(CanSave), nameof(CanRefresh), nameof(CanCancel),
             nameof(CanClose), nameof(IsBusy), nameof(CanBrowse), nameof(HasInvalidPrices), nameof(HasRows), nameof(HasChanges), nameof(ChangesText), nameof(IsReadOnly),
-            nameof(CanBeginAddRate), nameof(CanStageRate), nameof(ShowExpansionNotice), nameof(CanAddMachine) }) OnPropertyChanged(name);
+            nameof(CanBeginAddRate), nameof(CanStageRate), nameof(ShowExpansionNotice), nameof(CanAddMachine), nameof(CanExport) }) OnPropertyChanged(name);
         BeginEditCommand.NotifyCanExecuteChanged(); SaveCommand.NotifyCanExecuteChanged(); RefreshCommand.NotifyCanExecuteChanged(); CancelEditCommand.NotifyCanExecuteChanged();
         BeginAddRateCommand.NotifyCanExecuteChanged(); StageRateCommand.NotifyCanExecuteChanged(); CancelAddRateCommand.NotifyCanExecuteChanged();
     }

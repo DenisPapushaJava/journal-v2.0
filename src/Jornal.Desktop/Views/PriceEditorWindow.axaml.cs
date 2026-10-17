@@ -18,7 +18,7 @@ public partial class PriceEditorWindow : Window
     {
         if (Model is { } model)
         {
-            if (model.IsSaving) e.Cancel = true;
+            if (model.IsSaving || model.IsExportDialogOpen) e.Cancel = true;
             else if (model.HasChanges && !_discard) { e.Cancel = true; model.ConfirmDiscard = true; }
         }
         base.OnClosing(e);

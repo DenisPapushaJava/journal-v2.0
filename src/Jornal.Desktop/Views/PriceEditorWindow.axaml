@@ -24,10 +24,14 @@
   <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="208,*">
     <Border Grid.ColumnSpan="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
             BorderThickness="0,0,0,1" Padding="24,18">
+      <Grid ColumnDefinitions="*,16,Auto">
       <StackPanel Spacing="5">
         <TextBlock Text="Прайсы" FontSize="20" FontWeight="SemiBold" />
         <TextBlock Text="{Binding Source}" ToolTip.Tip="{Binding SourceDetails}" Classes="muted" TextTrimming="CharacterEllipsis" />
       </StackPanel>
+      <ui:JournalButton Grid.Column="2" x:Name="ExportPricesButton" Label="Экспорт в Excel" Icon="file-spreadsheet" VerticalAlignment="Center"
+                        Click="OnExportPricesClick" IsEnabled="{Binding CanExport}" ToolTip.Tip="Экспортировать сохранённые прайсы" />
+      </Grid>
     </Border>
     <Border Grid.Row="1" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}" BorderThickness="0,0,1,0" Padding="12,16">
       <ListBox x:Name="PriceGroups" ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup, Mode=TwoWay}"
