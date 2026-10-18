@@ -8,14 +8,16 @@ using Jornal.Infrastructure.Diagnostics;
 namespace Jornal.Infrastructure.Access;
 
 [SupportedOSPlatform("windows")]
-public sealed class OleDbPriceEditor(string path) : IPriceEditor, IMachineCreator
+public sealed class OleDbPriceEditor(string path) : IPriceEditor, IMachineCreator, IPriceImpactReader
 {
+    public Task<IReadOnlyList<PriceThicknessUsage>> ReadThicknessUsageAsync(PriceTableChange change, CancellationToken cancellationToken = default) =>
+        new OleDbPriceImpactReader(path).ReadThicknessUsageAsync(change, cancellationToken);
     public Task<CuttingMachine> CreateMachineAsync(MachineCreation creation, CancellationToken cancellationToken = default) =>
         new OleDbMachineCatalog(path).CreateMachineAsync(creation, cancellationToken);
     public Task<PriceTable> SaveAsync(PriceTableChange change, CancellationToken cancellationToken = default)
     {
         var snapshot = change.Snapshot();
-        return Task.Run(() => Save(snapshot, cancellationToken), cancellationToken);
+        return Task.Run(() => snapshot.HasRenames ? new JetPriceRenamer(path).Save(snapshot, cancellationToken) : Save(snapshot, cancellationToken), cancellationToken);
     }
 
     private PriceTable Save(PriceTableChange change, CancellationToken cancellationToken)
@@ -119,7 +121,7 @@ public sealed class OleDbPriceEditor(string path) : IPriceEditor, IMachineCreato
         finally { Release(transaction); Release(connection); }
     }
 
-    private static PriceTable ReadSingle(OleDbConnection connection, OleDbTransaction? transaction, string name)
+    internal static PriceTable ReadSingle(OleDbConnection connection, OleDbTransaction? transaction, string name)
         => ReadSingle(connection, transaction, name, out _);
 
     private static PriceTable ReadSingle(OleDbConnection connection, OleDbTransaction? transaction, string name, out int fieldCount)

@@ -14,8 +14,20 @@ public sealed partial class PriceRowViewModel(PriceRate original, bool isNew = f
     public PriceRate Original { get; } = original;
     public bool IsNew { get; } = isNew;
     public string Thickness => Original.ThicknessMillimeters.ToString("0.############################", CultureInfo.GetCultureInfo("ru-RU"));
+    public string CurrentThickness => IsNew ? "—" : Thickness;
     public string CurrentPrice => IsNew ? "Новая" : Original.RublesPerMeter?.ToString(CultureInfo.GetCultureInfo("ru-RU")) ?? "Не задан";
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsChanged)), NotifyPropertyChangedFor(nameof(HasError))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsChanged)), NotifyPropertyChangedFor(nameof(IsThicknessChanged)),
+        NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(HasThicknessError)), NotifyPropertyChangedFor(nameof(ThicknessError))]
+    private string _thicknessValue = original.ThicknessMillimeters.ToString("0.############################", CultureInfo.GetCultureInfo("ru-RU"));
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(HasThicknessError)), NotifyPropertyChangedFor(nameof(ThicknessError))]
+    private bool _hasThicknessConflict;
+    public bool TryGetThickness(out decimal value) => decimal.TryParse(ThicknessValue?.Trim().Replace(',', '.'),
+        NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out value) && value > 0;
+    public bool IsThicknessChanged => !TryGetThickness(out var thickness) || thickness != Original.ThicknessMillimeters;
+    public string? ThicknessError => !TryGetThickness(out _) ? "Укажите положительную толщину." :
+        HasThicknessConflict ? "Такая толщина уже есть в прайсе." : null;
+    public bool HasThicknessError => ThicknessError is not null;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsChanged)), NotifyPropertyChangedFor(nameof(IsPriceChanged)), NotifyPropertyChangedFor(nameof(HasError))]
     private string _value = original.RublesPerMeter?.ToString(CultureInfo.InvariantCulture) ?? "";
     public bool TryGetValue(out int? value)
     {
@@ -24,8 +36,18 @@ public sealed partial class PriceRowViewModel(PriceRate original, bool isNew = f
         if (!int.TryParse(Value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var parsed)) return false;
         value = parsed; return true;
     }
-    public bool HasError => !TryGetValue(out _) && IsChanged;
-    public bool IsChanged => IsNew || (TryGetValue(out var value) ? value != Original.RublesPerMeter : Value != Original.RublesPerMeter?.ToString(CultureInfo.InvariantCulture));
+    public bool HasError => ThicknessError is not null || HasPriceError;
+    public bool HasPriceError => !TryGetValue(out _) && (IsNew || IsPriceChanged);
+    public bool IsPriceChanged => TryGetValue(out var value) ? value != Original.RublesPerMeter : Value != Original.RublesPerMeter?.ToString(CultureInfo.InvariantCulture);
+    public bool IsChanged => IsNew || IsThicknessChanged || IsPriceChanged;
+    public PriceRate DraftRate()
+    {
+        if (!IsChanged) return Original;
+        if (HasError || !TryGetThickness(out var thickness)) throw new ArgumentException("Проверьте толщину и цену.");
+        var price = Original.RublesPerMeter;
+        if ((IsNew || IsPriceChanged) && !TryGetValue(out price)) throw new ArgumentException("Проверьте цену.");
+        return new(thickness, IsNew || IsThicknessChanged ? PriceTableChange.ColumnName(thickness) : Original.ColumnName, price);
+    }
 }
 
 public enum PriceStorageKind { SharedDatabase, LocalCopy, Session }
@@ -65,6 +87,7 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     }
     private void ProfileChanged()
     {
+        _uncertainTargets.Clear();
         _snapshot = null; ReplaceRows([]); Error = null; Status = null; RequiresReload = false;
         OnPropertyChanged(nameof(HasProfiles)); OnPropertyChanged(nameof(Usage)); OnPropertyChanged(nameof(TableName)); OnPropertyChanged(nameof(ShowTableName));
         OnPropertyChanged(nameof(ReadOnlyReason)); NotifyAvailability();
@@ -96,18 +119,20 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     public string ChangesText => $"Изменено: {ChangedCount}";
     public bool CanNavigate => !IsLoading && !IsSaving && !IsEditing;
     public bool CanEdit => CanNavigate && !IsReadOnly && !RequiresReload && _snapshot is { HasRow: true, Rates.Count: > 0 };
-    public bool CanSave => IsEditing && !IsLoading && !IsSaving && !RequiresReload && !ShowAddRate && HasChanges && Rows.All(row => !row.HasError);
+    public bool CanSave => IsEditing && !IsLoading && !IsSaving && !IsConfirmingThickness && !RequiresReload && !ShowAddRate && HasChanges && Rows.All(row => !row.HasError);
     public bool CanRefresh => !IsLoading && !IsSaving && (!IsEditing || RequiresReload);
     public bool CanCancel => IsEditing && !IsLoading && !IsSaving;
     public bool CanClose => !IsSaving && !IsExportDialogOpen;
     public bool IsBusy => IsLoading || IsSaving;
     public bool CanBrowse => !IsSaving && !IsLoading;
-    public bool HasInvalidPrices => IsEditing && Rows.Any(row => row.HasError);
+    public bool HasInvalidPrices => IsEditing && Rows.Any(row => row.HasPriceError);
+    public string? ThicknessValidationError => IsEditing ? Rows.Select(row => row.ThicknessError).FirstOrDefault(error => error is not null) : null;
+    public bool HasInvalidThickness => ThicknessValidationError is not null;
     public event EventHandler? SavingChanged;
 
     partial void OnErrorChanged(string? value) => AccessHostHelp.ShowFor(null);
     partial void OnIsLoadingChanged(bool value) => NotifyAvailability();
-    partial void OnIsSavingChanged(bool value) { NotifyAvailability(); SavingChanged?.Invoke(this, EventArgs.Empty); }
+    partial void OnIsSavingChanged(bool value) { NotifyAvailability(); OnPropertyChanged(nameof(CanConfirmThickness)); ConfirmThicknessChangesCommand.NotifyCanExecuteChanged(); KeepOriginalThicknessesCommand.NotifyCanExecuteChanged(); SavingChanged?.Invoke(this, EventArgs.Empty); }
     partial void OnIsEditingChanged(bool value) => NotifyAvailability();
     partial void OnRequiresReloadChanged(bool value) => NotifyAvailability();
 
@@ -115,7 +140,7 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     {
         foreach (var name in new[] { nameof(CanNavigate), nameof(CanEdit), nameof(CanSave), nameof(CanRefresh), nameof(CanCancel),
             nameof(CanClose), nameof(IsBusy), nameof(CanBrowse), nameof(HasInvalidPrices), nameof(HasRows), nameof(HasChanges), nameof(ChangesText), nameof(IsReadOnly),
-            nameof(CanBeginAddRate), nameof(CanStageRate), nameof(ShowExpansionNotice), nameof(CanAddMachine), nameof(CanExport) }) OnPropertyChanged(name);
+            nameof(CanBeginAddRate), nameof(CanStageRate), nameof(ShowExpansionNotice), nameof(CanAddMachine), nameof(CanExport), nameof(ThicknessValidationError), nameof(HasInvalidThickness) }) OnPropertyChanged(name);
         BeginEditCommand.NotifyCanExecuteChanged(); SaveCommand.NotifyCanExecuteChanged(); RefreshCommand.NotifyCanExecuteChanged(); CancelEditCommand.NotifyCanExecuteChanged();
         BeginAddRateCommand.NotifyCanExecuteChanged(); StageRateCommand.NotifyCanExecuteChanged(); CancelAddRateCommand.NotifyCanExecuteChanged();
     }
@@ -124,8 +149,8 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     private async Task RefreshAsync(CancellationToken cancellationToken)
     {
         // Явное обновление после конфликта переносит только изменённые пользователем ячейки.
-        var draft = IsEditing ? Rows.Where(row => row.IsChanged).ToDictionary(row => row.Original.ThicknessMillimeters, row => row.Value) : null;
-        var newRows = Rows.Where(row => row.IsNew).ToArray();
+        var draft = IsEditing ? Rows.ToArray() : null;
+        DismissThicknessConfirmation();
         Error = null; Status = null; ConfirmDiscard = false; IsLoading = true;
         try
         {
@@ -142,18 +167,10 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
             var table = await reader.ReadAsync(TableName, cancellationToken);
             table.Validate();
             if (table.Name != TableName) throw new PriceReadException("Получен прайс другого станка.");
-            if (draft is not null && (table.HasRow == false || _snapshot is null ||
-                !_snapshot.Rates.All(old => table.Rates.Any(rate => rate.ColumnName == old.ColumnName && rate.ThicknessMillimeters == old.ThicknessMillimeters))))
-                throw new PriceReadException("Структура прайса изменилась. Ввод сохранён; отмените правки для загрузки новой структуры.");
+            var loaded = ReapplyDraft(table, draft);
             _snapshot = table with { Rates = table.Rates.ToArray() };
-            var loaded = table.Rates.Select(rate =>
-            {
-                var row = new PriceRowViewModel(rate);
-                if (draft?.TryGetValue(rate.ThicknessMillimeters, out var value) == true) row.Value = value;
-                return row;
-            });
-            ReplaceRows(loaded.Concat(newRows.Where(row => table.Rates.All(rate => rate.ThicknessMillimeters != row.Original.ThicknessMillimeters)))
-                .OrderBy(row => row.Original.ThicknessMillimeters).ToArray());
+            ReplaceRows(loaded.OrderBy(row => row.Original.ThicknessMillimeters));
+            _uncertainTargets.Clear();
             RequiresReload = false;
             Status = !table.HasRow ? "Прайс пуст" : table.Rates.Count == 0 ? "Тарифов нет" :
                 draft is not null ? "Прайс обновлён. Проверьте изменения." : null;
@@ -175,6 +192,8 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     {
         // После неподтверждённой записи следующий просмотр обязательно перечитывает источник.
         var reload = RequiresReload;
+        _uncertainTargets.Clear();
+        DismissThicknessConfirmation();
         CloseAddRate();
         if (_snapshot is { } table) ReplaceRows(table.Rates.OrderBy(rate => rate.ThicknessMillimeters).Select(rate => new PriceRowViewModel(rate)));
         IsEditing = false; ConfirmDiscard = false; Error = null; Status = null;
@@ -185,26 +204,34 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
         if (!CanSave || editor is null || _snapshot is null) return;
-        var byName = Rows.ToDictionary(row => row.Original.ColumnName, StringComparer.Ordinal);
-        var values = _snapshot with { Rates = _snapshot.Rates.Select(rate =>
-        {
-            var row = byName[rate.ColumnName];
-            if (!row.IsChanged) return rate;
-            if (!row.TryGetValue(out var value)) throw new ArgumentException("Укажите целую неотрицательную цену.");
-            return rate with { RublesPerMeter = value };
-        }).Concat(Rows.Where(row => row.IsNew).Select(row =>
-        {
-            if (!row.TryGetValue(out var value) || value is null) throw new ArgumentException("Укажите цену новой толщины.");
-            return row.Original with { RublesPerMeter = value };
-        })).ToArray() };
         Error = null; Status = null; ConfirmDiscard = false; IsSaving = true;
-        var committed = false;
         try
         {
-            var saved = await editor.SaveAsync(new(_snapshot, values), cancellationToken);
+            var change = BuildPriceChange();
+            if (change.HasRenames) await PrepareThicknessConfirmationAsync(change, cancellationToken);
+            else await PersistAsync(change, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            if (exception is OrderWriteException write) RequiresReload = write.RequiresReload;
+            Error = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось проверить изменения толщин.");
+        }
+        finally { IsSaving = false; }
+    }
+
+    private async Task PersistAsync(PriceTableChange change, CancellationToken cancellationToken)
+    {
+        var values = change.Values;
+        var committed = false;
+        Dictionary<PriceRowViewModel, PriceRate>? attemptedTargets = null;
+        try
+        {
+            attemptedTargets = Rows.ToDictionary(row => row, row => row.DraftRate());
+            var saved = await editor!.SaveAsync(change, cancellationToken);
             if (!PriceTableChange.Matches(saved, values))
                 throw new OrderWriteException(OrderWriteFailure.OutcomeUnknown, "Тарифы не подтверждены. Обновите прайс перед повтором.");
             committed = true;
+            _uncertainTargets.Clear();
             _snapshot = saved;
             ReplaceRows(saved.Rates.OrderBy(rate => rate.ThicknessMillimeters).Select(rate => new PriceRowViewModel(rate)));
             IsEditing = false; RequiresReload = false; Status = "Прайс сохранён";
@@ -212,15 +239,18 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
         catch (OrderWriteException exception)
         {
             RequiresReload = exception.RequiresReload;
+            if (exception.Failure == OrderWriteFailure.OutcomeUnknown && attemptedTargets is not null) _uncertainTargets = attemptedTargets;
             Error = AppDiagnostics.Describe(DiagnosticOperation.AccessHost, exception, "Прайс не сохранён.");
             AccessHostHelp.ShowFor(exception);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            if (attemptedTargets is not null) _uncertainTargets = attemptedTargets;
             RequiresReload = true; Error = "Сохранение отменено. Обновите прайс перед повтором.";
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
+            if (attemptedTargets is not null) _uncertainTargets = attemptedTargets;
             RequiresReload = true;
             Error = AppDiagnostics.Describe(DiagnosticOperation.AccessHost, exception, committed
                 ? "Прайс сохранён, но экран не обновлён. Обновите прайс; повторная запись не нужна."
@@ -235,8 +265,14 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
         foreach (var row in Rows) row.PropertyChanged -= RowChanged;
         Rows.Clear();
         foreach (var row in rows) { row.PropertyChanged += RowChanged; Rows.Add(row); }
+        ValidateThicknessDuplicates();
         NotifyAvailability();
     }
     private void RowChanged(object? sender, PropertyChangedEventArgs e)
-    { if (e.PropertyName == nameof(PriceRowViewModel.Value)) { ConfirmDiscard = false; NotifyAvailability(); } }
+    {
+        if (e.PropertyName is not (nameof(PriceRowViewModel.Value) or nameof(PriceRowViewModel.ThicknessValue))) return;
+        _draftRevision++;
+        DismissThicknessConfirmation();
+        ValidateThicknessDuplicates(); ConfirmDiscard = false; NotifyAvailability();
+    }
 }

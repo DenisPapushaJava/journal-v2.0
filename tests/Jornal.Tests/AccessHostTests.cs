@@ -282,6 +282,17 @@ public sealed class AccessHostTests
             var waterjetOriginal = (await client.ReadRecordAsync(waterjetCreated.Id, TestContext.Current.CancellationToken))!;
             var waterjetSaved = await client.UpdateAsync(new(waterjetOriginal, waterjetOriginal with { CutLength = 3 }) { Machine = machine }, TestContext.Current.CancellationToken);
             Assert.Equal(1800m, waterjetSaved.Price);
+            var historyBeforeRename = await client.ReadAsync(TestContext.Current.CancellationToken);
+            var priceBeforeRename = await client.ReadPriceTableAsync(PriceTables.GasOxygen, TestContext.Current.CancellationToken);
+            var renamedPrice = priceBeforeRename with { Rates = priceBeforeRename.Rates.Select(rate => rate.ThicknessMillimeters == 2.5m
+                ? new PriceRate(2.8m, "2,8", 125) : rate).ToArray() };
+            var renaming = new PriceTableChange(priceBeforeRename, renamedPrice);
+            var usage = await client.ReadThicknessUsageAsync(renaming, TestContext.Current.CancellationToken);
+            Assert.Equal("2,5", Assert.Single(usage).ColumnName);
+            Assert.True(PriceTableChange.Matches(renamedPrice, await client.SaveAsync(renaming with { ConfirmedUsage = usage.ToArray() }, TestContext.Current.CancellationToken)));
+            Assert.True(PriceTableChange.Matches(renamedPrice, await client.ReadPriceTableAsync(priceBeforeRename.Name, TestContext.Current.CancellationToken)));
+            Assert.Equal(historyBeforeRename, await client.ReadAsync(TestContext.Current.CancellationToken));
+            Assert.Single(Directory.GetFiles(root, "*.before-price-edit-*.bak"));
         }
         finally { Directory.Delete(root, recursive: true); }
     }

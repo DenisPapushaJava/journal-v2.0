@@ -63,6 +63,9 @@ try
     else if (request.Operation == AccessHostOperation.UpdatePriceTable)
         response = new(1, PriceTable: await new OleDbPriceEditor(request.Path).SaveAsync(
             request.PriceChange ?? throw new InvalidDataException("Не переданы изменения прайса.")));
+    else if (request.Operation == AccessHostOperation.ReadPriceUsage)
+        response = new(1, PriceUsage: (await new OleDbPriceEditor(request.Path).ReadThicknessUsageAsync(
+            request.PriceChange ?? throw new InvalidDataException("Не переданы изменения толщин."))).ToArray());
     else if (request.Operation is AccessHostOperation.ReadOrder or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder)
     {
         var maintenance = new OleDbOrderMaintenance(request.Path);

@@ -13,19 +13,27 @@ public partial class PriceEditorWindow : Window
     private bool _discard;
     public PriceEditorWindow() => InitializeComponent();
     protected override async void OnOpened(EventArgs e)
-    { base.OnOpened(e); if (Model is { } model) await model.RefreshCommand.ExecuteAsync(null); }
+    { base.OnOpened(e); if (Model is { } model) { model.PropertyChanged += OnModelChanged; await model.RefreshCommand.ExecuteAsync(null); } }
+    private void OnModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PriceEditorViewModel.IsConfirmingThickness) && Model?.IsConfirmingThickness == true)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => BackFromThicknessConfirmationButton.Focus());
+    }
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         if (Model is { } model)
         {
             if (model.IsSaving || model.IsExportDialogOpen) e.Cancel = true;
+            else if (model.IsConfirmingThickness) { e.Cancel = true; model.DismissThicknessConfirmation(); }
             else if (model.HasChanges && !_discard) { e.Cancel = true; model.ConfirmDiscard = true; }
         }
         base.OnClosing(e);
     }
-    protected override void OnClosed(EventArgs e) { Model?.RefreshCommand.Cancel(); base.OnClosed(e); }
+    protected override void OnClosed(EventArgs e) { if (Model is { } model) { model.PropertyChanged -= OnModelChanged; model.RefreshCommand.Cancel(); } base.OnClosed(e); }
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && Model?.IsConfirmingThickness == true)
+        { Model.DismissThicknessConfirmation(); SavePricesButton.Focus(); e.Handled = true; return; }
         if (e.Key == Key.Enter && Model?.CanStageRate == true)
         { StageRateAndScroll(); e.Handled = true; return; }
         base.OnKeyDown(e);
@@ -40,8 +48,10 @@ public partial class PriceEditorWindow : Window
     private void StageRateAndScroll()
     {
         Model?.StageRateCommand.Execute(null);
-        if (Model is { ShowAddRate: false, SelectedRate: { } row }) PriceGrid.ScrollIntoView(row, PriceGrid.Columns[2]);
+        if (Model is { ShowAddRate: false, SelectedRate: { } row }) PriceGrid.ScrollIntoView(row, PriceGrid.Columns[3]);
     }
+    private void OnBackFromThicknessConfirmationClick(object? sender, RoutedEventArgs e)
+    { Model?.DismissThicknessConfirmation(); SavePricesButton.Focus(); }
     private void OnRemoveNewRateClick(object? sender, RoutedEventArgs e)
     { if (sender is Control { DataContext: PriceRowViewModel row }) Model?.RemoveNewRate(row); }
     private async void OnNewMachineClick(object? sender, RoutedEventArgs e)

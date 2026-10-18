@@ -4,10 +4,10 @@ namespace Jornal.Infrastructure.Access;
 
 internal static class AccessPriceBackup
 {
-    internal static string Create(string path, CancellationToken cancellationToken)
+    internal static string Create(string path, CancellationToken cancellationToken, string operation = "price-expansion")
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var backup = Path.GetFullPath(path) + ".before-price-expansion-" +
+        var backup = Path.GetFullPath(path) + ".before-" + operation + "-" +
             DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N") + ".bak";
         var partial = backup + ".partial";
         try

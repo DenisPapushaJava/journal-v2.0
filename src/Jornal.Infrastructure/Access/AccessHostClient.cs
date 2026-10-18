@@ -8,7 +8,7 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 /// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
-public sealed partial class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IPriceEditor, IOrderMaintenance, IOrderDurationInitializer, IOrderAnnotationsInitializer, IMachineCatalogReader, IMachineCreator
+public sealed partial class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IPriceEditor, IPriceImpactReader, IOrderMaintenance, IOrderDurationInitializer, IOrderAnnotationsInitializer, IMachineCatalogReader, IMachineCreator
 {
     private readonly Action<Process> _start = static process => { process.Start(); };
     internal AccessHostClient(string path, string? executable, Action<Process> start) : this(path, executable) => _start = start;
@@ -61,6 +61,12 @@ public sealed partial class AccessHostClient(string path, string? executable = n
     {
         var snapshot = change.Snapshot();
         return (await SendAsync(new(1, AccessHostOperation.UpdatePriceTable, System.IO.Path.GetFullPath(path), PriceChange: snapshot), cancellationToken)).PriceTable!;
+    }
+
+    public async Task<IReadOnlyList<PriceThicknessUsage>> ReadThicknessUsageAsync(PriceTableChange change, CancellationToken cancellationToken = default)
+    {
+        var snapshot = change.Snapshot();
+        return (await SendAsync(new(1, AccessHostOperation.ReadPriceUsage, System.IO.Path.GetFullPath(path), PriceChange: snapshot), cancellationToken)).PriceUsage!;
     }
 
     public async Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default)
@@ -191,11 +197,23 @@ public sealed partial class AccessHostClient(string path, string? executable = n
                     throw new OrderPriceChangedException(quote);
                 }
                 if (response.ChangedDraftIndex is not null) throw new InvalidDataException("Индекс цены без новой цены.");
-                if (write) throw AppDiagnostics.Attach(new OrderWriteException(response.Failure ?? OrderWriteFailure.OutcomeUnknown, response.Error), response.Diagnostic);
+                if (write || request.Operation == AccessHostOperation.ReadPriceUsage && response.Failure is not null)
+                    throw AppDiagnostics.Attach(new OrderWriteException(response.Failure ?? OrderWriteFailure.OutcomeUnknown, response.Error), response.Diagnostic);
                 throw AppDiagnostics.Attach(new OrderReadException(response.Error), response.Diagnostic);
             }
             if (response.Failure is not null || response.ChangedQuote is not null || response.ChangedDraftIndex is not null)
                 throw new InvalidDataException("Неполный ответ модуля Access.");
+            if (request.Operation == AccessHostOperation.ReadPriceUsage)
+            {
+                if (response.PriceUsage is not { } usage || response.Orders is not null || response.Record is not null || response.PriceTable is not null ||
+                    response.Machines is not null || response.Machine is not null || response.MaintenanceCompleted is not null ||
+                    response.CuttingTimePrepared is not null || response.AnnotationsPrepared is not null ||
+                    usage.Any(item => item is null || item.OrderCount < 0) ||
+                    !usage.Select(item => item.ColumnName).SequenceEqual(request.PriceChange!.RenamedRates.Select(pair => pair.Before.ColumnName)))
+                    throw new InvalidDataException("Не подтверждено количество заявок для изменения толщин.");
+                return response;
+            }
+            if (response.PriceUsage is not null) throw new InvalidDataException("Количество заявок передано для другой операции.");
             if (request.Operation == AccessHostOperation.PrepareAnnotations)
             {
                 if (response.AnnotationsPrepared != true || !response.AnnotationsSupported || response.Orders is not null || response.Record is not null || response.PriceTable is not null || response.MaintenanceCompleted is not null || response.CuttingTimePrepared is not null || response.Machines is not null || response.Machine is not null)
