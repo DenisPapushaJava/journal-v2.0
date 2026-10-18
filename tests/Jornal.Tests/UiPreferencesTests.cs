@@ -15,7 +15,7 @@ public sealed class UiPreferencesTests
             var store = new JsonUiPreferencesStore(Path.Combine(directory, "profile", "ui-settings.json"));
             Assert.Null(store.Load().Preferences);
             store.Save(new UiPreferences { ResultFormatting = new ResultTextStyle { FontSizePoints = 12m, ColorHex = "#2F5496" },
-                Layout = new ScreenLayout { ResultHeight = 216, RowHeight = 24,
+                Layout = new ScreenLayout { ResultHeight = 216, RowHeight = 24, ColumnSizingVersion = ScreenLayout.CurrentColumnSizingVersion,
                 PanelOrder = ["status", "orders", "clipboard"],
                 Columns = [new("customer", 1, false, false, 250)] } });
             store.Save(store.Load().Preferences! with { DarkTheme = true });
@@ -24,6 +24,7 @@ public sealed class UiPreferencesTests
             Assert.True(loaded.Preferences!.DarkTheme);
             Assert.Equal(216, loaded.Preferences.Layout.ResultHeight);
             Assert.Equal(24, loaded.Preferences.Layout.RowHeight);
+            Assert.Equal(ScreenLayout.CurrentColumnSizingVersion, loaded.Preferences.Layout.ColumnSizingVersion);
             Assert.Equal("status", loaded.Preferences.Layout.PanelOrder[0]);
             Assert.Equal(new ResultTextStyle { FontSizePoints = 12m, ColorHex = "#2F5496" }, loaded.Preferences.ResultFormatting);
             Assert.Equal(new ColumnPreference("customer", 1, false, false, 250), Assert.Single(loaded.Preferences.Layout.Columns));

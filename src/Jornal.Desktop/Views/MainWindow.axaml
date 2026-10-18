@@ -8,6 +8,9 @@
         Title="Journal · Журнал заявок" Width="1366" Height="800" MinWidth="1280" MinHeight="680"
         WindowStartupLocation="CenterScreen">
   <Window.Styles>
+    <Style Selector="DataGrid#OrdersGrid DataGridColumnHeader, DataGrid#OrdersGrid DataGridCell">
+      <Setter Property="Padding" Value="6,0" />
+    </Style>
     <Style Selector="Border#SpecificationOverlay">
       <Setter Property="Background" Value="#66000000" />
     </Style>
@@ -268,7 +271,6 @@
                         <Flyout>
                           <StackPanel Spacing="12" Width="300">
                             <TextBlock Text="Вид таблицы" FontSize="16" FontWeight="SemiBold" />
-                            <ui:JournalButton x:Name="FitTableToViewportButton" Label="По ширине окна" Icon="columns-3" Click="OnFitTableToViewport" />
                             <Grid ColumnDefinitions="*,28,4,48,4,28,8,28">
                               <TextBlock Text="Высота строки" VerticalAlignment="Center" />
                               <ui:JournalButton x:Name="DecreaseRowHeightButton" Grid.Column="1" Label="−" Width="28" Height="28" MinHeight="28" Padding="0"
@@ -304,43 +306,43 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding DateText}" SortMemberPath="OrderDate" Width="96*" MinWidth="96" />
-                <DataGridTextColumn Header="Спецификация" Binding="{ReflectionBinding SpecificationNumber}" Width="120*" MinWidth="112" />
-                <DataGridTextColumn Header="Менеджер" Binding="{ReflectionBinding ManagerName}" Width="144*" MinWidth="140">
+                <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding DateText}" SortMemberPath="OrderDate" Width="90*" MinWidth="88" />
+                <DataGridTextColumn Header="Спецификация" Binding="{ReflectionBinding SpecificationNumber}" Width="112*" MinWidth="106" />
+                <DataGridTextColumn Header="Менеджер" Binding="{ReflectionBinding ManagerName}" Width="124*" MinWidth="118">
                   <DataGridTextColumn.HeaderTemplate>
                     <DataTemplate>
                       <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.ManagerFilter}" />
                     </DataTemplate>
                   </DataGridTextColumn.HeaderTemplate>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Заказчик" Binding="{ReflectionBinding CustomerName}" Width="180*" MinWidth="180" />
-                <DataGridTextColumn Header="Вид резки" Binding="{ReflectionBinding CuttingType}" Width="144*" MinWidth="140">
+                <DataGridTextColumn Header="Заказчик" Binding="{ReflectionBinding CustomerName}" Width="180*" MinWidth="140" />
+                <DataGridTextColumn Header="Вид резки" Binding="{ReflectionBinding CuttingType}" Width="122*" MinWidth="116">
                   <DataGridTextColumn.HeaderTemplate>
                     <DataTemplate>
                       <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.CuttingTypeFilter}" />
                     </DataTemplate>
                   </DataGridTextColumn.HeaderTemplate>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Материал" Binding="{ReflectionBinding MaterialName}" Width="144*" MinWidth="140">
+                <DataGridTextColumn Header="Материал" Binding="{ReflectionBinding MaterialName}" Width="116*" MinWidth="114">
                   <DataGridTextColumn.HeaderTemplate>
                     <DataTemplate>
                       <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.MaterialFilter}" />
                     </DataTemplate>
                   </DataGridTextColumn.HeaderTemplate>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Толщ., мм" Binding="{ReflectionBinding ThicknessText}" SortMemberPath="ThicknessMillimeters" Width="120*" MinWidth="116" ui:TableCellPresentation.IsNumeric="True">
+                <DataGridTextColumn Header="Толщ., мм" Binding="{ReflectionBinding ThicknessText}" SortMemberPath="ThicknessMillimeters" Width="118*" MinWidth="116" ui:TableCellPresentation.IsNumeric="True">
                   <DataGridTextColumn.HeaderTemplate>
                     <DataTemplate>
                       <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.ThicknessFilter}" />
                     </DataTemplate>
                   </DataGridTextColumn.HeaderTemplate>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Размер листа" Binding="{ReflectionBinding SheetSize}" Width="112*" MinWidth="106" />
-                <DataGridTextColumn Header="Листы" Binding="{ReflectionBinding SheetCount}" SortMemberPath="SheetCountSortKey" Width="72*" MinWidth="72" ui:TableCellPresentation.IsNumeric="True" />
-                <DataGridTextColumn Header="Рез, м" Binding="{ReflectionBinding CutLengthText}" SortMemberPath="CutLengthMeters" Width="76*" MinWidth="64" ui:TableCellPresentation.IsNumeric="True" />
-                <DataGridTextColumn Header="Вес, кг" Binding="{ReflectionBinding WeightText}" SortMemberPath="WeightSortKey" Width="74*" MinWidth="68" ui:TableCellPresentation.IsNumeric="True" />
-                <DataGridTextColumn Header="Стоимость" Binding="{ReflectionBinding StoredPriceText}" SortMemberPath="StoredCuttingPrice" Width="112*" MinWidth="112" ui:TableCellPresentation.IsNumeric="True" />
-                <DataGridTemplateColumn Header="Время резки" SortMemberPath="CuttingDurationMinutes" Width="128*" MinWidth="112" ui:TableCellPresentation.IsNumeric="True">
+                <DataGridTextColumn Header="Размер листа" Binding="{ReflectionBinding SheetSize}" Width="112*" MinWidth="104" />
+                <DataGridTextColumn Header="Листы" Binding="{ReflectionBinding SheetCount}" SortMemberPath="SheetCountSortKey" Width="66*" MinWidth="64" ui:TableCellPresentation.IsNumeric="True" />
+                <DataGridTextColumn Header="Рез, м" Binding="{ReflectionBinding CutLengthText}" SortMemberPath="CutLengthMeters" Width="68*" MinWidth="64" ui:TableCellPresentation.IsNumeric="True" />
+                <DataGridTextColumn Header="Вес, кг" Binding="{ReflectionBinding WeightText}" SortMemberPath="WeightSortKey" Width="76*" MinWidth="68" ui:TableCellPresentation.IsNumeric="True" />
+                <DataGridTextColumn Header="Стоимость" Binding="{ReflectionBinding StoredPriceText}" SortMemberPath="StoredCuttingPrice" Width="104*" MinWidth="96" ui:TableCellPresentation.IsNumeric="True" />
+                <DataGridTemplateColumn Header="Время резки" SortMemberPath="CuttingDurationMinutes" Width="96*" MinWidth="88" ui:TableCellPresentation.IsNumeric="True">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:OrderRowViewModel">
                       <TextBlock Text="{Binding CuttingTimeText}" ui:TableCellPresentation.Hint="{Binding CuttingTimeHint}"
@@ -348,7 +350,7 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Гибка" SortMemberPath="HasBending" Width="108*" MinWidth="104" IsReadOnly="True">
+                <DataGridTemplateColumn Header="Гибка" SortMemberPath="HasBending" Width="96*" MinWidth="94" IsReadOnly="True">
                   <DataGridTemplateColumn.HeaderTemplate>
                     <DataTemplate>
                       <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.BendingFilter}" />
@@ -361,7 +363,7 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Комментарий" SortMemberPath="Comment" Width="200*" MinWidth="120" IsReadOnly="True">
+                <DataGridTemplateColumn Header="Комментарий" SortMemberPath="Comment" Width="140*" MinWidth="100" IsReadOnly="True">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:OrderRowViewModel">
                       <TextBlock Text="{Binding CommentText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
@@ -369,8 +371,8 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="БЛЦБ" Binding="{ReflectionBinding DeliveryNumber}" Width="144*" MinWidth="128" />
-                <DataGridTemplateColumn Header="Статус" Width="128*" MinWidth="128" SortMemberPath="StatusText">
+                <DataGridTextColumn Header="БЛЦБ" Binding="{ReflectionBinding DeliveryNumber}" Width="120*" MinWidth="112" />
+                <DataGridTemplateColumn Header="Статус" Width="110*" MinWidth="100" SortMemberPath="StatusText">
                   <DataGridTemplateColumn.HeaderTemplate>
                     <DataTemplate>
                       <ui:StatusFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext}" />

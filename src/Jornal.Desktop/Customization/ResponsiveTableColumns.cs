@@ -23,6 +23,7 @@ internal sealed class ResponsiveTableColumns : IDisposable
         _widths = table.Columns.Skip(1).ToDictionary(column => column, column => column.Width);
         foreach (var column in _widths.Keys) column.PropertyChanged += OnColumnChanged;
         table.LayoutUpdated += OnLayoutUpdated;
+        table.Sorting += OnSorting;
         Schedule();
     }
     public DataGridLength DesiredWidth(DataGridColumn column) => _widths[column];
@@ -33,13 +34,6 @@ internal sealed class ResponsiveTableColumns : IDisposable
         try { column.Width = width; }
         finally { IsAdjusting = false; }
         Schedule();
-    }
-    public void FitVisible()
-    {
-        var widths = _widths.Keys.Where(column => column.IsVisible).Select(column =>
-            (Column: column, Width: Math.Max(column.MinWidth, column.ActualWidth))).ToArray();
-        foreach (var (column, width) in widths)
-            SetWidth(column, new DataGridLength(width, DataGridLengthUnitType.Star));
     }
     private void OnColumnChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
@@ -61,6 +55,12 @@ internal sealed class ResponsiveTableColumns : IDisposable
     {
         if (Math.Abs(AvailableWidth() - _lastAvailable) > 0.5) Schedule();
     }
+    private void OnSorting(object? sender, DataGridColumnEventArgs e) => Dispatcher.UIThread.Post(() =>
+    {
+        // После сортировки DataGrid пересчитывает полосы по прежнему размеру presenter.
+        // Повторное измерение учитывает уже занятую вертикальной полосой дорожку.
+        if (!_disposed) _table.InvalidateMeasure();
+    }, DispatcherPriority.Loaded);
     private void Schedule()
     {
         if (_queued || _disposed) return;
@@ -94,6 +94,7 @@ internal sealed class ResponsiveTableColumns : IDisposable
     {
         _disposed = true;
         _table.LayoutUpdated -= OnLayoutUpdated;
+        _table.Sorting -= OnSorting;
         foreach (var column in _widths.Keys) column.PropertyChanged -= OnColumnChanged;
     }
 }

@@ -92,7 +92,8 @@ public sealed partial class MainWindowCustomization
                 model.ApplyEntrySuggestions(profile.EntrySuggestions ?? new());
             }
         }
-        Apply(loaded.Preferences?.Layout ?? ScreenLayout.CreateDefault());
+        var layout = loaded.Preferences?.Layout ?? ScreenLayout.CreateDefault();
+        Apply(layout, upgradeColumnSizing: layout.ColumnSizingVersion < ScreenLayout.CurrentColumnSizingVersion);
         _applying = false;
         _initialized = true;
     }
@@ -177,13 +178,6 @@ public sealed partial class MainWindowCustomization
 
     public double RowHeight => _layout.RowHeight;
 
-    public void FitTableToViewport()
-    {
-        if (!_initialized || _applying) return;
-        _responsiveColumns.FitVisible();
-        Changed();
-    }
-
     private void ApplyTableDensity()
     {
         var density = TableDensity.FromHeight(_layout.RowHeight);
@@ -245,11 +239,11 @@ public sealed partial class MainWindowCustomization
             pair => Math.Max(MinimumWidths[pair.Key], _groups.ColumnDefinitions[Grid.GetColumn(pair.Value)].ActualWidth))
     }).Normalize();
 
-    private void Apply(ScreenLayout layout)
+    private void Apply(ScreenLayout layout, bool upgradeColumnSizing = false)
     {
         var wasApplying = _applying;
         _applying = true;
-        _layout = layout.Normalize();
+        _layout = layout.Normalize() with { ColumnSizingVersion = ScreenLayout.CurrentColumnSizingVersion };
         ApplyTableDensity();
         // Сначала восстанавливаем исходные определения: новые столбцы получают безопасные значения.
         var columns = _defaultColumns.ToDictionary(column => column.Id);
@@ -259,7 +253,11 @@ public sealed partial class MainWindowCustomization
         {
             var preference = columns[id];
             var column = _table.Columns[index + 1];
-            _responsiveColumns.SetWidth(column, new DataGridLength(preference.Width, preference.Star ? DataGridLengthUnitType.Star : DataGridLengthUnitType.Pixel));
+            // Старые Pixel и короткие Star-единицы переводятся в сопоставимые веса один раз.
+            var width = upgradeColumnSizing && preference.Star && preference.Width <= 10
+                ? Math.Min(5000, preference.Width * _defaultColumns[index].Width) : preference.Width;
+            _responsiveColumns.SetWidth(column, new DataGridLength(width,
+                upgradeColumnSizing || preference.Star ? DataGridLengthUnitType.Star : DataGridLengthUnitType.Pixel));
             column.IsVisible = preference.Visible;
         }
         var sorted = columns.Values.OrderBy(column => column.Position)

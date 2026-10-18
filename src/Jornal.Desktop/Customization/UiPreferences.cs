@@ -8,6 +8,7 @@ public sealed record ColumnPreference(string Id, int Position, bool Visible, boo
 
 public sealed record ScreenLayout
 {
+    public const int CurrentColumnSizingVersion = 1;
     public const double MinimumResultHeight = 106;
     public const double MaximumResultHeight = 280;
     public bool ResultAboveCommands { get; init; } = true;
@@ -18,10 +19,11 @@ public sealed record ScreenLayout
     public Dictionary<string, double> PanelWidths { get; init; } = new()
         { ["orders"] = 380, ["clipboard"] = 548, ["status"] = 592 };
     public ColumnPreference[] Columns { get; init; } = [];
+    public int ColumnSizingVersion { get; init; }
     [JsonConverter(typeof(WorkspaceLayoutConverter))]
     public WorkspaceLayout? Workspace { get; init; }
 
-    public static ScreenLayout CreateDefault() => new() { Workspace = new() };
+    public static ScreenLayout CreateDefault() => new() { Workspace = new(), ColumnSizingVersion = CurrentColumnSizingVersion };
 
     public ScreenLayout Normalize()
     {
@@ -39,6 +41,7 @@ public sealed record ScreenLayout
         {
             ResultHeight = double.IsFinite(ResultHeight) ? Math.Clamp(ResultHeight, MinimumResultHeight, MaximumResultHeight) : MinimumResultHeight,
             RowHeight = TableDensity.NormalizeHeight(RowHeight),
+            ColumnSizingVersion = ColumnSizingVersion < CurrentColumnSizingVersion ? 0 : CurrentColumnSizingVersion,
             PanelOrder = order, PanelWidths = widths, Columns = columns, Workspace = Workspace?.Normalize()
         };
     }

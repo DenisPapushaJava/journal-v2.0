@@ -1,10 +1,10 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="using:Jornal.Desktop.Controls" xmlns:vm="using:Jornal.Desktop.ViewModels"
              x:Class="Jornal.Desktop.Controls.ColumnFilterHeader" x:DataType="vm:OrderColumnFilterViewModel">
-  <Grid ColumnDefinitions="*,4,28" VerticalAlignment="Center">
+  <Grid ColumnDefinitions="*,2,24" VerticalAlignment="Center">
     <TextBlock Text="{Binding Header}" VerticalAlignment="Center" TextWrapping="NoWrap" />
     <ui:JournalButton x:Name="ColumnFilterButton" Grid.Column="2" Label="{Binding FilterLabel}" Icon="funnel" IconOnly="True"
-                      Classes="status-filter-trigger" Classes.active="{Binding HasFilter}" Width="28" Height="28" MinHeight="28" Padding="0"
+                      Classes="status-filter-trigger" Classes.active="{Binding HasFilter}" Width="24" Height="26" MinHeight="26" Padding="0"
                       IsEnabled="{Binding CanUseJournal}" AutomationProperties.HelpText="{Binding Description}">
       <ToolTip.Tip><TextBlock Text="{Binding Description}" MaxWidth="360" TextWrapping="Wrap" MaxLines="8" TextTrimming="CharacterEllipsis" /></ToolTip.Tip>
       <Button.Flyout>
