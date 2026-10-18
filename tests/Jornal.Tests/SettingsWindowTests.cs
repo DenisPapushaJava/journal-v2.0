@@ -49,7 +49,10 @@ public sealed class SettingsWindowTests
                 Assert.Equal(index, model.SelectedIndex);
                 Assert.Equal(dark ? ThemeVariant.Dark : ThemeVariant.Light, window.ActualThemeVariant);
                 foreach (var button in window.GetVisualDescendants().OfType<JournalButton>().Where(control => control.IsEffectivelyVisible))
+                {
+                    button.BringIntoView(); Pump();
                     InBounds(window, button);
+                }
                 InBounds(window, nav); InBounds(window, window.FindDescendant<Control>("CloseSettingsButton")!);
                 Save(window, $"settings-{index}-{width}-{dark}");
             }

@@ -153,6 +153,7 @@ public partial class MainWindowViewModel
 
     private void AcceptMaintenance(HashSet<int> ids, OrderRecord? replacement)
     {
+        CancelOrderLoading();
         var selected = _selectedOrderIds.ToHashSet();
         _allOrders = replacement is null ? _allOrders.Where(row => !ids.Contains(row.Id)).ToArray()
             : _allOrders.Where(row => !ids.Contains(row.Id)).Append(replacement.ToSummary()).OrderByDescending(row => row.OrderDate).ThenByDescending(row => row.Id).ToArray();

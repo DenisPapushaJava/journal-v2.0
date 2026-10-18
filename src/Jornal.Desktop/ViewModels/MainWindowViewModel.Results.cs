@@ -21,10 +21,10 @@ public partial class MainWindowViewModel
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanAddResult)), NotifyPropertyChangedFor(nameof(CanClearResult)),
      NotifyPropertyChangedFor(nameof(CanCopyResult)), NotifyPropertyChangedFor(nameof(CanEditResult)), NotifyPropertyChangedFor(nameof(CanConfigureSource)), NotifyPropertyChangedFor(nameof(CanCheckUpdates))]
     private bool _isCopyingResult;
-    public bool CanAddResult => CanEditResult && _selectedCount > 0;
+    public bool CanAddResult => CanEditResult && CanUseJournal && _selectedCount > 0;
     public bool CanClearResult => CanEditResult && ResultText.Length > 0;
     public bool CanCopyResult => CanEditResult && !string.IsNullOrWhiteSpace(ResultText);
-    public bool CanEditResult => CanUseJournal && !IsCopyingResult;
+    public bool CanEditResult => CanChoosePeriod && !IsLoadingOrders && !IsCopyingResult;
 
     partial void OnResultTextChanged(string value)
     {
@@ -35,7 +35,7 @@ public partial class MainWindowViewModel
 
     public void AddOrdersToResult(IEnumerable<OrderRowViewModel> selected)
     {
-        if (!CanEditResult) return;
+        if (!CanEditResult || !CanUseJournal) return;
         var visible = Orders.ToDictionary(row => row.Id, row => row.Source);
         var orders = selected.Select(row => row.Id).Distinct()
             .Where(visible.ContainsKey).Select(id => visible[id]).ToArray();

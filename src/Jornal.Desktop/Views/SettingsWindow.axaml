@@ -42,6 +42,12 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="24,0,24,24" Spacing="24">
             <StackPanel Spacing="12">
+              <TextBlock Text="При запуске показывать" FontWeight="SemiBold" />
+              <ComboBox x:Name="StartupPeriodSelector" ItemsSource="{Binding Journal.StartupPeriods}"
+                        SelectedIndex="{Binding Journal.StartupPeriodIndex, Mode=TwoWay}" Width="180"
+                        AutomationProperties.Name="При запуске показывать" />
+            </StackPanel>
+            <StackPanel Spacing="12">
               <TextBlock Text="Оформление" FontWeight="SemiBold" />
               <CheckBox x:Name="SettingsDarkThemeCheckBox" Content="Тёмная тема" IsChecked="{Binding Journal.IsDarkTheme, Mode=TwoWay}" />
             </StackPanel>

@@ -18,7 +18,7 @@ public partial class MainWindowViewModel
         _source?.Path is not null ? "сохранено в MDB" : "до закрытия программы";
     public string? NewOrderHint => orderCreator is null && _source?.Path is not null
         ? "Изменение MDB доступно в Windows" : null;
-    public bool CanConfigureSource => sourceManager is not null && CanUseJournal && !IsCopyingResult;
+    public bool CanConfigureSource => sourceManager is not null && CanChoosePeriod && !IsLoadingOrders && !IsCopyingResult;
 
     public void InitializeSource(OrderSource source)
     {
@@ -37,17 +37,21 @@ public partial class MainWindowViewModel
         try
         {
             var candidate = sourceManager!.Create(path);
-            var orders = await candidate.Reader.ReadAsync(cancellationToken);
+            var changed = _source?.Path != candidate.Path || _source?.Error is not null;
+            var date = RequiresReload && !changed ? null : RequestedDate;
+            var orders = date is { } day ? await candidate.Reader.ReadDayAsync(day, cancellationToken)
+                : await candidate.Reader.ReadAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             // До успешной проверки и сохранения пути прежний источник и экран остаются действующими.
             sourceManager.Save(candidate);
-            var changed = _source?.Path != candidate.Path || _source?.Error is not null;
+            CancelOrderLoading();
             orderReader = candidate.Reader;
             orderCreator = candidate.Creator;
             orderEditor = candidate.Editor;
             _source = candidate;
             UpdateTrashBadge([]);
             _allOrders = orders;
+            _ordersLoaded = true; _loadedDate = date; _scopeLoadFailed = false;
             RequiresReload = false;
             if (changed)
             {
@@ -55,7 +59,10 @@ public partial class MainWindowViewModel
                 _pendingEdit = null;
                 ResultText = "";
                 _resultOrderIds.Clear();
-                ResetFilters();
+                _resettingSearch = true;
+                try { ResetFilters(); FilterDate = date?.ToDateTime(TimeOnly.MinValue); }
+                finally { _resettingSearch = false; }
+                ApplySearch();
             }
             else ApplySearch();
             NotifySourceChanged();

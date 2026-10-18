@@ -66,6 +66,7 @@ public partial class MainWindowViewModel
 
     private void ResetSearch(bool resetScope)
     {
+        var wasResetting = _resettingSearch;
         _resettingSearch = true;
         try
         {
@@ -76,13 +77,23 @@ public partial class MainWindowViewModel
             if (resetScope) SearchScopeIndex = 0;
             ResetTableFilters();
         }
-        finally { _resettingSearch = false; }
+        finally { _resettingSearch = wasResetting; }
         ApplySearch();
     }
 
     private void ApplySearch()
     {
         if (_resettingSearch) return;
+        if (_scopeReadCancellation is not null || _scopeLoadFailed || _ordersLoaded && !CoversRequestedPeriod)
+        {
+            OrdersLoadTask = LoadOrdersScopeAsync(force: false);
+            return;
+        }
+        ApplyLoadedOrders();
+    }
+
+    private void ApplyLoadedOrders()
+    {
         if (!ReferenceEquals(_cachedSource, _allOrders))
         {
             var ids = _allOrders.Select(row => row.Id).ToHashSet();

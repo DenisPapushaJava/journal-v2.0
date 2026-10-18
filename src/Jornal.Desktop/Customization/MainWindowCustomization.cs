@@ -86,6 +86,7 @@ public sealed partial class MainWindowCustomization
             if (loaded.Preferences is { } profile)
             {
                 model.IsDarkTheme = profile.DarkTheme;
+                model.ShowTodayOnStartup = profile.ShowTodayOnStartup;
                 model.ApplyResultStyle(profile.ResultFormatting ?? new());
                 model.ApplyResultPricing(profile.ResultPricing ?? new());
                 model.ApplyNewOrderColor(profile.NewOrderColor ?? new());
@@ -197,7 +198,7 @@ public sealed partial class MainWindowCustomization
     {
         try
         {
-            _store.Save(new UiPreferences { DarkTheme = Model?.IsDarkTheme == true, Layout = layout,
+            _store.Save(new UiPreferences { DarkTheme = Model?.IsDarkTheme == true, ShowTodayOnStartup = Model?.ShowTodayOnStartup ?? true, Layout = layout,
                 ResultFormatting = Model?.CaptureResultStyle() ?? new(), ResultPricing = Model?.CaptureResultPricing() ?? new(), NewOrderColor = Model?.CaptureNewOrderColor() ?? new(),
                 EntrySuggestions = Model?.CaptureEntrySuggestions() ?? new() });
             if (Model is { } model) model.PreferencesError = null;

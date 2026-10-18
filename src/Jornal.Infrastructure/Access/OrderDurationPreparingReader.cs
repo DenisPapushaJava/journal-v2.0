@@ -11,6 +11,17 @@ public sealed class OrderDurationPreparingReader(IOrderReader reader, IOrderDura
     public async Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default)
     {
         var rows = await reader.ReadAsync(cancellationToken);
+        return await PrepareAsync(rows, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<OrderSummary>> ReadDayAsync(DateOnly date, CancellationToken cancellationToken = default)
+    {
+        var rows = await reader.ReadDayAsync(date, cancellationToken);
+        return await PrepareAsync(rows, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<OrderSummary>> PrepareAsync(IReadOnlyList<OrderSummary> rows, CancellationToken cancellationToken)
+    {
         var warnings = new List<string>();
         if (!_prepared)
         {

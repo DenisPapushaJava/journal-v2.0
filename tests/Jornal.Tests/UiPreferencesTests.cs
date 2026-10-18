@@ -8,6 +8,21 @@ namespace Jornal.Tests;
 public sealed class UiPreferencesTests
 {
     [Fact]
+    public void StartupPeriodDefaultsForOldProfilesAndPersistsIndependentOfLayout()
+    {
+        InTemporaryFolder(directory =>
+        {
+            var path = Path.Combine(directory, "ui-settings.json");
+            File.WriteAllText(path, "{\"Version\":1,\"DarkTheme\":true,\"Layout\":{\"RowHeight\":24}}");
+            var store = new JsonUiPreferencesStore(path);
+            var old = store.Load().Preferences!;
+            Assert.True(old.ShowTodayOnStartup);
+            store.Save(old with { ShowTodayOnStartup = false });
+            var saved = store.Load().Preferences!;
+            Assert.False(saved.ShowTodayOnStartup); Assert.True(saved.DarkTheme); Assert.Equal(24, saved.Layout.RowHeight);
+        });
+    }
+    [Fact]
     public void ProfileRoundTripsAndReplacementLeavesNoTemporaryFile()
     {
         InTemporaryFolder(directory =>

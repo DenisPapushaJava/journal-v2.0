@@ -60,6 +60,7 @@ public partial class MainWindowViewModel
             if (updated.Count != ids.Count || !updated.Select(order => order.Id).ToHashSet().SetEquals(ids))
                 throw new InvalidOperationException("Адаптер вернул неполный набор изменённых заявок.");
             var replacements = updated.ToDictionary(order => order.Id);
+            CancelOrderLoading();
             _allOrders = _allOrders.Select(order => replacements.GetValueOrDefault(order.Id, order)).ToArray();
             // Сохраняем объекты видимых строк: положение и выделение не привязаны к их индексам.
             foreach (var row in Orders.ToArray())

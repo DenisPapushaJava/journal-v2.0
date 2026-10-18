@@ -15,6 +15,9 @@ public partial class NewOrderViewModel
     private bool _hasBatchPriceNotice;
     public ObservableCollection<BatchSpecificationItem> BatchItems { get; } = [];
     public IReadOnlyList<OrderSummary> ExistingOrders { get; set; } = [];
+    public Func<DateOnly, CancellationToken, Task<IReadOnlyList<OrderSummary>>>? ExistingOrdersForDate { get; set; }
+    private readonly Dictionary<DateOnly, Task<IReadOnlyList<OrderSummary>>> _existingOrderDays = new();
+    internal void ClearExistingOrderLookup() => _existingOrderDays.Clear();
     [ObservableProperty, NotifyPropertyChangedFor(nameof(Heading)), NotifyPropertyChangedFor(nameof(WindowTitle)), NotifyPropertyChangedFor(nameof(SaveLabel))]
     private bool _isBatchMode;
     public bool IsReadingSpecifications => IsImporting || IsBatchReading;
@@ -123,6 +126,24 @@ public partial class NewOrderViewModel
             _ = item.Form.ThicknessOptions.RefreshAsync(item.ReadCancellation);
             item.Form.Manager.Value = Manager.Value; item.Form.Customer.Value = Customer.Value;
             item.HasParameters = true;
+            if (ExistingOrdersForDate is not null && DateOnly.TryParseExact(item.Form.OrderDate.Value, "dd.MM.yyyy",
+                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var date))
+            {
+                try
+                {
+                    item.DuplicateCheckFailed = false;
+                    if (!_existingOrderDays.TryGetValue(date, out var read) || read.IsFaulted || read.IsCanceled)
+                        _existingOrderDays[date] = read = ExistingOrdersForDate(date, cancellationToken);
+                    var known = await read.WaitAsync(linked.Token);
+                    linked.Token.ThrowIfCancellationRequested();
+                    if (!BatchItems.Contains(item)) return;
+                    var ids = known.Select(row => row.Id).ToHashSet();
+                    ExistingOrders = ExistingOrders.Where(row => !ids.Contains(row.Id)).Concat(known).ToArray();
+                }
+                catch (OperationCanceledException) when (linked.IsCancellationRequested) { throw; }
+                catch (Exception exception) when (exception is not OutOfMemoryException)
+                { AppDiagnostics.Capture(DiagnosticOperation.OrderRead, exception); item.DuplicateCheckFailed = true; }
+            }
             UpdateDuplicateWarnings();
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
@@ -149,7 +170,8 @@ public partial class NewOrderViewModel
             var inDatabase = DateOnly.TryParseExact(form.OrderDate.Value, "dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None, out var date) && ExistingOrders.Any(order => order.OrderDate == date &&
                     order.SpecificationNumber == form.SpecificationNumber.Value && order.CuttingType == form.CuttingType.Value && order.CustomerName == Customer.Value);
-            item.Warning = sameNumber ? "В пакете есть спецификация с таким номером и датой." : inDatabase ? "Похожая заявка уже есть в журнале." : null;
+            item.Warning = sameNumber ? "В пакете есть спецификация с таким номером и датой." : inDatabase ? "Похожая заявка уже есть в журнале." :
+                item.DuplicateCheckFailed ? "Не удалось проверить похожие заявки в журнале." : null;
         }
     }
 

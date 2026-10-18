@@ -39,7 +39,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             nameof(CanCheckUpdates), nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
             nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult), nameof(CanConfigureSource),
             nameof(CanEditOrder), nameof(CanTrashOrder), nameof(CanOpenTrash), nameof(MaintenanceHint), nameof(EditOrderHint),
-            nameof(TrashOrderHint), nameof(CanClearSelection), nameof(CanOpenPrices), nameof(CanEnterSearch) })
+            nameof(TrashOrderHint), nameof(CanClearSelection), nameof(CanOpenPrices), nameof(CanEnterSearch), nameof(CanChoosePeriod) })
             OnPropertyChanged(name);
         NotifyClipboardAvailability();
         foreach (var filter in ColumnFilters) filter.NotifyAvailability();
@@ -48,10 +48,11 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPreferencesError))] private string? _preferencesError;
     public bool HasPreferencesError => !string.IsNullOrEmpty(PreferencesError);
-    public bool CanEnterSearch => !IsCustomizing && !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification && !IsCopyingSelection;
-    public bool CanUseJournal => CanEnterSearch && !IsSearchPending;
+    public bool CanEnterSearch => !IsCustomizing && !IsUpdatingOrders && (!IsLoadingOrders || _scopeReadCancellation is not null) && !IsImportingSpecification && !IsCopyingSelection;
+    public bool CanChoosePeriod => CanEnterSearch && !IsSearchPending;
+    public bool CanUseJournal => CanChoosePeriod && !IsLoadingOrders && !_scopeLoadFailed;
     public bool CanConfigureScreen => CanUseJournal;
-    public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification && !IsSearchPending;
+    public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification && !IsSearchPending && !_scopeLoadFailed;
     public bool CanClearSelection => _selectedCount > 0 && CanUseJournal;
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(ShowEmptyState))] private string? _errorMessage;
@@ -76,6 +77,8 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         {
             _pendingCreationForm = null;
             pending.ExistingOrders = _allOrders;
+            pending.ClearExistingOrderLookup();
+            pending.ExistingOrdersForDate = ReadExistingOrdersForDateAsync;
             pending.ResumeAfterReload();
             pending.SetEntrySuggestions(_entrySuggestions);
             return pending;
@@ -83,6 +86,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         var form = new NewOrderViewModel(orderCreator!, _source?.IsLocalCopy == true,
             isDatabase: _source?.Path is not null && _source.IsLocalCopy == false, initialColor: EffectiveNewOrderColor);
         form.ExistingOrders = _allOrders;
+        form.ExistingOrdersForDate = ReadExistingOrdersForDateAsync;
         form.PriceEditorFactory = CreatePriceEditor;
         form.SetEntrySuggestions(_entrySuggestions);
         form.SaveCommand.PropertyChanged += (_, e) =>
@@ -107,6 +111,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         _pendingCreationForm = null;
         try
         {
+            CancelOrderLoading();
             var ids = orders.Select(row => row.Id).ToHashSet();
             _allOrders = orders.Concat(_allOrders.Where(row => !ids.Contains(row.Id))).ToArray();
             // Новую строку показываем даже при несовпадающих прежних фильтрах.
@@ -122,7 +127,12 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
                 : $"Заявка сохранена, код {order.Id}, но не удалось обновить экран. Обновите список (F5); повторно добавлять её не нужно.";
         }
     }
-    partial void OnFilterDateChanged(DateTime? value) => ApplySearch();
+    partial void OnFilterDateChanged(DateTime? value)
+    {
+        OnPropertyChanged(nameof(IsTodaySelected)); OnPropertyChanged(nameof(IsAllDatesSelected));
+        OnPropertyChanged(nameof(EmptyOrdersText));
+        ApplySearch();
+    }
 
     public void UpdateSelection(IEnumerable<OrderRowViewModel> selected, OrderRowViewModel? active)
     {
@@ -145,37 +155,23 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     }
 
     [RelayCommand] private void SetStatusFilter(OrderStatusFilter filter) => StatusFilter = filter;
-    [RelayCommand] private void Today() => FilterDate = FilterDate?.Date == DateTime.Today ? null : DateTime.Today;
+    [RelayCommand] private void Today()
+    {
+        if (IsTodaySelected && _scopeLoadFailed && !IsLoadingOrders) ApplySearch();
+        else FilterDate = DateTime.Today;
+    }
+    [RelayCommand] private void AllDates()
+    {
+        if (IsAllDatesSelected && _scopeLoadFailed && !IsLoadingOrders) ApplySearch();
+        else FilterDate = null;
+    }
 
-    [RelayCommand(CanExecute = nameof(CanUseJournal))]
+    [RelayCommand(CanExecute = nameof(CanChoosePeriod))]
     private async Task ReloadAsync(CancellationToken cancellationToken)
     {
-        AppDiagnostics.Current?.Mark(DiagnosticOperation.OrderRead);
-        if (!CanUseJournal) return;
-        ErrorMessage = null;
-        IsLoadingOrders = true;
-        try
-        {
-            var orders = await orderReader.ReadAsync(cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-            _allOrders = orders;
-            ErrorMessage = (orderReader as Jornal.Infrastructure.Access.OrderDurationPreparingReader)?.PreparationWarning;
-            ApplySearch();
-            RequiresReload = false;
-            UpdatedText = $"Обновлено в {DateTime.Now:HH:mm} · F5 — обновить";
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // При отмене сохраняем уже показанные строки.
-        }
-        catch (Exception exception)
-        {
-            AppDiagnostics.Capture(DiagnosticOperation.OrderRead, exception);
-            ErrorMessage = exception is OrderReadException ? exception.Message : "Не удалось загрузить заявки. Попробуйте обновить список.";
-            ErrorMessage = AppDiagnostics.WithCode(ErrorMessage, AppDiagnostics.Capture(DiagnosticOperation.OrderRead, exception));
-            AccessHostHelp.ShowFor(exception);
-        }
-        finally { IsLoadingOrders = false; }
+        if (!CanChoosePeriod) return;
+        OrdersLoadTask = LoadOrdersScopeAsync(force: true, cancellationToken);
+        await OrdersLoadTask;
     }
 
 }

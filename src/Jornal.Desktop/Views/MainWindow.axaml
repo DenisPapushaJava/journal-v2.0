@@ -208,10 +208,13 @@
       </Grid>
       <Grid x:Name="Workspace" Grid.Row="2" RowDefinitions="Auto,12,Auto,*,36">
         <Grid x:Name="FiltersPanel" Grid.Row="0" IsEnabled="{Binding CanEnterSearch}" ColumnDefinitions="Auto,12,*" RowDefinitions="Auto,Auto">
-          <StackPanel x:Name="DateFilters" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsEnabled="{Binding CanUseJournal}">
-            <ui:JournalButton Label="Сегодня" Command="{Binding TodayCommand}" />
-            <ui:JournalDatePicker x:Name="DateFilter" SelectedDate="{Binding FilterDate}" PlaceholderText="Дата: любая" Width="160" MinHeight="32"
+          <StackPanel x:Name="DateFilters" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsEnabled="{Binding CanChoosePeriod}">
+            <RadioButton x:Name="TodayFilterButton" Classes="filter" Content="Сегодня" GroupName="JournalPeriod"
+                         IsChecked="{Binding IsTodaySelected, Mode=TwoWay}" Command="{Binding TodayCommand}" />
+            <ui:JournalDatePicker x:Name="DateFilter" SelectedDate="{Binding FilterDate}" PlaceholderText="Все даты" Width="146" MinHeight="32"
                                 AutomationProperties.Name="Дата заявки" />
+            <RadioButton x:Name="AllDatesFilterButton" Classes="filter" Content="Все даты" GroupName="JournalPeriod"
+                         IsChecked="{Binding IsAllDatesSelected, Mode=TwoWay}" Command="{Binding AllDatesCommand}" />
           </StackPanel>
           <Grid x:Name="SearchControls" Grid.Column="2" ColumnDefinitions="*,8,Auto" VerticalAlignment="Center">
             <Border x:Name="SearchField" Classes="search-field" Classes.popup-open="{ReflectionBinding IsDropDownOpen, ElementName=SearchScopeSelector}"
@@ -413,7 +416,7 @@
               </DataGrid.Columns>
             </DataGrid>
             <StackPanel x:Name="EmptyState" IsEnabled="{Binding CanUseJournal}" IsVisible="{Binding ShowEmptyState}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-              <TextBlock Text="Заявки не найдены" HorizontalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding EmptyOrdersText}" HorizontalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
               <ui:JournalButton Label="Сбросить фильтры" Command="{Binding ResetFiltersCommand}" HorizontalAlignment="Center" />
             </StackPanel>
             <Border x:Name="LoadingState" IsVisible="{Binding IsLoadingOrders}" HorizontalAlignment="Center" VerticalAlignment="Center"

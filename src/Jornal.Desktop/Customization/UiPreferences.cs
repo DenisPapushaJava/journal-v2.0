@@ -64,6 +64,7 @@ public sealed record UiPreferences
 {
     public int Version { get; init; } = 1;
     public bool DarkTheme { get; init; }
+    public bool ShowTodayOnStartup { get; init; } = true;
     public ScreenLayout Layout { get; init; } = new();
     public ResultTextStyle ResultFormatting { get; init; } = new();
     [JsonConverter(typeof(ResultPriceSettingsConverter))]

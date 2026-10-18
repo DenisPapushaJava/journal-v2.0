@@ -85,6 +85,8 @@ try
         var rows = request.Operation switch
         {
             AccessHostOperation.Read => await new AccessOrderReader(request.Path).ReadAsync(),
+            AccessHostOperation.ReadDay => await new AccessOrderReader(request.Path).ReadDayAsync(
+                request.OrderDate ?? throw new InvalidDataException("Не передана дата журнала.")),
             AccessHostOperation.SetColor => await editor.SetColorAsync(request.Expected ?? [], request.Color),
             AccessHostOperation.SetDeliveryNumber => await editor.SetDeliveryNumberAsync(request.Expected ?? [], request.DeliveryNumber ?? ""),
             AccessHostOperation.CreateOrders => await new OleDbManualOrderCreator(request.Path).CreateBatchAsync(request.Drafts ?? []),

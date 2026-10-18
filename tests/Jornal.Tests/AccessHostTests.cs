@@ -120,6 +120,9 @@ public sealed class AccessHostTests
         Assert.Equal(9, (int)AccessHostOperation.RestoreOrder);
         Assert.Equal(10, (int)AccessHostOperation.PrepareCuttingTime);
         Assert.Equal(11, (int)AccessHostOperation.CreateOrders);
+        Assert.Equal(17, (int)AccessHostOperation.ReadDay);
+        var dayRequest = new AccessHostRequest(1, AccessHostOperation.ReadDay, "unused.mdb", OrderDate: new(2026, 10, 18));
+        Assert.Equal(dayRequest, JsonSerializer.Deserialize<AccessHostRequest>(JsonSerializer.Serialize(dayRequest)));
         var batchDrafts = new[] { Draft(), Draft() with { SpecificationNumber = "0102-45" } };
         Assert.Equal(batchDrafts, JsonSerializer.Deserialize<AccessHostRequest>(JsonSerializer.Serialize(
             new AccessHostRequest(1, AccessHostOperation.CreateOrders, "unused.mdb", Drafts: batchDrafts)))!.Drafts);
@@ -189,6 +192,9 @@ public sealed class AccessHostTests
             Assert.Contains("JR-", AppDiagnostics.Describe(DiagnosticOperation.OrderRead, failure, "Ошибка чтения."));
             var client = new AccessHostClient(path, host);
             var original = await client.ReadAsync(TestContext.Current.CancellationToken);
+            var journalDay = original.First(row => row.OrderDate.HasValue).OrderDate!.Value;
+            var dayRows = await client.ReadDayAsync(journalDay, TestContext.Current.CancellationToken);
+            Assert.Equal(original.Where(row => row.OrderDate == journalDay), dayRows);
             await client.PrepareCuttingTimeAsync(TestContext.Current.CancellationToken);
             await client.PrepareAnnotationsAsync(TestContext.Current.CancellationToken);
             var first = original.Single(row => row.Id == 42);

@@ -69,6 +69,12 @@ public partial class MainWindow : Window
     public Task LoadInitialOrdersAsync(CancellationToken cancellationToken = default) =>
         _initialOrdersLoad ??= LoadInitialOrdersCoreAsync(cancellationToken);
 
+    public void InitializeStartupPeriod()
+    {
+        _customization.Initialize();
+        _viewModel?.InitializeStartupPeriod();
+    }
+
     private async Task LoadInitialOrdersCoreAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -93,6 +99,8 @@ public partial class MainWindow : Window
         if (_viewModel is not null)
         {
             _viewModel.ReloadCommand.Cancel();
+            _viewModel.CancelOrderLoading();
+            _viewModel.CancelOrderLoading();
             _viewModel.Updates.CheckCommand.Cancel();
             _viewModel.Updates.DownloadCommand.Cancel();
             _viewModel.PropertyChanged -= OnViewModelChanged;
@@ -140,6 +148,7 @@ public partial class MainWindow : Window
         SearchBox.CancelPendingInput();
         if (_viewModel is not null)
         {
+            _viewModel.CancelOrderLoading();
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _viewModel.SelectionRestoreRequested -= OnSelectionRestore;
             _viewModel.SelectionClearingRequested -= OnSelectionClearingRequested;
@@ -173,7 +182,7 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme))
         { UpdateTheme(); _customization.AppearanceChanged(); }
         if (e.PropertyName is nameof(MainWindowViewModel.ResultFontSizePoints) or nameof(MainWindowViewModel.ResultTextColor) or
-            nameof(MainWindowViewModel.UseResultMinimumPrice) or nameof(MainWindowViewModel.ResultMinimumPrice) or
+            nameof(MainWindowViewModel.UseResultMinimumPrice) or nameof(MainWindowViewModel.ResultMinimumPrice) or nameof(MainWindowViewModel.ShowTodayOnStartup) or
             nameof(MainWindowViewModel.UseTechnologistColor) or nameof(MainWindowViewModel.TechnologistColorArgb) or nameof(MainWindowViewModel.EntrySuggestionsSummary))
             _customization.AppearanceChanged();
     }

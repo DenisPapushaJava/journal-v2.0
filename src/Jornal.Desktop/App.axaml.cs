@@ -35,9 +35,11 @@ public partial class App : Application
             new Jornal.Infrastructure.Trash.JsonTrashStore(Path.Combine(Path.GetDirectoryName(JsonUiPreferencesStore.DefaultPath)!, "Trash")));
         model.InitializeSource(source);
         var restartStore = new JsonUpdateRestartStore(JsonUpdateRestartStore.DefaultPath);
-        return new MainWindow(new JsonUiPreferencesStore(JsonUiPreferencesStore.DefaultPath), restartStore)
+        var window = new MainWindow(new JsonUiPreferencesStore(JsonUiPreferencesStore.DefaultPath), restartStore)
         {
             DataContext = model
         };
+        window.InitializeStartupPeriod();
+        return window;
     }
 }

@@ -11,7 +11,10 @@ public static class OleDbOrderReader
 {
     public static Task<IReadOnlyList<OrderSummary>> ReadAsync(string path, CancellationToken cancellationToken = default) =>
         // OLE DB синхронен: соединение и reader живут на одном рабочем потоке, UI не блокируется.
-        Task.Run<IReadOnlyList<OrderSummary>>(() => DiagnosticStages.Run(DiagnosticStage.ReadOrders, () => Read(path, cancellationToken)), cancellationToken);
+        Task.Run<IReadOnlyList<OrderSummary>>(() => DiagnosticStages.Run(DiagnosticStage.ReadOrders, () => Read(path, null, cancellationToken)), cancellationToken);
+
+    public static Task<IReadOnlyList<OrderSummary>> ReadDayAsync(string path, DateOnly date, CancellationToken cancellationToken = default) =>
+        Task.Run<IReadOnlyList<OrderSummary>>(() => DiagnosticStages.Run(DiagnosticStage.ReadOrders, () => Read(path, date, cancellationToken)), cancellationToken);
 
     public static string? FindProvider()
     {
@@ -24,7 +27,7 @@ public static class OleDbOrderReader
         return null;
     }
 
-    private static IReadOnlyList<OrderSummary> Read(string path, CancellationToken cancellationToken)
+    private static IReadOnlyList<OrderSummary> Read(string path, DateOnly? date, CancellationToken cancellationToken)
     {
         try
         {
@@ -33,7 +36,7 @@ public static class OleDbOrderReader
             DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             cancellationToken.ThrowIfCancellationRequested();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT * FROM [Orders]";
+            command.CommandText = "SELECT * FROM [Orders]" + OrderDayQuery.Where(command, date);
             command.CommandTimeout = 30;
             using var reader = command.ExecuteReader(CommandBehavior.SingleResult)!;
             var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToArray();
@@ -47,11 +50,11 @@ public static class OleDbOrderReader
             }
             cancellationToken.ThrowIfCancellationRequested();
             reader.Close();
-            var times = OleDbOrderExtras.ReadAll(connection);
+            var times = OleDbOrderExtras.ReadAll(connection, date: date);
             var rows = orders.Select(row => row with { CuttingTime = times.GetValueOrDefault(row.Id) }).ToArray();
             try
             {
-                var annotations = OleDbOrderAnnotations.ReadAll(connection);
+                var annotations = OleDbOrderAnnotations.ReadAll(connection, date: date);
                 return rows.Select(row => row with { Annotations = annotations.GetValueOrDefault(row.Id) }).ToArray();
             }
             catch (Exception exception) when (exception is OleDbException or OrderReadException or InvalidOperationException)

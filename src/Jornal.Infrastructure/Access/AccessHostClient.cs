@@ -89,6 +89,13 @@ public sealed partial class AccessHostClient(string path, string? executable = n
         var response = await SendAsync(new(1, AccessHostOperation.Read, path), cancellationToken);
         return SupportedRows(response);
     }
+    public async Task<IReadOnlyList<OrderSummary>> ReadDayAsync(DateOnly date, CancellationToken cancellationToken = default)
+    {
+        var rows = SupportedRows(await SendAsync(new(1, AccessHostOperation.ReadDay, path, OrderDate: date), cancellationToken));
+        if (rows.Any(row => row.OrderDate != date) || rows.Select(row => row.Id).Distinct().Count() != rows.Length)
+            throw new OrderReadException("Модуль Access вернул неверный период. Обновите список (F5).");
+        return rows;
+    }
     private static OrderSummary[] SupportedRows(AccessHostResponse response) => response.AnnotationsSupported ? response.Orders! :
         response.Orders!.Select(row => row with { AnnotationsUnavailable = true }).ToArray();
 
