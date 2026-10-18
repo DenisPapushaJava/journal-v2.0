@@ -164,12 +164,16 @@ internal sealed class JetPriceRenamer(string path)
             using var command = ComScope.Create("ADODB.Command");
             command.Value.ActiveConnection = _connection.Value; command.Value.CommandType = 1; command.Value.CommandTimeout = 10;
             command.Value.CommandText = $"UPDATE {Quote(tableName)} SET " + string.Join(", ", rates.Select(rate => Quote(rate.ColumnName) + " = ?"));
-            using var parameters = new ComScope(command.Value.Parameters);
-            foreach (var rate in rates)
+            for (var index = 0; index < rates.Count; index++)
             {
-                using var parameter = new ComScope(command.Value.CreateParameter("p" + (int)parameters.Value.Count, 3, 1, 4, (object?)rate.RublesPerMeter ?? DBNull.Value));
+                // До первого CreateParameter нельзя читать Count: ADO автоматически выведет
+                // незаполненные параметры из SQL, и Append добавит к ним ещё один набор.
+                using var parameter = new ComScope(command.Value.CreateParameter("p" + index, 3, 1, 4, (object?)rates[index].RublesPerMeter ?? DBNull.Value));
+                using var parameters = new ComScope(command.Value.Parameters);
                 parameters.Value.Append(parameter.Value);
             }
+            using (var parameters = new ComScope(command.Value.Parameters))
+                if ((int)parameters.Value.Count != rates.Count) throw new InvalidOperationException("ADO не подтвердил параметры тарифов.");
             object affected; command.Value.Execute(out affected, Type.Missing, 128);
             if (Convert.ToInt32(affected, CultureInfo.InvariantCulture) != 1) throw new InvalidOperationException("Jet не подтвердил одну строку прайса.");
         }
