@@ -20,7 +20,7 @@ public partial class MainWindowViewModel
     private bool MatchesColumnFilters(OrderSummary order, OrderFilterColumn? except = null) =>
         ColumnFilters.All(filter => filter.Column == except || filter.Matches(order));
     private bool MatchesSearchAndDate(OrderSummary order) =>
-        (!FilterDate.HasValue || order.OrderDate == DateOnly.FromDateTime(FilterDate.Value)) && MatchesSearch(order, SearchText.Trim());
+        (!FilterDate.HasValue || order.OrderDate == DateOnly.FromDateTime(FilterDate.Value)) && _searchQuery.Matches(order);
 
     private ColumnFilterChoices BuildColumnFilterOptions(OrderFilterColumn column)
     {

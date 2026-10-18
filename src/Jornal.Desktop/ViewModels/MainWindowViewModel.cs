@@ -1,7 +1,6 @@
 using Jornal.Infrastructure.Diagnostics;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Jornal.Core.Orders;
@@ -40,7 +39,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             nameof(CanCheckUpdates), nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
             nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult), nameof(CanConfigureSource),
             nameof(CanEditOrder), nameof(CanTrashOrder), nameof(CanOpenTrash), nameof(MaintenanceHint), nameof(EditOrderHint),
-            nameof(TrashOrderHint), nameof(CanClearSelection), nameof(CanOpenPrices) })
+            nameof(TrashOrderHint), nameof(CanClearSelection), nameof(CanOpenPrices), nameof(CanEnterSearch) })
             OnPropertyChanged(name);
         NotifyClipboardAvailability();
         foreach (var filter in ColumnFilters) filter.NotifyAvailability();
@@ -49,9 +48,10 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasPreferencesError))] private string? _preferencesError;
     public bool HasPreferencesError => !string.IsNullOrEmpty(PreferencesError);
-    public bool CanUseJournal => !IsCustomizing && !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification && !IsCopyingSelection;
+    public bool CanEnterSearch => !IsCustomizing && !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification && !IsCopyingSelection;
+    public bool CanUseJournal => CanEnterSearch && !IsSearchPending;
     public bool CanConfigureScreen => CanUseJournal;
-    public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification;
+    public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification && !IsSearchPending;
     public bool CanClearSelection => _selectedCount > 0 && CanUseJournal;
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(ShowEmptyState))] private string? _errorMessage;
@@ -66,7 +66,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     }
     public bool ShowEmptyState => HasNoOrders && !IsLoadingOrders && !HasError;
     public string ThemeActionLabel => IsDarkTheme ? "Включить светлую тему" : "Включить тёмную тему";
-    public ObservableCollection<OrderRowViewModel> Orders { get; } = [];
+    public ObservableCollection<OrderRowViewModel> Orders => _visibleRows;
     private NewOrderViewModel? _pendingCreationForm;
     public bool CanCreateOrder => orderCreator is not null && CanUseJournal && !RequiresReload;
     public NewOrderViewModel? CreateOrderForm(bool forImport = false)
@@ -111,7 +111,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             _allOrders = orders.Concat(_allOrders.Where(row => !ids.Contains(row.Id))).ToArray();
             // Новую строку показываем даже при несовпадающих прежних фильтрах.
             ResetFilters();
-            ApplySearch();
             UpdatedText = (orders.Count > 1 ? $"Добавлено заявок: {orders.Count} · " : _source?.Path is not null ? "Заявка добавлена · " : "Демозаявка добавлена · ") + StorageSuffix;
         }
         catch (Exception exception)
@@ -123,11 +122,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
                 : $"Заявка сохранена, код {order.Id}, но не удалось обновить экран. Обновите список (F5); повторно добавлять её не нужно.";
         }
     }
-    public IReadOnlyList<string> SearchScopes { get; } =
-        ["Все поля", "Менеджер", "Заказчик", "Спецификация", "БЛЦБ", "Материал", "Толщина"];
-
-    partial void OnSearchTextChanged(string value) => ApplySearch();
-    partial void OnSearchScopeIndexChanged(int value) => ApplySearch();
     partial void OnFilterDateChanged(DateTime? value) => ApplySearch();
 
     public void UpdateSelection(IEnumerable<OrderRowViewModel> selected, OrderRowViewModel? active)
@@ -152,18 +146,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
 
     [RelayCommand] private void SetStatusFilter(OrderStatusFilter filter) => StatusFilter = filter;
     [RelayCommand] private void Today() => FilterDate = FilterDate?.Date == DateTime.Today ? null : DateTime.Today;
-    [RelayCommand] private void ClearSearch() => SearchText = string.Empty;
-
-    [RelayCommand]
-    private void ResetFilters()
-    {
-        foreach (var filter in ColumnFilters) filter.Reset();
-        SearchText = string.Empty;
-        SearchScopeIndex = 0;
-        StatusFilter = OrderStatusFilter.All;
-        FilterDate = null;
-        ApplySearch();
-    }
 
     [RelayCommand(CanExecute = nameof(CanUseJournal))]
     private async Task ReloadAsync(CancellationToken cancellationToken)
@@ -196,31 +178,4 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         finally { IsLoadingOrders = false; }
     }
 
-    private void ApplySearch()
-    {
-        var filtered = _allOrders.Where(MatchesCurrentFilters);
-
-        Orders.Clear();
-        foreach (var order in filtered) Orders.Add(new OrderRowViewModel(order));
-        UpdateSelection([], null);
-        HasNoOrders = Orders.Count == 0;
-        CountText = $"Заявок: {Orders.Count} из {_allOrders.Count}";
-        NotifyFilterContextChanged();
-    }
-
-    private bool MatchesSearch(OrderSummary order, string query)
-    {
-        if (query.Length == 0) return true;
-        var text = SearchScopeIndex switch
-        {
-            1 => order.ManagerName, 2 => order.CustomerName, 3 => order.SpecificationNumber,
-            4 => order.DeliveryNumber, 5 => order.MaterialName, _ => null
-        };
-        if (SearchScopeIndex is >= 1 and <= 5) return text?.Contains(query, StringComparison.OrdinalIgnoreCase) == true;
-        var thicknessMatches = decimal.TryParse(query.Replace(',', '.'), NumberStyles.AllowDecimalPoint,
-            CultureInfo.InvariantCulture, out var thickness) && order.ThicknessMillimeters == thickness;
-        return SearchScopeIndex == 6 ? thicknessMatches :
-            OrderSearch.Matches(order, query) ||
-            order.DeliveryNumber?.Contains(query, StringComparison.OrdinalIgnoreCase) == true || thicknessMatches;
-    }
 }

@@ -78,7 +78,7 @@ public sealed class TableDensityTests
             }
             Assert.Empty(grid.SelectedItems);
             window.FindControl<TextBox>("RowHeightInput")!.Text = "24"; Pump();
-            var checkbox = grid.GetVisualDescendants().OfType<CheckBox>().First(box => box.Classes.Contains("row-selection"));
+            var checkbox = grid.GetVisualDescendants().OfType<CheckBox>().First(box => box.IsEffectivelyVisible && box.Classes.Contains("row-selection"));
             Click(window, checkbox);
             Assert.Single(grid.SelectedItems);
             model.SearchText = "нет совпадений"; Pump();

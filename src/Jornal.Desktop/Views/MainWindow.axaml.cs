@@ -86,6 +86,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        SearchBox.CancelPendingInput();
         _updateChecksLifetime.Cancel();
         _updateChecksLifetime.Dispose();
         _customization.Close();
@@ -96,12 +97,20 @@ public partial class MainWindow : Window
             _viewModel.Updates.DownloadCommand.Cancel();
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _viewModel.SelectionRestoreRequested -= OnSelectionRestore;
+            _viewModel.SelectionClearingRequested -= OnSelectionClearingRequested;
         }
         base.OnClosed(e);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.None && _viewModel?.CanEnterSearch == true)
+        {
+            SearchBox.SubmitInput();
+            _viewModel.ReloadCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
         if (_viewModel?.IsImportingSpecification == true && e.Key == Key.Escape)
         { _specificationImportCancellation?.Cancel(); e.Handled = true; return; }
         if (_viewModel?.HasSpecificationImportError == true && e.Key == Key.Escape)
@@ -118,7 +127,7 @@ public partial class MainWindow : Window
             { _customization.Save(); e.Handled = true; return; }
         }
         base.OnKeyDown(e);
-        if (_viewModel?.CanUseJournal == true && e.Key == Key.F && e.KeyModifiers == KeyModifiers.Control)
+        if (_viewModel?.CanEnterSearch == true && e.Key == Key.F && e.KeyModifiers == KeyModifiers.Control)
         {
             SearchBox.Focus();
             SearchBox.SelectAll();
@@ -128,16 +137,19 @@ public partial class MainWindow : Window
 
     private void ConnectViewModel()
     {
+        SearchBox.CancelPendingInput();
         if (_viewModel is not null)
         {
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _viewModel.SelectionRestoreRequested -= OnSelectionRestore;
+            _viewModel.SelectionClearingRequested -= OnSelectionClearingRequested;
         }
         _viewModel = DataContext as MainWindowViewModel;
         if (_viewModel is not null)
         {
             _viewModel.PropertyChanged += OnViewModelChanged;
             _viewModel.SelectionRestoreRequested += OnSelectionRestore;
+            _viewModel.SelectionClearingRequested += OnSelectionClearingRequested;
             _viewModel.Updates.ConfigureRestart(
                 () => _viewModel.CanCheckUpdates && !OwnedWindows.Any(window => window is not AppUpdatesWindow && window is not SettingsWindow { CanRestart: true }),
                 () =>
@@ -154,6 +166,8 @@ public partial class MainWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(MainWindowViewModel.SearchText)) SearchBox.CancelPendingInput();
+        if (e.PropertyName == nameof(MainWindowViewModel.SearchScopeIndex) && SearchBox.IsPending) SearchBox.SubmitInput();
         if (e.PropertyName is nameof(MainWindowViewModel.IsImportingSpecification) or nameof(MainWindowViewModel.HasSpecificationImportError)) UpdateSpecificationFocus();
         if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme))
         { UpdateTheme(); _customization.AppearanceChanged(); }
@@ -162,6 +176,17 @@ public partial class MainWindow : Window
             nameof(MainWindowViewModel.UseTechnologistColor) or nameof(MainWindowViewModel.TechnologistColorArgb) or nameof(MainWindowViewModel.EntrySuggestionsSummary))
             _customization.AppearanceChanged();
     }
+
+    private void OnSearchPendingChanged(object? sender, EventArgs e)
+    {
+        if (_viewModel is null) return;
+        _viewModel.IsSearchPending = SearchBox.IsPending;
+        if (SearchBox.IsPending) OnSelectionClearingRequested(this, EventArgs.Empty);
+    }
+    private void OnSelectionClearingRequested(object? sender, EventArgs e)
+    { OrdersGrid.SelectedItems.Clear(); UpdateSelection(); }
+    private void OnSearchClearRequested(object? sender, EventArgs e) => _viewModel?.ClearSearchCommand.Execute(null);
+    private void OnClearSearchClick(object? sender, RoutedEventArgs e) => SearchBox.ClearInput();
 
     private void UpdateTheme() => RequestedThemeVariant = _viewModel?.IsDarkTheme == true
         ? ThemeVariant.Dark : ThemeVariant.Light;

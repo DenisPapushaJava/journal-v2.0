@@ -46,11 +46,12 @@ public sealed class LinkedColumnFilterTests
     public async Task ValuesWithinColumnUseOrAndColumnsComposeWithStatusSearchAndDate()
     {
         var model = await Open(); model.UseTechnologistColor = true;
-        Select(model.ManagerFilter, "Анна", "Борис"); Assert.Equal([1, 2, 3, 4, 6], Ids(model));
+        model.SearchScopeIndex = 5; model.SearchText = "Ст3";
+        Select(model.ManagerFilter, "Анна", "Борис"); Assert.Equal([1, 2, 6], Ids(model));
         Select(model.CuttingTypeFilter, "Лазер"); Assert.Equal([1, 2, 6], Ids(model));
         Select(model.ThicknessFilter, "2", "10"); Assert.Equal([1, 2], Ids(model));
         model.StatusFilter = OrderStatusFilter.Work | OrderStatusFilter.Ready;
-        model.SearchScopeIndex = 5; model.SearchText = "Ст3"; model.FilterDate = Date.ToDateTime(TimeOnly.MinValue);
+        model.FilterDate = Date.ToDateTime(TimeOnly.MinValue);
         Select(model.BendingFilter, "yes"); Assert.Equal([1], Ids(model));
         model.BendingFilter.ClearCommand.Execute(null); Assert.Equal([1, 2], Ids(model));
         Assert.True(model.CuttingTypeFilter.HasFilter); Assert.True(model.ThicknessFilter.HasFilter);

@@ -81,11 +81,11 @@ public sealed class TableSelectionTests
             Assert.Equal(3, grid.CollectionView.Cast<OrderRowViewModel>().First().Id);
             AssertSelected(grid, 1, 3);
 
-            model.SearchText = "Менеджер 1"; Pump();
+            model.SearchScopeIndex = 4; model.SearchText = "Менеджер 1"; Pump();
             Assert.Equal(2, model.Orders.Count); AssertSelected(grid);
             Click(window, Box(grid, 1)); Click(window, Box(grid, 3));
-            model.SearchScopeIndex = 1; Pump();
-            Assert.Equal(2, model.Orders.Count); AssertSelected(grid);
+            model.SearchScopeIndex = 0; Pump();
+            Assert.Equal(3, model.Orders.Count); AssertSelected(grid);
             Click(window, Box(grid, 1));
             model.SetStatusFilterCommand.Execute(OrderStatusFilter.Ready); Pump();
             AssertSelected(grid);

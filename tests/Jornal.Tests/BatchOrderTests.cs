@@ -89,7 +89,7 @@ public sealed class BatchOrderTests
         Assert.Equal("Выбрано: 0", model.SelectionText);
         Assert.Equal(result, model.ResultText);
         model.ResetFiltersCommand.Execute(null);
-        model.SearchScopeIndex = 4;
+        model.SearchScopeIndex = 2;
         model.SearchText = "БЛЦБ-00010001";
         row = Assert.Single(model.Orders);
         model.UpdateSelection([row], row);

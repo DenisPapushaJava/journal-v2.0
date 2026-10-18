@@ -113,12 +113,14 @@ public sealed class ApplicationShellTests
 
             var search = window.FindControl<TextBox>("SearchBox")!;
             search.Text = "00010002";
+            ((JournalSearchBox)search).SubmitInput();
             Dispatcher.UIThread.RunJobs();
             Assert.Single(viewModel.Orders);
-            viewModel.SearchScopeIndex = 1;
+            viewModel.SearchScopeIndex = 4;
             Assert.Empty(viewModel.Orders);
-            viewModel.SearchScopeIndex = 6;
+            viewModel.SearchScopeIndex = 0;
             search.Text = "2,5";
+            ((JournalSearchBox)search).SubmitInput();
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("Ст-3", Assert.Single(viewModel.Orders).MaterialName);
             viewModel.ResetFiltersCommand.Execute(null);
@@ -199,6 +201,7 @@ public sealed class ApplicationShellTests
             var search = window.FindControl<TextBox>("SearchBox")!;
             Assert.Same(search, window.FocusManager!.GetFocusedElement());
             search.Text = "5083";
+            ((JournalSearchBox)search).SubmitInput();
             Dispatcher.UIThread.RunJobs();
             Assert.Single(viewModel.Orders);
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);

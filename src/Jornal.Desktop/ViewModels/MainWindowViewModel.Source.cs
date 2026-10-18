@@ -57,7 +57,7 @@ public partial class MainWindowViewModel
                 _resultOrderIds.Clear();
                 ResetFilters();
             }
-            ApplySearch();
+            else ApplySearch();
             NotifySourceChanged();
             ErrorMessage = (candidate.Reader as Jornal.Infrastructure.Access.OrderDurationPreparingReader)?.PreparationWarning;
             UpdatedText = $"Обновлено в {DateTime.Now:HH:mm} · F5 — обновить";

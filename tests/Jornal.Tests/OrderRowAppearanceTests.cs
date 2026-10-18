@@ -44,7 +44,7 @@ public sealed class OrderRowAppearanceTests
                 window.MouseMove(new Point(1, 1));
                 grid.ScrollIntoView(item, grid.Columns[1]);
                 Dispatcher.UIThread.RunJobs();
-                var row = grid.GetVisualDescendants().OfType<DataGridRow>().Single(control => control.DataContext == item);
+                var row = grid.GetVisualDescendants().OfType<DataGridRow>().Single(control => control.IsEffectivelyVisible && control.DataContext == item);
                 var cell = row.GetVisualDescendants().OfType<DataGridCell>().First(control => control.Content is TextBlock);
                 var background = ColorOf(row.Background);
                 if (item.Color is int color && color != OrderColors.None)
@@ -92,7 +92,7 @@ public sealed class OrderRowAppearanceTests
             Preview(window, $"row-colors-{(dark ? "dark" : "light")}");
             // Выбор следующей строки с клавиатуры остаётся доступен без рамки ячейки.
             grid.SelectedItem = vm.Orders[0];
-            var first = grid.GetVisualDescendants().OfType<DataGridRow>().Single(row => row.DataContext == vm.Orders[0]);
+            var first = grid.GetVisualDescendants().OfType<DataGridRow>().Single(row => row.IsEffectivelyVisible && row.DataContext == vm.Orders[0]);
             first.GetVisualDescendants().OfType<DataGridCell>().First(cell => cell.Content is TextBlock).Focus();
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
@@ -110,7 +110,7 @@ public sealed class OrderRowAppearanceTests
             var unmarked = vm.Orders.Last();
             grid.ScrollIntoView(unmarked, grid.Columns[1]);
             Dispatcher.UIThread.RunJobs();
-            var unmarkedRow = grid.GetVisualDescendants().OfType<DataGridRow>().Single(row => row.DataContext == unmarked);
+            var unmarkedRow = grid.GetVisualDescendants().OfType<DataGridRow>().Single(row => row.IsEffectivelyVisible && row.DataContext == unmarked);
             Assert.Equal(ColorOf((IBrush)window.FindResource(window.ActualThemeVariant, "JournalSurface")!), ColorOf(unmarkedRow.Background));
         }
         finally { window.Close(); }
