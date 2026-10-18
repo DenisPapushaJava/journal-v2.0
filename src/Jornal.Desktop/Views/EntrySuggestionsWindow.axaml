@@ -1,10 +1,10 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
         x:Class="Jornal.Desktop.Views.EntrySuggestionsWindow" x:DataType="vm:EntrySuggestionsViewModel"
-        Title="Менеджеры, заказчики и материалы" Width="960" Height="560" MinWidth="760" MinHeight="440" WindowStartupLocation="CenterOwner">
+        Title="Данные для выпадающих списков" Width="960" Height="560" MinWidth="760" MinHeight="440" WindowStartupLocation="CenterOwner">
   <Grid RowDefinitions="Auto,*,Auto">
     <StackPanel Margin="24,20,24,16" Spacing="8">
-      <TextBlock Text="Менеджеры, заказчики и материалы" FontSize="20" FontWeight="SemiBold" />
+      <TextBlock Text="Данные для выпадающих списков" FontSize="20" FontWeight="SemiBold" />
       <TextBlock Text="Одно значение на строку" Classes="muted" />
     </StackPanel>
     <Grid Grid.Row="1" ColumnDefinitions="*,16,*,16,*" Margin="24,0">
