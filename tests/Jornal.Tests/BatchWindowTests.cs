@@ -32,6 +32,7 @@ public sealed class BatchWindowTests
             var table = window.FindControl<DataGrid>("OrdersGrid")!;
             table.Columns[1].Width = new DataGridLength(128);
             table.Columns[3].IsVisible = false;
+            table.CollectionView.SortDescriptions.Clear();
             table.CollectionView.SortDescriptions.Add(Avalonia.Collections.DataGridSortDescription.FromPath(
                 nameof(OrderRowViewModel.ThicknessMillimeters), System.ComponentModel.ListSortDirection.Descending));
             var first = model.Orders[0];
@@ -181,6 +182,7 @@ public sealed class BatchWindowTests
         {
             window.Show(); Pump();
             var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            table.CollectionView.SortDescriptions.Clear();
             table.CollectionView.SortDescriptions.Add(Avalonia.Collections.DataGridSortDescription.FromPath(
                 nameof(OrderRowViewModel.StatusText), System.ComponentModel.ListSortDirection.Ascending));
             Assert.Equal(3, table.CollectionView.Cast<OrderRowViewModel>().First().Id);

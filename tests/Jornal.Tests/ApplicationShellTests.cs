@@ -206,7 +206,7 @@ public sealed class ApplicationShellTests
             window.MouseUp(point, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
             var first = grid.GetVisualDescendants().OfType<DataGridRow>().OrderBy(row => row.Bounds.Y).First();
-            Assert.Equal("30.09.2026", ((OrderRowViewModel)first.DataContext!).DateText);
+            Assert.Equal("15.10.2026", ((OrderRowViewModel)first.DataContext!).DateText);
             var thickness = grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(h => Equals(h.Content, "Толщ., мм"));
             point = thickness.TranslatePoint(new Point(thickness.Bounds.Width / 2, thickness.Bounds.Height / 2), window)!.Value;
             window.MouseDown(point, MouseButton.Left);

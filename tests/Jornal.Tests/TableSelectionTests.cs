@@ -43,8 +43,8 @@ public sealed class TableSelectionTests
             Click(window, Cell(grid, 3), RawInputModifiers.Control);
             AssertSelected(grid, 1); Assert.True(edit.IsEnabled);
 
-            Click(window, Cell(grid, 1));
-            Click(window, Cell(grid, 3), RawInputModifiers.Shift);
+            Click(window, Cell(grid, 3));
+            Click(window, Cell(grid, 2), RawInputModifiers.Shift);
             AssertSelected(grid, 1, 2, 3); Assert.False(edit.IsEnabled);
             Click(window, Box(grid, 2)); Click(window, Box(grid, 3));
             AssertSelected(grid, 1); Assert.True(edit.IsEnabled);
@@ -75,10 +75,10 @@ public sealed class TableSelectionTests
             Click(window, Box(grid, 1)); Click(window, Box(grid, 3));
             var date = grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(header => header.Content is "Дата");
             Click(window, date);
-            Assert.Equal(3, grid.CollectionView.Cast<OrderRowViewModel>().First().Id);
+            Assert.Equal(2, grid.CollectionView.Cast<OrderRowViewModel>().First().Id);
             AssertSelected(grid, 1, 3);
             Click(window, date);
-            Assert.NotEqual(3, grid.CollectionView.Cast<OrderRowViewModel>().First().Id);
+            Assert.Equal(3, grid.CollectionView.Cast<OrderRowViewModel>().First().Id);
             AssertSelected(grid, 1, 3);
 
             model.SearchText = "Менеджер 1"; Pump();

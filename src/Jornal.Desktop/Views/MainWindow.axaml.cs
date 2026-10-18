@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
@@ -50,6 +51,8 @@ public partial class MainWindow : Window
         if (Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current?.HasPreviousFatal == true)
             DiagnosticsButton.Label = "Сбой предыдущего запуска · Диагностика";
         _customization.Initialize();
+        if (OrdersGrid.CollectionView is { CanSort: true } orders && orders.SortDescriptions.Count == 0)
+            orders.SortDescriptions.Add(DataGridSortDescription.FromPath(nameof(OrderRowViewModel.OrderDateSortKey), ListSortDirection.Ascending));
         if (_viewModel is not null)
         {
             if (!_updateDraftRestored && _restartStore is not null)
