@@ -62,6 +62,8 @@ public partial class AppUpdatesViewModel : ObservableObject
     [ObservableProperty] private bool _isDownloading;
     public void ConfigureRestart(Func<bool> canRestart, Action prepare, Action close)
     { _canRestart = canRestart; _prepareRestart = prepare; _closeApplication = close; }
+    public void ClearRestart()
+    { _canRestart = static () => false; _prepareRestart = static () => { }; _closeApplication = static () => { }; }
     partial void OnErrorChanged(string? value) => OnPropertyChanged(nameof(HasError));
     partial void OnPreferencesWarningChanged(string? value) => OnPropertyChanged(nameof(HasPreferencesWarning));
     partial void OnIsBusyChanged(bool value) => NotifyCommands();

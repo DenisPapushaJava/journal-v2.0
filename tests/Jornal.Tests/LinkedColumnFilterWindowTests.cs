@@ -101,8 +101,9 @@ public sealed class LinkedColumnFilterWindowTests
     }
 
     [AvaloniaTheory]
-    [InlineData(false, 1)] [InlineData(true, 1.5)]
-    public void ManyActiveFiltersWrapBelowSearchAndRemainClearableForHiddenColumns(bool dark, double scale)
+    [InlineData(false, 1)] [InlineData(true, 1)]
+    [InlineData(false, 1.5)] [InlineData(true, 1.5)]
+    public void ManyActiveFiltersUseOverflowAndRemainClearableForHiddenColumns(bool dark, double scale)
     {
         var rows = LinkedColumnFilterTests.Rows().Select(row => row with
         {
@@ -125,14 +126,49 @@ public sealed class LinkedColumnFilterWindowTests
         var (window, _, grid) = Open(dark, scale, model: model);
         try
         {
-            var chips = model.ColumnFilters.Select(filter => Chip(window, filter)).Append(window.FindControl<JournalButton>("ActiveStatusFilterButton")!).ToArray();
-            foreach (var chip in chips) InBounds(window, chip);
+            var strip = window.FindControl<AppliedFilterStrip>("ActiveColumnFilters")!;
+            var table = window.FindControl<Border>("TablePanel")!;
+            var viewBar = window.FindControl<Grid>("TableViewBar")!;
+            var tableHeight = table.Bounds.Height;
+            var tableTop = table.TranslatePoint(default, window)!.Value.Y;
+            void AssertStableTable()
+            {
+                Assert.Equal(32, viewBar.Bounds.Height);
+                Assert.Equal(tableHeight, table.Bounds.Height);
+                Assert.Equal(tableTop, table.TranslatePoint(default, window)!.Value.Y);
+            }
+            Assert.Equal(6, strip.Filters!.Count);
+            Assert.NotEmpty(strip.OverflowFilters);
+            foreach (var chip in strip.GetVisualDescendants().OfType<Button>().Where(button => button.IsEffectivelyVisible)) InBounds(window, chip);
             var search = window.FindControl<TextBox>("SearchBox")!; Assert.True(search.Bounds.Width >= 160); InBounds(window, search);
             var panel = window.FindControl<Control>("ActiveColumnFilters")!;
-            Assert.True(panel.Bounds.Height > 40); Assert.True(grid.Bounds.Height >= 150);
+            AssertStableTable(); Assert.True(grid.Bounds.Height >= 150);
             foreach (var column in grid.Columns.Skip(1)) column.IsVisible = false; Pump();
-            Save(window, $"facets-all-{dark}-{scale}"); Click(Chip(window, model.ThicknessFilter)); Assert.False(model.ThicknessFilter.HasFilter);
-            model.ResetFiltersCommand.Execute(null); Pump(); Assert.False(panel.IsVisible); Assert.Equal(6, model.Orders.Count);
+            Save(window, $"facets-all-{dark}-{scale}");
+            var more = strip.GetVisualDescendants().OfType<JournalButton>().Single(button => button.Name == "MoreFiltersButton");
+            Click(more); var flyout = Assert.IsType<Flyout>(more.Flyout); Assert.True(flyout.IsOpen);
+            var content = Assert.IsAssignableFrom<Control>(flyout.Content); InBounds(TopLevel.GetTopLevel(content)!, content);
+            Save(TopLevel.GetTopLevel(content)!, $"facets-overflow-{dark}-{scale}");
+            window.Width = 1920; Pump();
+            Assert.Empty(strip.OverflowFilters); Assert.False(more.IsEffectivelyVisible); Assert.False(flyout.IsOpen);
+            AssertStableTable();
+            Assert.All(strip.GetVisualDescendants().OfType<Button>().Where(button => button.Classes.Contains("status-filter-chip")),
+                button => Assert.True(button.IsEffectivelyVisible));
+            window.Width = 1280; Pump(); Assert.NotEmpty(strip.OverflowFilters); AssertStableTable();
+            more.Focus(); window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+            window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null); Pump(); Assert.True(flyout.IsOpen);
+            var popup = TopLevel.GetTopLevel(content)!;
+            popup.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); Pump();
+            Assert.False(flyout.IsOpen); Assert.True(more.IsKeyboardFocusWithin);
+            Click(more); Assert.True(flyout.IsOpen);
+            var hiddenChip = content.GetVisualDescendants().OfType<Button>().Single(button => button.DataContext == model.ThicknessFilter);
+            Click(hiddenChip); Assert.False(model.ThicknessFilter.HasFilter); AssertStableTable();
+            Assert.True(flyout.IsOpen); Assert.DoesNotContain(strip.OverflowFilters, filter => filter.Source == model.ThicknessFilter);
+            model.IsUpdatingOrders = true; Pump(); Assert.False(flyout.IsOpen); Assert.False(more.IsEffectivelyEnabled);
+            model.IsUpdatingOrders = false; Pump();
+            model.ResetFiltersCommand.Execute(null); Pump(); Assert.Empty(strip.Filters!); Assert.False(more.IsEffectivelyVisible);
+            Assert.False(flyout.IsOpen); Assert.Equal(6, model.Orders.Count);
+            AssertStableTable(); Assert.True(window.FindControl<TextBlock>("DefaultSortText")!.IsEffectivelyVisible);
         }
         finally { window.Close(); Pump(); }
     }

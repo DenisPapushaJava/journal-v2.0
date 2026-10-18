@@ -43,6 +43,8 @@ public sealed class DesktopStartup
         try
         {
             main = _createMainWindow();
+            // Задаём состояние до первого показа, чтобы не разворачивать уже видимое окно.
+            main.WindowState = WindowState.Maximized;
             Splash.ShowLoadingOrders();
             await main.LoadInitialOrdersAsync(token);
             Splash.ShowOpeningJournal();

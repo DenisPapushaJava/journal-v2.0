@@ -75,10 +75,10 @@ public sealed class TableSelectionTests
             Click(window, Box(grid, 1)); Click(window, Box(grid, 3));
             var date = grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(header => header.Content is "Дата");
             Click(window, date);
-            Assert.Equal(2, grid.CollectionView.Cast<OrderRowViewModel>().First().Id);
+            Assert.Equal(3, grid.CollectionView.Cast<OrderRowViewModel>().First().Id);
             AssertSelected(grid, 1, 3);
             Click(window, date);
-            Assert.Equal(3, grid.CollectionView.Cast<OrderRowViewModel>().First().Id);
+            Assert.Equal(2, grid.CollectionView.Cast<OrderRowViewModel>().First().Id);
             AssertSelected(grid, 1, 3);
 
             model.SearchScopeIndex = 4; model.SearchText = "Менеджер 1"; Pump();

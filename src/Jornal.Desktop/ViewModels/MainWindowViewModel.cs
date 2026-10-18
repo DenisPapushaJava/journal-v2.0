@@ -18,7 +18,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSpecificSearchField))] private int _searchScopeIndex;
     [ObservableProperty] private string _countText = "Заявок: 0";
     [ObservableProperty] private string _selectionText = "Выбрано: 0";
-    [ObservableProperty] private string _activeOrderText = "Активная: —";
     [ObservableProperty] private string _updatedText = "F5 — обновить список";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowEmptyState))] private bool _hasNoOrders = true;
     [ObservableProperty] private DateTime? _filterDate;
@@ -28,10 +27,12 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [ObservableProperty] private bool _isCustomizing;
     [ObservableProperty] private bool _isUpdatingOrders;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowEmptyState))] private bool _isLoadingOrders;
+    [ObservableProperty] private bool _isRefreshingOrders;
 
     partial void OnIsCustomizingChanged(bool value) => NotifyJournalAvailability();
     partial void OnIsUpdatingOrdersChanged(bool value) => NotifyJournalAvailability();
     partial void OnIsLoadingOrdersChanged(bool value) => NotifyJournalAvailability();
+    partial void OnIsRefreshingOrdersChanged(bool value) => NotifyJournalAvailability();
 
     private void NotifyJournalAvailability()
     {
@@ -39,7 +40,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             nameof(CanCheckUpdates), nameof(CanConfigureScreen), nameof(CanInteractWithTable), nameof(CanUpdateSelectedOrders),
             nameof(CanAddResult), nameof(CanClearResult), nameof(CanCopyResult), nameof(CanEditResult), nameof(CanConfigureSource),
             nameof(CanEditOrder), nameof(CanTrashOrder), nameof(CanOpenTrash), nameof(MaintenanceHint), nameof(EditOrderHint),
-            nameof(TrashOrderHint), nameof(CanClearSelection), nameof(CanOpenPrices), nameof(CanEnterSearch), nameof(CanChoosePeriod) })
+            nameof(TrashOrderHint), nameof(CanClearSelection), nameof(CanOpenPrices), nameof(CanEnterSearch), nameof(CanChoosePeriod), nameof(CanBrowseJournal) })
             OnPropertyChanged(name);
         NotifyClipboardAvailability();
         foreach (var filter in ColumnFilters) filter.NotifyAvailability();
@@ -50,10 +51,11 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public bool HasPreferencesError => !string.IsNullOrEmpty(PreferencesError);
     public bool CanEnterSearch => !IsCustomizing && !IsUpdatingOrders && (!IsLoadingOrders || _scopeReadCancellation is not null) && !IsImportingSpecification && !IsCopyingSelection;
     public bool CanChoosePeriod => CanEnterSearch && !IsSearchPending;
-    public bool CanUseJournal => CanChoosePeriod && !IsLoadingOrders && !_scopeLoadFailed;
+    public bool CanBrowseJournal => CanChoosePeriod && !IsLoadingOrders && !_scopeLoadFailed;
+    public bool CanUseJournal => CanBrowseJournal && !IsRefreshingOrders;
     public bool CanConfigureScreen => CanUseJournal;
     public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification && !IsSearchPending && !_scopeLoadFailed;
-    public bool CanClearSelection => _selectedCount > 0 && CanUseJournal;
+    public bool CanClearSelection => _selectedCount > 0 && CanBrowseJournal;
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(ShowEmptyState))] private string? _errorMessage;
 
@@ -115,7 +117,8 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             var ids = orders.Select(row => row.Id).ToHashSet();
             _allOrders = orders.Concat(_allOrders.Where(row => !ids.Contains(row.Id))).ToArray();
             // Новую строку показываем даже при несовпадающих прежних фильтрах.
-            ResetFilters();
+            var keepDate = RequestedDate is { } selectedDay && orders.All(row => row.OrderDate == selectedDay);
+            ResetSearch(resetScope: true, keepDate: keepDate);
             UpdatedText = (orders.Count > 1 ? $"Добавлено заявок: {orders.Count} · " : _source?.Path is not null ? "Заявка добавлена · " : "Демозаявка добавлена · ") + StorageSuffix;
         }
         catch (Exception exception)
@@ -131,11 +134,13 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     {
         OnPropertyChanged(nameof(IsTodaySelected)); OnPropertyChanged(nameof(IsAllDatesSelected));
         OnPropertyChanged(nameof(EmptyOrdersText));
+        OnPropertyChanged(nameof(DefaultSortingSummary));
         ApplySearch();
     }
 
     public void UpdateSelection(IEnumerable<OrderRowViewModel> selected, OrderRowViewModel? active)
     {
+        if (!IsApplyingReadSnapshot) ClearReadSelectionNotice();
         var visibleIds = Orders.Select(row => row.Id).ToHashSet();
         _selectedOrderIds = selected.Select(row => row.Id).Where(visibleIds.Contains).ToHashSet();
         RefreshSelectionNotice();
@@ -150,8 +155,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         OnPropertyChanged(nameof(TrashOrderHint)); NotifyClipboardAvailability();
         SetOrderColorCommand.NotifyCanExecuteChanged();
         SelectionText = $"Выбрано: {count}";
-        ActiveOrderText = count > 1 ? "Выбрано несколько заявок" : Orders.FirstOrDefault(row => row.Id == _activeOrderId) is { } current
-            ? $"Активная: {current.SpecificationNumber}" : "Активная: —";
     }
 
     [RelayCommand] private void SetStatusFilter(OrderStatusFilter filter) => StatusFilter = filter;

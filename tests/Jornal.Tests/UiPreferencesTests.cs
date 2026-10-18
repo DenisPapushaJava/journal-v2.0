@@ -7,6 +7,51 @@ namespace Jornal.Tests;
 
 public sealed class UiPreferencesTests
 {
+    [Theory]
+    [InlineData("null", null)]
+    [InlineData("\"bad\"", null)]
+    [InlineData("{}", null)]
+    [InlineData("[]", null)]
+    [InlineData("1e999", null)]
+    [InlineData("-50", 0d)]
+    [InlineData("900", 100d)]
+    [InlineData("23", 25d)]
+    public void InvalidSliderFieldPreservesLegacyModeAndOtherPreferences(string field, double? expected)
+    {
+        InTemporaryFolder(directory =>
+        {
+            var path = Path.Combine(directory, "ui-settings.json");
+            File.WriteAllText(path, "{\"Version\":1,\"DarkTheme\":true,\"EnhancedRowContrast\":true,\"Layout\":{\"RowHeight\":24},\"RowHighlightStrength\":" + field + "}");
+            var store = new JsonUiPreferencesStore(path); var loaded = store.Load();
+            Assert.Null(loaded.Error); Assert.NotNull(loaded.Preferences);
+            Assert.Equal(expected, loaded.Preferences.RowHighlightStrength);
+            Assert.True(loaded.Preferences.EnhancedRowContrast);
+            Assert.True(loaded.Preferences.DarkTheme); Assert.Equal(24, loaded.Preferences.Layout.RowHeight);
+            store.Save(loaded.Preferences with { RowHighlightStrength = 75 });
+            Assert.Equal(75, store.Load().Preferences!.RowHighlightStrength);
+        });
+    }
+    [Theory]
+    [InlineData("")]
+    [InlineData(",\"EnhancedRowContrast\":null")]
+    [InlineData(",\"EnhancedRowContrast\":\"yes\"")]
+    [InlineData(",\"EnhancedRowContrast\":{}")]
+    [InlineData(",\"EnhancedRowContrast\":[]")]
+    public void MissingOrInvalidRowContrastKeepsOtherPreferences(string field)
+    {
+        InTemporaryFolder(directory =>
+        {
+            var path = Path.Combine(directory, "ui-settings.json");
+            File.WriteAllText(path, "{\"Version\":1,\"DarkTheme\":true,\"Layout\":{\"RowHeight\":24}" + field + "}");
+            var store = new JsonUiPreferencesStore(path);
+            var loaded = store.Load();
+            Assert.Null(loaded.Error); Assert.NotNull(loaded.Preferences);
+            Assert.False(loaded.Preferences.EnhancedRowContrast);
+            Assert.True(loaded.Preferences.DarkTheme); Assert.Equal(24, loaded.Preferences.Layout.RowHeight);
+            store.Save(loaded.Preferences with { EnhancedRowContrast = true });
+            Assert.True(store.Load().Preferences!.EnhancedRowContrast);
+        });
+    }
     [Fact]
     public void StartupPeriodDefaultsForOldProfilesAndPersistsIndependentOfLayout()
     {
@@ -40,7 +85,7 @@ public sealed class UiPreferencesTests
             Assert.Equal(216, loaded.Preferences.Layout.ResultHeight);
             Assert.Equal(24, loaded.Preferences.Layout.RowHeight);
             Assert.Equal(ScreenLayout.CurrentColumnSizingVersion, loaded.Preferences.Layout.ColumnSizingVersion);
-            Assert.Equal("status", loaded.Preferences.Layout.PanelOrder[0]);
+            Assert.Equal("orders", loaded.Preferences.Layout.PanelOrder[0]);
             Assert.Equal(new ResultTextStyle { FontSizePoints = 12m, ColorHex = "#2F5496" }, loaded.Preferences.ResultFormatting);
             Assert.Equal(new ColumnPreference("customer", 1, false, false, 250), Assert.Single(loaded.Preferences.Layout.Columns));
             Assert.Single(Directory.GetFiles(directory, "*", SearchOption.AllDirectories));
@@ -124,12 +169,12 @@ public sealed class UiPreferencesTests
                 new("bad", 0, true, false, 100), new("nan", 2, true, false, double.NaN)]
         }.Normalize();
         Assert.Equal(106, layout.ResultHeight);
-        Assert.Equal(new[] { "status", "orders", "clipboard" }, layout.PanelOrder);
+        Assert.Equal(new[] { "orders", "clipboard" }, layout.PanelOrder);
         Assert.Equal(380, layout.PanelWidths["orders"]);
         Assert.Equal(600, layout.PanelWidths["clipboard"]);
         Assert.Equal("date", Assert.Single(layout.Columns).Id);
         var profile = JsonSerializer.Deserialize<UiPreferences>("{\"Layout\":{\"PanelOrder\":null,\"PanelWidths\":null,\"Columns\":null}}")!;
-        Assert.Equal(3, profile.Layout.Normalize().PanelOrder.Length);
+        Assert.Equal(2, profile.Layout.Normalize().PanelOrder.Length);
     }
 
     [Fact]

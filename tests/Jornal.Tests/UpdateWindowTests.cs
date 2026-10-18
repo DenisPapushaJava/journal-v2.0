@@ -15,6 +15,31 @@ namespace Jornal.Tests;
 
 public sealed class UpdateWindowTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DetachedJournalCannotRestartThroughItsFormerWindow(bool replaceModel)
+    {
+        var updater = new AppUpdatesTests.FakeUpdater();
+        var updates = new AppUpdatesViewModel(updater);
+        var owner = new MainWindow(new Jornal.Desktop.Customization.MemoryUiPreferencesStore())
+        { DataContext = new MainWindowViewModel(new DemoOrderStore(), appUpdates: updates) };
+        try
+        {
+            owner.Show(); Pump();
+            await updates.CheckCommand.ExecuteAsync(null);
+            await updates.DownloadCommand.ExecuteAsync(null);
+            if (replaceModel) owner.DataContext = new MainWindowViewModel(new DemoOrderStore());
+            else owner.Close();
+            Pump();
+            updates.InstallCommand.Execute(null);
+            Assert.Equal(0, updater.Restarts);
+            Assert.StartsWith("Завершите операции", updates.Error);
+            Assert.False(updates.RestartScheduled);
+        }
+        finally { owner.Close(); }
+    }
+
     [AvaloniaFact]
     public async Task ClosingTheMainWindowCancelsItsAutomaticCheck()
     {

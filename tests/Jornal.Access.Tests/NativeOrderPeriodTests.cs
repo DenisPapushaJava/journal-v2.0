@@ -8,6 +8,30 @@ namespace Jornal.Access.Tests;
 public sealed partial class NativeAccessTests
 {
     [Fact]
+    public async Task ConcurrentJournalReadersAndAnotherClientWriterKeepAllOrderFields()
+    {
+        using var database = Database.Create();
+        var token = TestContext.Current.CancellationToken;
+        var day = new DateOnly(2026, 10, 18);
+        var created = await new OleDbManualOrderCreator(database.Path).CreateAsync(CreationDraft() with
+        { OrderDate = day, SpecificationNumber = "concurrent-refresh", HasBending = true, Comment = "Проверка", CuttingDurationMinutes = 123 }, token);
+        var schema = database.Schema();
+        IOrderReader reader = new AccessOrderReader(database.Path);
+        var original = (await reader.ReadDayAsync(day, token)).Single(row => row.Id == created.Id);
+        var color = unchecked((int)0xFFFF9DFF);
+        var reads = Enumerable.Range(0, 8).Select(_ => reader.ReadDayAsync(day, token)).ToArray();
+        var write = new OleDbOrderBatchEditor(database.Path).SetColorAsync([original], color, token);
+        await Task.WhenAll(reads.Cast<Task>().Append(write));
+        foreach (var rows in await Task.WhenAll(reads))
+        {
+            var row = rows.Single(value => value.Id == created.Id);
+            Assert.Equal(original, row with { Color = original.Color });
+        }
+        var actual = (await reader.ReadDayAsync(day, token)).Single(row => row.Id == created.Id);
+        Assert.Equal(original with { Color = color }, actual); Assert.Equal(schema, database.Schema());
+    }
+
+    [Fact]
     public async Task DayReadIncludesWholeDayAndExtrasWithoutChangingDatabase()
     {
         using var database = Database.Create();

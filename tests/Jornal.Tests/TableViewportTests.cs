@@ -14,6 +14,8 @@ using Jornal.Desktop.ViewModels;
 using Jornal.Desktop.Views;
 using Jornal.Core.Orders;
 using Xunit;
+using System.Runtime.InteropServices;
+using Avalonia.Platform;
 
 namespace Jornal.Tests;
 
@@ -81,17 +83,18 @@ public sealed class TableViewportTests
         var (window, model, grid) = Open(dark, scale);
         try
         {
-            Assert.False(grid.Columns[0].Width.IsStar); Assert.Equal(44, grid.Columns[0].ActualWidth);
+            AssertOpaqueFrame(window);
+            Assert.False(grid.Columns[0].Width.IsStar); Assert.Equal(24, grid.Columns[0].ActualWidth);
             Assert.True(Bar(grid).IsVisible); Assert.All(grid.Columns.Where(column => column.IsVisible), column => Assert.True(column.ActualWidth >= column.MinWidth - 1));
             var visible = new[] { "Менеджер", "Заказчик", "Материал" };
             foreach (var column in grid.Columns.Skip(1)) column.IsVisible = visible.Contains(column.Header);
             Pump(); AssertFilled(grid); var before = grid.Columns.Where(column => column.IsVisible).Select(column => column.ActualWidth).ToArray();
             grid.SelectedItems.Add(model.Orders[0]); model.ResultText = "Письмо";
-            window.Width = 1800; Pump(); AssertFilled(grid);
+            window.Width = 1800; Pump(); AssertFilled(grid); AssertOpaqueFrame(window);
             Assert.True(grid.Columns.Single(column => column.Header is "Заказчик").ActualWidth > before[2]);
             Assert.Single(grid.SelectedItems); Assert.Equal("Письмо", model.ResultText);
             grid.Columns.Single(column => column.Header is "Материал").IsVisible = false; Pump(); AssertFilled(grid);
-            window.Width = 1280; Pump(); AssertFilled(grid); Assert.Equal(44, grid.Columns[0].ActualWidth);
+            window.Width = 1280; Pump(); AssertFilled(grid); Assert.Equal(24, grid.Columns[0].ActualWidth); AssertOpaqueFrame(window);
             foreach (var column in grid.Columns) column.IsVisible = true; Pump();
             Assert.True(Bar(grid).IsVisible && Bar(grid).Maximum > 0);
             Assert.All(grid.Columns, column => Assert.True(column.ActualWidth >= column.MinWidth - 1));
@@ -145,7 +148,7 @@ public sealed class TableViewportTests
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); Pump();
             Assert.False(column.Width.IsStar); Assert.Equal(200, column.Width.Value);
             foreach (var item in grid.Columns.Skip(1)) item.IsVisible = false; Pump();
-            Assert.Equal(44, grid.Columns[0].ActualWidth); Assert.False(Bar(grid).IsVisible);
+            Assert.Equal(24, grid.Columns[0].ActualWidth); Assert.False(Bar(grid).IsVisible);
         }
         finally { window.Close(); Pump(); }
     }
@@ -218,6 +221,20 @@ public sealed class TableViewportTests
         public int Writes { get; private set; }
         public PreferencesLoadResult Load() => new(new UiPreferences());
         public void Save(UiPreferences preferences) => Writes++;
+    }
+
+    private static void AssertOpaqueFrame(MainWindow window)
+    {
+        Assert.Equal(WindowTransparencyLevel.None, window.ActualTransparencyLevel);
+        using var frame = new RenderTargetBitmap(PixelSize.FromSize(window.ClientSize, 1));
+        frame.Render(window);
+        Assert.True(frame.Format == PixelFormat.Bgra8888 || frame.Format == PixelFormat.Rgba8888);
+        var pixels = new byte[frame.PixelSize.Width * frame.PixelSize.Height * 4];
+        var pin = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        try { frame.CopyPixels(new PixelRect(frame.PixelSize), pin.AddrOfPinnedObject(), pixels.Length, frame.PixelSize.Width * 4); }
+        finally { pin.Free(); }
+        for (var index = 3; index < pixels.Length; index += 4)
+            if (pixels[index] != 255) Assert.Fail($"Прозрачный пиксель {index / 4} после изменения размера {window.ClientSize}.");
     }
 
     private static (MainWindow, MainWindowViewModel, DataGrid) Open(bool dark, double scale = 1, MemoryUiPreferencesStore? store = null)

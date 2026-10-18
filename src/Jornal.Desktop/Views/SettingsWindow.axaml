@@ -20,6 +20,15 @@
       <Setter Property="Background" Value="{DynamicResource JournalSelection}" />
       <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
     </Style>
+    <Style Selector="Border.settings-group">
+      <Setter Property="BorderBrush" Value="{DynamicResource JournalBorder}" />
+      <Setter Property="BorderThickness" Value="0,1,0,0" />
+      <Setter Property="Padding" Value="0,20,0,0" />
+    </Style>
+    <Style Selector="TextBlock.settings-group-title">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
   </Window.Styles>
   <Grid RowDefinitions="*,Auto" ColumnDefinitions="188,*">
     <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}" BorderThickness="0,0,1,0">
@@ -38,42 +47,71 @@
     </Border>
     <Grid Grid.Column="1">
       <Grid x:Name="GeneralSettingsPage" IsVisible="{Binding IsGeneral}" RowDefinitions="Auto,*">
-        <TextBlock Text="Общие" FontSize="20" FontWeight="SemiBold" Margin="24,20" />
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Margin="24,0,24,24" Spacing="24">
-            <StackPanel Spacing="12">
-              <TextBlock Text="При запуске показывать" FontWeight="SemiBold" />
-              <ComboBox x:Name="StartupPeriodSelector" ItemsSource="{Binding Journal.StartupPeriods}"
-                        SelectedIndex="{Binding Journal.StartupPeriodIndex, Mode=TwoWay}" Width="180"
-                        AutomationProperties.Name="При запуске показывать" />
-            </StackPanel>
-            <StackPanel Spacing="12">
-              <TextBlock Text="Оформление" FontWeight="SemiBold" />
-              <CheckBox x:Name="SettingsDarkThemeCheckBox" Content="Тёмная тема" IsChecked="{Binding Journal.IsDarkTheme, Mode=TwoWay}" />
-            </StackPanel>
-            <StackPanel Spacing="12">
-              <TextBlock Text="Результат для письма" FontWeight="SemiBold" />
-              <CheckBox x:Name="UseResultMinimumPriceCheckBox" Content="Использовать минимальную цену"
-                        IsChecked="{Binding Journal.UseResultMinimumPrice, Mode=TwoWay}" />
-              <Grid ColumnDefinitions="Auto,12,132" HorizontalAlignment="Left" IsEnabled="{Binding Journal.UseResultMinimumPrice}">
-                <TextBlock Text="Минимальная цена, ₽" VerticalAlignment="Center" />
-                <TextBox x:Name="ResultMinimumPriceInput" Grid.Column="2" Text="{Binding Journal.ResultMinimumPriceText, Mode=TwoWay}"
-                         TextAlignment="Right" MinHeight="36" LostFocus="OnMinimumPriceLostFocus"
-                         AutomationProperties.Name="Минимальная цена для письма в рублях" />
-              </Grid>
-              <TextBlock Text="{Binding Journal.ResultMinimumPriceError}" IsVisible="{Binding Journal.HasResultMinimumPriceError}"
-                         Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
-            </StackPanel>
-            <StackPanel Spacing="12">
-              <TextBlock Text="Компоновка" FontWeight="SemiBold" />
-              <ui:JournalButton x:Name="CustomizeFromSettingsButton" Label="Настроить экран" Icon="panels-top-left"
-                                HorizontalAlignment="Left" IsEnabled="{Binding CanCustomize}" Click="OnCustomizeClick" />
-            </StackPanel>
-            <settings:NewOrderColorPanel DataContext="{Binding Journal}" />
-            <StackPanel Spacing="8">
-              <ui:JournalButton x:Name="EntrySuggestionsButton" Label="Данные для выпадающих списков" Icon="list-plus" Click="OnEntrySuggestionsClick" HorizontalAlignment="Left" IsEnabled="{Binding CanNavigate}" />
-              <TextBlock Text="{Binding Journal.EntrySuggestionsSummary}" Classes="muted" TextWrapping="Wrap" />
-            </StackPanel>
+        <Border Classes="settings-page-header">
+          <TextBlock Text="Общие" Classes="settings-page-title" />
+        </Border>
+        <ScrollViewer x:Name="GeneralSettingsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="GeneralSettingsGroups" Margin="24,16,24,24" Spacing="20" MaxWidth="720" HorizontalAlignment="Left">
+            <Border Classes="settings-group" BorderThickness="0" Padding="0">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Журнал" Classes="settings-group-title" />
+                <Grid ColumnDefinitions="*,16,180">
+                  <TextBlock Text="При запуске показывать" VerticalAlignment="Center" TextWrapping="Wrap" />
+                  <ComboBox x:Name="StartupPeriodSelector" Grid.Column="2" ItemsSource="{Binding Journal.StartupPeriods}"
+                            SelectedIndex="{Binding Journal.StartupPeriodIndex, Mode=TwoWay}" HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="При запуске показывать" />
+                </Grid>
+                <CheckBox x:Name="AutomaticJournalRefreshCheckBox" Content="Автоматически обновлять журнал"
+                          IsChecked="{Binding Journal.AutomaticJournalRefresh, Mode=TwoWay}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="settings-group">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Внешний вид" Classes="settings-group-title" />
+                <CheckBox x:Name="SettingsDarkThemeCheckBox" Content="Тёмная тема" IsChecked="{Binding Journal.IsDarkTheme, Mode=TwoWay}" />
+                <Grid ColumnDefinitions="*,16,180">
+                  <TextBlock Text="Компоновка" VerticalAlignment="Center" />
+                  <ui:JournalButton x:Name="CustomizeFromSettingsButton" Grid.Column="2" Label="Настроить экран" Icon="panels-top-left"
+                                    IsEnabled="{Binding CanCustomize}" Click="OnCustomizeClick" />
+                </Grid>
+              </StackPanel>
+            </Border>
+            <Border Classes="settings-group">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Заявки" Classes="settings-group-title" />
+                <settings:NewOrderColorPanel DataContext="{Binding Journal}" />
+                <StackPanel Spacing="8" Margin="0,4,0,0">
+                  <ui:JournalButton x:Name="EntrySuggestionsButton" Label="Данные для выпадающих списков" Icon="list-plus" Click="OnEntrySuggestionsClick" HorizontalAlignment="Left" IsEnabled="{Binding CanNavigate}" />
+                  <TextBlock Text="{Binding Journal.EntrySuggestionsSummary}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Classes="settings-group">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Результат для письма" Classes="settings-group-title" />
+                <CheckBox x:Name="UseResultMinimumPriceCheckBox" Content="Использовать минимальную цену"
+                          IsChecked="{Binding Journal.UseResultMinimumPrice, Mode=TwoWay}" />
+                <Grid ColumnDefinitions="*,16,180" IsEnabled="{Binding Journal.UseResultMinimumPrice}">
+                  <TextBlock Text="Минимальная цена, ₽" VerticalAlignment="Center" />
+                  <TextBox x:Name="ResultMinimumPriceInput" Grid.Column="2" Text="{Binding Journal.ResultMinimumPriceText, Mode=TwoWay}"
+                           TextAlignment="Right" MinHeight="36" LostFocus="OnMinimumPriceLostFocus"
+                           AutomationProperties.Name="Минимальная цена для письма в рублях" />
+                </Grid>
+                <TextBlock Text="{Binding Journal.ResultMinimumPriceError}" IsVisible="{Binding Journal.HasResultMinimumPriceError}"
+                           Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Classes="settings-group">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Корзина" Classes="settings-group-title" />
+                <Grid ColumnDefinitions="*,16,180">
+                  <TextBlock Text="Хранить новые удалённые заявки" VerticalAlignment="Center" TextWrapping="Wrap" />
+                  <ComboBox x:Name="TrashRetentionSelector" Grid.Column="2" ItemsSource="{Binding Journal.TrashRetentionOptions}"
+                            SelectedIndex="{Binding Journal.TrashRetentionIndex, Mode=TwoWay}" HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="Срок хранения новых удалённых заявок" />
+                </Grid>
+              </StackPanel>
+            </Border>
           </StackPanel>
         </ScrollViewer>
       </Grid>
@@ -81,7 +119,12 @@
         <Grid IsVisible="{Binding HasDatabase}" IsEnabled="{Binding Journal.CanConfigureSource}">
           <settings:DatabaseSettingsPanel x:Name="DatabasePage" DataContext="{Binding Database}" />
         </Grid>
-        <TextBlock Text="Подключение к источнику недоступно." IsVisible="{Binding !HasDatabase}" Margin="24" TextWrapping="Wrap" />
+        <Grid IsVisible="{Binding !HasDatabase}" RowDefinitions="Auto,*">
+          <Border Classes="settings-page-header">
+            <TextBlock Text="База данных" Classes="settings-page-title" />
+          </Border>
+          <TextBlock Grid.Row="1" Text="Подключение к источнику недоступно." Margin="24,16" TextWrapping="Wrap" />
+        </Grid>
       </Grid>
       <Grid IsVisible="{Binding IsUpdates}">
         <settings:AppUpdatesPanel x:Name="UpdatesPage" DataContext="{Binding Updates}" />
@@ -90,22 +133,28 @@
         <Grid IsVisible="{Binding HasDiagnostics}">
           <settings:DiagnosticsPanel x:Name="DiagnosticsPage" DataContext="{Binding Diagnostics}" />
         </Grid>
-        <StackPanel IsVisible="{Binding !HasDiagnostics}" Margin="24" Spacing="16">
-          <TextBlock Text="Диагностика" FontSize="20" FontWeight="SemiBold" />
-          <TextBlock Text="Диагностика в этом запуске недоступна." TextWrapping="Wrap" />
-        </StackPanel>
+        <Grid IsVisible="{Binding !HasDiagnostics}" RowDefinitions="Auto,*">
+          <Border Classes="settings-page-header">
+            <TextBlock Text="Диагностика" Classes="settings-page-title" />
+          </Border>
+          <TextBlock Grid.Row="1" Text="Диагностика в этом запуске недоступна." Margin="24,16" TextWrapping="Wrap" />
+        </Grid>
       </Grid>
-      <ScrollViewer x:Name="AboutSettingsPage" IsVisible="{Binding IsAbout}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="24,20" Spacing="20">
-          <TextBlock Text="О программе" FontSize="20" FontWeight="SemiBold" />
-          <StackPanel Spacing="8">
-            <TextBlock Text="Journal · Журнал заявок" FontSize="18" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding Updates.CurrentVersion, StringFormat='Версия {0}'}" Classes="muted" />
+      <Grid x:Name="AboutSettingsPage" IsVisible="{Binding IsAbout}" RowDefinitions="Auto,*">
+        <Border Classes="settings-page-header">
+          <TextBlock Text="О программе" Classes="settings-page-title" />
+        </Border>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="24,16" Spacing="20">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Journal · Журнал заявок" FontSize="18" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Updates.CurrentVersion, StringFormat='Версия {0}'}" Classes="muted" />
+            </StackPanel>
+            <ui:JournalButton x:Name="OpenProjectButton" Label="Проект на GitHub" Click="OnOpenProjectClick" HorizontalAlignment="Left" />
+            <TextBlock Text="{Binding LinkError}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
           </StackPanel>
-          <ui:JournalButton x:Name="OpenProjectButton" Label="Проект на GitHub" Click="OnOpenProjectClick" HorizontalAlignment="Left" />
-          <TextBlock Text="{Binding LinkError}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
-        </StackPanel>
-      </ScrollViewer>
+        </ScrollViewer>
+      </Grid>
     </Grid>
     <Border Grid.Row="1" Grid.ColumnSpan="2" Padding="24,12" Background="{DynamicResource JournalSurface}"
             BorderBrush="{DynamicResource JournalBorder}" BorderThickness="0,1,0,0">

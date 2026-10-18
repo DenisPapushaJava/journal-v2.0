@@ -27,13 +27,14 @@ public partial class MainWindowViewModel
 
     public void BeginStatusFilterEdit()
     {
+        CancelRefreshForFilter();
         var counts = _allOrders.Where(order => MatchesSearchAndDate(order) && MatchesColumnFilters(order))
             .GroupBy(StatusCategory).ToDictionary(group => group.Key, group => group.Count());
         StatusFilterEditor.Begin(StatusFilter, UseTechnologistColor, TechnologistColorArgb, counts);
     }
     public bool ApplyStatusFilterEdit()
     {
-        if (!CanUseJournal || !StatusFilterEditor.CanApply) return false;
+        if (!CanBrowseJournal || !StatusFilterEditor.CanApply) return false;
         StatusFilter = StatusFilterEditor.Selection;
         return true;
     }

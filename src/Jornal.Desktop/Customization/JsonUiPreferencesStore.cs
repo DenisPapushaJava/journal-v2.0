@@ -19,15 +19,16 @@ public sealed class JsonUiPreferencesStore(string path) : IUiPreferencesStore
             if (!File.Exists(path)) return new(null);
             if (new FileInfo(path).Length > 128 * 1024)
                 return new(null, "Файл настроек экрана слишком большой. Используется стандартный вид.");
-            using var stream = File.OpenRead(path);
-            var preferences = JsonSerializer.Deserialize<UiPreferences>(stream, Options);
+            UiPreferences? preferences;
+            using (var stream = File.OpenRead(path)) preferences = JsonSerializer.Deserialize<UiPreferences>(stream, Options);
             if (preferences is null || preferences.Version != 1 || preferences.Layout is null)
                 return new(null, "Настройки экрана несовместимы с этой версией. Используется стандартный вид.");
             EntrySuggestions suggestions; string? error = null;
-            try { suggestions = (preferences.EntrySuggestions ?? new()).Normalize(); }
+            try { suggestions = (preferences.EntrySuggestions ?? EntrySuggestionDefaults.Create()).Normalize(); }
             catch (ArgumentException) { suggestions = new(); error = "Сохранённые списки повреждены. Используются пустые списки."; }
-            return new(preferences with { Layout = preferences.Layout.Normalize(), ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize(),
-                ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize(), EntrySuggestions = suggestions }, error);
+            var normalized = preferences with { Layout = preferences.Layout.Normalize(), ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize(),
+                ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize(), EntrySuggestions = suggestions };
+            return error is not null ? new(normalized, error) : CompactPanelsMigration.Apply(normalized, Save);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -45,10 +46,10 @@ public sealed class JsonUiPreferencesStore(string path) : IUiPreferencesStore
         {
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                JsonSerializer.Serialize(stream, preferences with { Layout = preferences.Layout.Normalize(),
+                JsonSerializer.Serialize(stream, preferences with { Layout = preferences.Layout.Normalize() with { CompactPanelsPresetApplied = true },
                     ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize(),
                     ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize(),
-                    EntrySuggestions = (preferences.EntrySuggestions ?? new()).Normalize() }, Options);
+                    EntrySuggestions = (preferences.EntrySuggestions ?? EntrySuggestionDefaults.Create()).Normalize() }, Options);
                 stream.Flush(flushToDisk: true);
             }
             File.Move(temporary, path, overwrite: true);

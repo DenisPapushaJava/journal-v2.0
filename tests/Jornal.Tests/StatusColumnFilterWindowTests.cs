@@ -52,8 +52,8 @@ public sealed class StatusColumnFilterWindowTests
             var activeTrigger = visibleHeader.FindControl<JournalButton>("StatusFilterButton")!;
             Assert.Contains("active", activeTrigger.Classes);
             Assert.Equal(((ISolidColorBrush)window.FindResource(window.ActualThemeVariant, "JournalAccentSoft")!).Color, ((ISolidColorBrush)activeTrigger.Background!).Color);
-            var chip = window.FindControl<JournalButton>("ActiveStatusFilterButton")!;
-            Assert.True(chip.IsVisible); Assert.Equal($"Статус: 2 из {(personal ? 5 : 4)}", chip.Label);
+            var chip = StatusChip(window);
+            Assert.True(chip.IsEffectivelyVisible); Assert.Equal($"Статус: 2 из {(personal ? 5 : 4)}", Assert.Single(window.FindControl<AppliedFilterStrip>("ActiveColumnFilters")!.Filters!).Summary);
             InBounds(window, chip); InBounds(window, window.FindControl<TextBox>("SearchBox")!);
             Assert.True(window.FindControl<TextBox>("SearchBox")!.Bounds.Width >= 160);
             Assert.Contains(window.FindControl<StackPanel>("ColumnChoices")!.Children.OfType<CheckBox>(), choice => choice.Content is "Статус");
@@ -100,11 +100,11 @@ public sealed class StatusColumnFilterWindowTests
             model.SearchText = "Технолог"; model.FilterDate = StatusColumnFilterTests.Date.ToDateTime(TimeOnly.MinValue);
             model.StatusFilter = OrderStatusFilter.Mine | OrderStatusFilter.Ready; Pump();
             grid.Columns.Single(column => column.Header is "Статус").IsVisible = false; Pump();
-            var chip = window.FindControl<JournalButton>("ActiveStatusFilterButton")!;
+            var chip = StatusChip(window);
             Assert.True(chip.IsEffectivelyVisible); InBounds(window, chip); Click(chip);
             Assert.False(model.HasStatusFilter); Assert.Equal(7, model.Orders.Count); Assert.Equal("Технолог", model.SearchText);
             Assert.NotNull(model.FilterDate); Assert.True(model.UseTechnologistColor); Assert.Equal(StatusColumnFilterTests.PersonalColor, model.TechnologistColorArgb);
-            Assert.False(chip.IsVisible); Assert.Empty(grid.SelectedItems);
+            Assert.DoesNotContain(window.FindControl<AppliedFilterStrip>("ActiveColumnFilters")!.Filters!, filter => filter.Source == model); Assert.Empty(grid.SelectedItems);
             Assert.Equal(18, grid.Columns.Count);
         }
         finally { window.Close(); Pump(); }
@@ -143,12 +143,14 @@ public sealed class StatusColumnFilterWindowTests
             Click(header.FindControl<CheckBox>("AllStatusesCheckBox")!); Click(Option(content, OrderStatusFilter.Mine));
             Click(header.FindControl<JournalButton>("ApplyStatusFilterButton")!); Assert.False(flyout.IsOpen);
             Assert.True(model.HasStatusFilter); Assert.True(window.FindControl<Control>("EmptyState")!.IsVisible);
-            var chip = window.FindControl<JournalButton>("ActiveStatusFilterButton")!; InBounds(window, chip); Click(chip);
+            var chip = StatusChip(window); InBounds(window, chip); Click(chip);
             Assert.False(model.HasStatusFilter); Assert.Empty(model.Orders);
         }
         finally { window.Close(); Pump(); }
     }
 
+    private static Button StatusChip(MainWindow window) => window.FindControl<AppliedFilterStrip>("ActiveColumnFilters")!
+        .GetVisualDescendants().OfType<Button>().Single(button => button.DataContext == window.DataContext && button.Classes.Contains("status-filter-chip"));
     private static (MainWindow Window, MainWindowViewModel Model, DataGrid Grid, StatusFilterHeader Header) Open(bool dark, bool personal, int width = 1366, double scale = 1)
     {
         var model = new MainWindowViewModel(new StatusColumnFilterTests.Reader()) { IsDarkTheme = dark, UseTechnologistColor = personal };

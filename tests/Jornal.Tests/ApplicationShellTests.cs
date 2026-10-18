@@ -41,7 +41,7 @@ public sealed class ApplicationShellTests
             Assert.Equal(13, grid.FontSize);
             Assert.Equal(18, grid.Columns.Count);
 
-            foreach (var name in new[] { "ResultPanel", "OrdersCommands", "ClipboardCommands", "StatusCommands", "FiltersPanel", "TablePanel", "ColumnsButton" })
+            foreach (var name in new[] { "ResultPanel", "OrdersCommands", "ClipboardCommands", "FiltersPanel", "TablePanel", "ColumnsButton" })
             {
                 var control = window.FindControl<Control>(name)!;
                 var bounds = new Rect(control.Bounds.Size).TransformToAABB(control.TransformToVisual(window)!.Value);
@@ -214,13 +214,14 @@ public sealed class ApplicationShellTests
             Assert.Equal(2, reader.ReadCount);
 
             var grid = window.FindControl<DataGrid>("OrdersGrid")!;
+            Assert.Equal("15.10.2026", grid.CollectionView.Cast<OrderRowViewModel>().First().DateText);
             var header = grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(h => Equals(h.Content, "Дата"));
             var point = header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2), window)!.Value;
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
             var first = grid.GetVisualDescendants().OfType<DataGridRow>().OrderBy(row => row.Bounds.Y).First();
-            Assert.Equal("15.10.2026", ((OrderRowViewModel)first.DataContext!).DateText);
+            Assert.Equal("30.09.2026", ((OrderRowViewModel)first.DataContext!).DateText);
             var thickness = grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(h => Equals(h.Content, "Толщ., мм"));
             point = thickness.TranslatePoint(new Point(thickness.Bounds.Width / 2, thickness.Bounds.Height / 2), window)!.Value;
             window.MouseDown(point, MouseButton.Left);

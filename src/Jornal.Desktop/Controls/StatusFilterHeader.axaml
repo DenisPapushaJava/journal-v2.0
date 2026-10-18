@@ -5,10 +5,10 @@
     <TextBlock Text="Статус" VerticalAlignment="Center" TextWrapping="NoWrap" />
     <ui:JournalButton x:Name="StatusFilterButton" Grid.Column="2" Label="Фильтр статуса" Icon="funnel" IconOnly="True"
                       Classes="status-filter-trigger" Classes.active="{Binding HasStatusFilter}" Width="24" Height="26" MinHeight="26" Padding="0"
-                      IsEnabled="{Binding CanUseJournal}" ToolTip.Tip="{Binding StatusFilterDescription}" AutomationProperties.HelpText="{Binding StatusFilterDescription}">
+                      IsEnabled="{Binding CanBrowseJournal}" ToolTip.Tip="{Binding StatusFilterDescription}" AutomationProperties.HelpText="{Binding StatusFilterDescription}">
       <Button.Flyout>
         <Flyout Placement="BottomEdgeAlignedRight" Opened="OnFilterOpened" Closed="OnFilterClosed">
-          <Grid x:Name="PopupRoot" IsEnabled="{Binding CanUseJournal}">
+          <Grid x:Name="PopupRoot" IsEnabled="{Binding CanBrowseJournal}">
             <StackPanel x:Name="PopupPanel" x:DataType="vm:StatusFilterEditorViewModel" Width="260" Spacing="10">
               <CheckBox x:Name="AllStatusesCheckBox" Content="Все" FontWeight="Normal" Classes="status-filter-option" IsThreeState="True" MinHeight="32"
                         IsChecked="{Binding AllChecked, Mode=OneWay}" Command="{Binding ToggleAllCommand}" />

@@ -128,7 +128,12 @@ internal sealed class JetPriceRenamer(string path)
                 _connection.Value.Open(ConnectionString(path));
                 _catalog = ComScope.Create("ADOX.Catalog"); _catalog.Value.ActiveConnection = _connection.Value;
             }
-            catch { _connection.Dispose(); throw; }
+            catch
+            {
+                // ActiveConnection может отказать уже после создания COM-каталога.
+                try { _catalog?.Dispose(); } catch (Exception) { }
+                _connection.Dispose(); throw;
+            }
         }
         private static string ConnectionString(string path) => new System.Data.OleDb.OleDbConnectionStringBuilder
             { Provider = "Microsoft.Jet.OLEDB.4.0", DataSource = Path.GetFullPath(path), ["Mode"] = "Share Exclusive", ["OLE DB Services"] = -2 }.ConnectionString;

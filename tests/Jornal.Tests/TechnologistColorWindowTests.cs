@@ -52,6 +52,7 @@ public sealed class TechnologistColorWindowTests
             var preview = settings.FindDescendant<Border>("TechnologistColorPreview")!;
             preview.BringIntoView(); Pump(); owner.MouseMove(new Point(1, 1)); settings.MouseMove(new Point(1, 1)); Pump();
             Assert.Equal(Color.Parse("#FF9DFF"), Assert.IsAssignableFrom<ISolidColorBrush>(preview.Background).Color);
+            Assert.Equal(-25089, model.EffectiveNewOrderColor);
             var bounds = new Rect(preview.Bounds.Size).TransformToAABB(preview.TransformToVisual(settings)!.Value);
             Assert.True(bounds.Left >= 0 && bounds.Right <= 800 && bounds.Top >= 0 && bounds.Bottom <= 580);
             Screenshot(settings, "technologist-settings-" + dark);
@@ -73,7 +74,7 @@ public sealed class TechnologistColorWindowTests
     }
     [AvaloniaTheory]
     [InlineData(false)] [InlineData(true)]
-    public async Task CreatedRowsRenderTheExactSavedColorAndNeverReceiveAStatusLabel(bool dark)
+    public async Task CreatedRowsRenderTheSavedColorWithoutAStatusLabel(bool dark)
     {
         var store = new DemoOrderStore(); var model = new MainWindowViewModel(store, store) { IsDarkTheme = dark, UseTechnologistColor = true };
         var form = model.CreateOrderForm()!; TechnologistColorTests.Fill(form, store); await form.SaveCommand.ExecuteAsync(null);
@@ -84,6 +85,7 @@ public sealed class TechnologistColorWindowTests
             var item = model.Orders.Single(row => row.Id == form.CreatedOrder!.Id);
             var grid = window.FindControl<DataGrid>("OrdersGrid")!; grid.ScrollIntoView(item, grid.Columns[1]); Pump(); window.MouseMove(new Point(1, 1)); Pump();
             var row = grid.GetVisualDescendants().OfType<DataGridRow>().Single(control => control.DataContext == item);
+            Assert.Equal(-25089, form.CreatedOrder!.Color); Assert.Equal(-25089, item.Color);
             Assert.Equal(Color.Parse("#FF9DFF"), Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color);
             Assert.False(item.HasStandardStatus); Assert.Empty(item.StatusText); Screenshot(window, "technologist-row-" + dark);
         }

@@ -72,9 +72,13 @@ internal sealed class ResponsiveTableColumns : IDisposable
         _queued = false;
         if (_disposed || _table.Bounds.Width <= 0) return;
         _lastAvailable = AvailableWidth();
-        var minimum = _table.Columns[0].ActualWidth + _widths.Where(pair => pair.Key.IsVisible)
+        var minimum = Math.Max(_table.Columns[0].MinWidth, _table.Columns[0].ActualWidth) + _widths.Where(pair => pair.Key.IsVisible)
             .Sum(pair => pair.Value.IsStar ? pair.Key.MinWidth : Math.Clamp(pair.Value.Value, pair.Key.MinWidth, pair.Key.MaxWidth));
         var overflow = minimum > _lastAvailable + 0.5;
+        // При точном заполнении Star-колонки иногда дают переполнение порядка 1e-12.
+        // Не показываем ложную полосу; настоящее переполнение по-прежнему прокручивается.
+        var scroll = overflow ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+        if (_table.HorizontalScrollBarVisibility != scroll) _table.HorizontalScrollBarVisibility = scroll;
         IsAdjusting = true;
         try
         {

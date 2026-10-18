@@ -85,7 +85,7 @@ public sealed partial class ColumnFilterEditorViewModel : ObservableObject
 
 public sealed partial class OrderColumnFilterViewModel(OrderFilterColumn column,
     Func<OrderFilterColumn, ColumnFilterChoices> optionsFactory,
-    Func<bool> canUse, Action changed) : ObservableObject
+    Func<bool> canUse, Action changed, Action? beginEdit = null) : ObservableObject
 {
     private static readonly CultureInfo Russian = CultureInfo.GetCultureInfo("ru-RU");
     private const string DecimalFormat = "0.############################";
@@ -107,7 +107,7 @@ public sealed partial class OrderColumnFilterViewModel(OrderFilterColumn column,
     public string Description => _selection is null ? FilterLabel : Title + ": " +
         string.Join(", ", _selection.Select(key => Label(Column, key)));
     public ColumnFilterEditorViewModel Editor { get; } = new();
-    public void BeginEdit() => Editor.Begin(optionsFactory(Column), _selection);
+    public void BeginEdit() { beginEdit?.Invoke(); Editor.Begin(optionsFactory(Column), _selection); }
     public bool ApplyEdit()
     {
         if (!CanUseJournal || !Editor.CanApply) return false;

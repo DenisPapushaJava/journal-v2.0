@@ -37,10 +37,17 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         Database = journal.CreateDatabaseSettingsForm();
         Diagnostics = diagnostics is null ? null : new(diagnostics);
         _selectedIndex = (int)section;
+        AcknowledgeDiagnostics();
         Journal.PropertyChanged += OnStateChanged;
         Updates.PropertyChanged += OnStateChanged;
         if (Database is not null) Database.PropertyChanged += OnStateChanged;
         if (Diagnostics is not null) Diagnostics.PropertyChanged += OnStateChanged;
+    }
+
+    partial void OnSelectedIndexChanged(int value) => AcknowledgeDiagnostics();
+    private void AcknowledgeDiagnostics()
+    {
+        if (IsDiagnostics && Diagnostics?.Service.HasPreviousFatal == true) Diagnostics.Service.AcknowledgePreviousFatal();
     }
 
     private void OnStateChanged(object? sender, PropertyChangedEventArgs e)

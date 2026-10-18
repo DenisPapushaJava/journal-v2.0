@@ -13,9 +13,9 @@
     </DataTemplate>
   </UserControl.Resources>
   <StackPanel Spacing="12">
-    <TextBlock Text="Цвет новых заявок" FontWeight="SemiBold" />
+    <TextBlock Text="Цвет новых заявок" Classes="muted" />
     <CheckBox x:Name="UseTechnologistColorCheckBox" Content="Использовать свой цвет" IsChecked="{Binding UseTechnologistColor, Mode=TwoWay}" />
-    <Grid ColumnDefinitions="Auto,16,Auto,8,140" HorizontalAlignment="Left" IsEnabled="{Binding UseTechnologistColor}">
+    <Grid ColumnDefinitions="Auto,*,Auto,12,140" IsEnabled="{Binding UseTechnologistColor}">
       <Button x:Name="TechnologistColorButton" Classes="command outline" MinHeight="36" Padding="8,4" ToolTip.Tip="Выбрать цвет" AutomationProperties.Name="Выбрать цвет новых заявок">
         <TextBlock Text="Палитра" />
         <Button.Flyout>
@@ -44,6 +44,7 @@
           <Binding Path="EffectiveNewOrderColor" /><Binding Path="IsFocused" ElementName="TechnologistColorPreview" />
           <Binding Path="IsPointerOver" ElementName="TechnologistColorPreview" /><Binding Path="IsFocused" ElementName="TechnologistColorPreview" />
           <Binding Path="ActualThemeVariant" ElementName="TechnologistColorPreview" />
+          <Binding Path="RowHighlightStrength" />
         </MultiBinding>
       </Border.Background>
       <TextBlock Text="{Binding NewOrderColorPreviewText}" FontSize="13">
@@ -52,6 +53,7 @@
             <Binding Path="EffectiveNewOrderColor" /><Binding Path="IsFocused" ElementName="TechnologistColorPreview" />
             <Binding Path="IsPointerOver" ElementName="TechnologistColorPreview" /><Binding Path="IsFocused" ElementName="TechnologistColorPreview" />
             <Binding Path="ActualThemeVariant" ElementName="TechnologistColorPreview" />
+            <Binding Path="RowHighlightStrength" />
           </MultiBinding>
         </TextBlock.Foreground>
       </TextBlock>

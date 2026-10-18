@@ -7,7 +7,7 @@ namespace Jornal.Desktop.ViewModels;
 public partial class MainWindowViewModel
 {
     public AppUpdatesViewModel Updates { get; } = appUpdates ?? new(new VelopackAppUpdater());
-    public bool CanCheckUpdates => CanChoosePeriod && !IsLoadingOrders && !IsCopyingResult;
+    public bool CanCheckUpdates => CanChoosePeriod && !IsLoadingOrders && !IsRefreshingOrders && !IsCopyingResult;
     public UpdateRestartDraft CaptureUpdateDraft() => new(1, _source?.Path, ResultText, _source?.Path is null ? [] : _resultOrderIds.ToArray());
     public void RestoreUpdateDraft(IUpdateRestartStore store)
     {

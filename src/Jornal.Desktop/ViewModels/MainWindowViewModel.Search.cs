@@ -48,7 +48,7 @@ public partial class MainWindowViewModel
         ApplySearch();
     }
 
-    private void ResetTableFilters()
+    private void ResetTableFilters(bool keepDate = false)
     {
         var wasResetting = _resettingSearch;
         _resettingSearch = true;
@@ -56,15 +56,19 @@ public partial class MainWindowViewModel
         {
             foreach (var filter in ColumnFilters) filter.Reset();
             StatusFilter = OrderStatusFilter.All;
-            FilterDate = null;
+            if (!keepDate) FilterDate = null;
         }
         finally { _resettingSearch = wasResetting; }
     }
 
     [RelayCommand] private void ClearSearch() => ResetSearch(resetScope: false);
-    [RelayCommand] private void ResetFilters() => ResetSearch(resetScope: true);
+    [RelayCommand] private void ResetFilters()
+    {
+        ResetSorting();
+        ResetSearch(resetScope: true);
+    }
 
-    private void ResetSearch(bool resetScope)
+    private void ResetSearch(bool resetScope, bool keepDate = false)
     {
         var wasResetting = _resettingSearch;
         _resettingSearch = true;
@@ -75,7 +79,7 @@ public partial class MainWindowViewModel
             // Отменяет ещё не применённый ввод, даже если применённый запрос уже пуст.
             if (wasEmpty) OnPropertyChanged(nameof(SearchText));
             if (resetScope) SearchScopeIndex = 0;
-            ResetTableFilters();
+            ResetTableFilters(keepDate);
         }
         finally { _resettingSearch = wasResetting; }
         ApplySearch();
@@ -92,8 +96,10 @@ public partial class MainWindowViewModel
         ApplyLoadedOrders();
     }
 
-    private void ApplyLoadedOrders()
+    private void ApplyLoadedOrders(bool preserveSelection = false)
     {
+        var selected = preserveSelection ? _selectedOrderIds.ToHashSet() : [];
+        var active = preserveSelection ? _activeOrderId : null;
         if (!ReferenceEquals(_cachedSource, _allOrders))
         {
             var ids = _allOrders.Select(row => row.Id).ToHashSet();
@@ -108,8 +114,17 @@ public partial class MainWindowViewModel
             rows.Add(row);
         }
         _visibleRows.ReplaceWith(rows);
-        UpdateSelection([], null);
-        SelectionClearingRequested?.Invoke(this, EventArgs.Empty);
+        if (preserveSelection)
+        {
+            var chosen = Orders.Where(row => selected.Contains(row.Id)).ToArray();
+            UpdateSelection(chosen, chosen.FirstOrDefault(row => row.Id == active));
+            SelectionRestoreRequested?.Invoke(this, new(chosen.Select(row => row.Id).ToArray(), _activeOrderId));
+        }
+        else
+        {
+            UpdateSelection([], null);
+            SelectionClearingRequested?.Invoke(this, EventArgs.Empty);
+        }
         HasNoOrders = Orders.Count == 0;
         CountText = $"Заявок: {Orders.Count} из {_allOrders.Count}";
         NotifyFilterContextChanged();

@@ -18,7 +18,7 @@ public sealed partial class MainWindowCustomization
     private static readonly string[] ColumnIds = ["date", "specification", "manager", "customer", "cutting",
         "material", "thickness", "sheet-size", "sheet-count", "cut-length", "weight", "price", "cutting-time", "bending", "comment", "delivery", "status"];
     private static readonly Dictionary<string, double> MinimumWidths = new()
-        { ["orders"] = 312, ["clipboard"] = 430, ["status"] = 428 };
+        { ["orders"] = 312, ["clipboard"] = 430 };
     private readonly MainWindow _window;
     private readonly IUiPreferencesStore _store;
     private readonly DataGrid _table;
@@ -49,14 +49,14 @@ public sealed partial class MainWindowCustomization
         _groups = Find<Grid>("CommandGroups");
         _top = Find<Grid>("TopArea");
         _panels = new() { ["orders"] = Find<Border>("OrdersCommands"),
-            ["clipboard"] = Find<Border>("ClipboardCommands"), ["status"] = Find<Border>("StatusCommands") };
+            ["clipboard"] = Find<Border>("ClipboardCommands") };
         _defaultColumns = CaptureColumns();
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _saveTimer.Tick += (_, _) => Flush();
         foreach (var column in _table.Columns.Skip(1)) column.PropertyChanged += OnColumnChanged;
         _table.ColumnReordered += (_, _) => Changed();
         _table.ColumnDisplayIndexChanged += (_, _) => Changed();
-        foreach (var name in new[] { "OrdersMoveHandle", "ClipboardMoveHandle", "StatusMoveHandle", "ResultMoveHandle", "ResultResizeHandle" })
+        foreach (var name in new[] { "OrdersMoveHandle", "ClipboardMoveHandle", "ResultMoveHandle", "ResultResizeHandle" })
         {
             var handle = Find<LayoutHandle>(name);
             handle.MoveStarted += StartDrag;
@@ -65,11 +65,28 @@ public sealed partial class MainWindowCustomization
             handle.MoveCanceled += (_, _) => CancelDrag();
             handle.KeyDown += OnHandleKeyDown;
         }
-        foreach (var name in new[] { "FirstPanelSplitter", "SecondPanelSplitter", "WorkspaceFirstSplitter", "WorkspaceSecondSplitter", "WorkspaceRowsSplitter" })
+        foreach (var name in new[] { "FirstPanelSplitter" })
         {
             var splitter = Find<GridSplitter>(name);
             splitter.DragCompleted += (_, _) => Changed();
             splitter.KeyUp += (_, _) => Changed();
+        }
+        foreach (var splitter in WorkspaceSplitters)
+        {
+            splitter.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+            {
+                if (!e.GetCurrentPoint(splitter).Properties.IsLeftButtonPressed) return;
+                _workspaceResizePointer = e.Pointer; _workspaceResizeSnapshot = _renderedWorkspace;
+                splitter.Focus();
+            }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            splitter.DragCompleted += (_, _) =>
+            { _workspaceResizePointer = null; _workspaceResizeSnapshot = null; WorkspaceSplitterChanged(); };
+            splitter.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+            {
+                if (e.Key == Key.Escape && CancelWorkspaceResize()) e.Handled = true;
+            }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            splitter.KeyUp += (_, e) =>
+            { if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down) WorkspaceSplitterChanged(); };
         }
         Find<Grid>("BodyGrid").SizeChanged += (_, _) => UpdateResultSize();
         Find<Grid>("Workspace").SizeChanged += (_, _) => UpdateResultSize();
@@ -86,12 +103,15 @@ public sealed partial class MainWindowCustomization
             if (loaded.Preferences is { } profile)
             {
                 model.IsDarkTheme = profile.DarkTheme;
+                model.RowHighlightStrength = profile.RowHighlightStrength ?? (profile.EnhancedRowContrast ? 100 : Tables.RowHighlightSettings.Default);
                 model.ShowTodayOnStartup = profile.ShowTodayOnStartup;
+                model.AutomaticJournalRefresh = profile.AutomaticJournalRefresh;
+                model.TrashRetentionDays = profile.TrashRetentionDays;
                 model.ApplyResultStyle(profile.ResultFormatting ?? new());
                 model.ApplyResultPricing(profile.ResultPricing ?? new());
                 model.ApplyNewOrderColor(profile.NewOrderColor ?? new());
-                model.ApplyEntrySuggestions(profile.EntrySuggestions ?? new());
             }
+            model.ApplyEntrySuggestions(loaded.Preferences?.EntrySuggestions ?? EntrySuggestionDefaults.Create());
         }
         var layout = loaded.Preferences?.Layout ?? ScreenLayout.CreateDefault();
         Apply(layout, upgradeColumnSizing: layout.ColumnSizingVersion < ScreenLayout.CurrentColumnSizingVersion);
@@ -102,7 +122,7 @@ public sealed partial class MainWindowCustomization
     public void Begin()
     {
         if (Model is not { IsCustomizing: false, CanUseJournal: true } model) return;
-        Flush();
+        if (!Flush()) return;
         _beforeEdit = Capture();
         model.IsCustomizing = true;
         _window.Classes.Add("customizing");
@@ -198,7 +218,9 @@ public sealed partial class MainWindowCustomization
     {
         try
         {
-            _store.Save(new UiPreferences { DarkTheme = Model?.IsDarkTheme == true, ShowTodayOnStartup = Model?.ShowTodayOnStartup ?? true, Layout = layout,
+            _store.Save(new UiPreferences { DarkTheme = Model?.IsDarkTheme == true, RowHighlightStrength = Model?.RowHighlightStrength ?? Tables.RowHighlightSettings.Default, ShowTodayOnStartup = Model?.ShowTodayOnStartup ?? true,
+                AutomaticJournalRefresh = Model?.AutomaticJournalRefresh ?? true, TrashRetentionDays = Model?.TrashRetentionDays ?? 30,
+                Layout = layout with { CompactPanelsPresetApplied = true },
                 ResultFormatting = Model?.CaptureResultStyle() ?? new(), ResultPricing = Model?.CaptureResultPricing() ?? new(), NewOrderColor = Model?.CaptureNewOrderColor() ?? new(),
                 EntrySuggestions = Model?.CaptureEntrySuggestions() ?? new() });
             if (Model is { } model) model.PreferencesError = null;
@@ -269,7 +291,7 @@ public sealed partial class MainWindowCustomization
         if (_layout.Workspace is null)
         {
             _groups.ColumnDefinitions.Clear();
-            for (var index = 0; index < 3; index++)
+            for (var index = 0; index < _layout.PanelOrder.Length; index++)
             {
                 var id = _layout.PanelOrder[index];
                 if (index > 0) _groups.ColumnDefinitions.Add(new ColumnDefinition(16, GridUnitType.Pixel));
@@ -291,10 +313,10 @@ public sealed partial class MainWindowCustomization
         var body = Find<Grid>("BodyGrid");
         var filtersHeight = Math.Max(36, Find<Grid>("FiltersPanel").Bounds.Height);
         var error = Find<Border>("LoadErrorPanel");
-        var available = body.Bounds.Height - 120 - 24 - filtersHeight - 12 - 36 - 128 - (error.IsVisible ? error.Bounds.Height + error.Margin.Bottom : 0);
+        var available = body.Bounds.Height - 160 - 24 - filtersHeight - 12 - 36 - 128 - (error.IsVisible ? error.Bounds.Height + error.Margin.Bottom : 0);
         var height = Math.Min(_layout.ResultHeight, Math.Max(ScreenLayout.MinimumResultHeight, available));
         _top.RowDefinitions[_layout.ResultAboveCommands ? 0 : 2].Height = new GridLength(height);
-        _top.RowDefinitions[_layout.ResultAboveCommands ? 2 : 0].Height = new GridLength(120);
+        _top.RowDefinitions[_layout.ResultAboveCommands ? 2 : 0].Height = new GridLength(160);
     }
 
     private void StartDrag(object? sender, EventArgs e)
@@ -316,6 +338,7 @@ public sealed partial class MainWindowCustomization
         }
         if (!Find<Border>("DragPreview").IsVisible && Math.Abs(point.X - handle.StartPoint.X) + Math.Abs(point.Y - handle.StartPoint.Y) < 6) return;
         ShowDragPreview(handle, point);
+        Find<TextBlock>("DragPreviewText").Text = PanelTitle(handle.PanelId);
         _dropTarget = null;
         foreach (var panel in _panels.Values) panel.Classes.Remove("drop-target");
         var guide = Find<Border>("DropGuide");
@@ -349,10 +372,11 @@ public sealed partial class MainWindowCustomization
     {
         if (_drag is not { } handle) return;
         var target = _dropTarget;
+        var workspaceDrop = _workspaceDrop;
         handle.CancelMove();
         ClearDrag();
         if (handle.PanelId == "result-size") Changed();
-        else if (_layout.Workspace is not null && target is not null) SwapWorkspace(handle.PanelId, target);
+        else if (_layout.Workspace is not null && workspaceDrop is not null && WorkspaceFits(workspaceDrop.Root)) ApplyWorkspaceMove(workspaceDrop.Root, workspaceDrop.Source);
         else if (target == "result") Apply(Capture() with { ResultAboveCommands = !_layout.ResultAboveCommands });
         else if (target is not null) Swap(handle.PanelId, target);
     }
@@ -369,6 +393,7 @@ public sealed partial class MainWindowCustomization
 
     public bool CancelDrag()
     {
+        if (CancelWorkspaceResize()) return true;
         if (_drag is not { } handle) return false;
         if (handle.PanelId == "result-size")
         { ResizeHeight(_resizeOriginal); UpdateResultSize(); }
@@ -382,6 +407,7 @@ public sealed partial class MainWindowCustomization
         ClearDragPreview();
         _drag = null;
         _dropTarget = null;
+        _workspaceDrop = null;
         foreach (var panel in _panels.Values) panel.Classes.Remove("drop-target");
         Find<Border>("DragPreview").IsVisible = false;
         Find<Border>("DropGuide").IsVisible = false;
@@ -399,14 +425,14 @@ public sealed partial class MainWindowCustomization
             e.Handled = true;
         }
         else if (_beforeEdit is not null && _layout.Workspace is not null && e.Key is Key.Up or Key.Down or Key.Left or Key.Right)
-        { MoveWorkspaceByKey(handle.PanelId, e.Key); e.Handled = true; }
+        { MoveWorkspaceByKey(handle.PanelId, e.Key, e.KeyModifiers.HasFlag(KeyModifiers.Shift)); e.Handled = true; }
         else if (_beforeEdit is not null && handle.PanelId == "result" && e.Key is Key.Up or Key.Down)
         { Apply(Capture() with { ResultAboveCommands = e.Key == Key.Up }); e.Handled = true; }
         else if (_beforeEdit is not null && e.Key is Key.Left or Key.Right)
         {
             var index = Array.IndexOf(_layout.PanelOrder, handle.PanelId);
             var target = index + (e.Key == Key.Left ? -1 : 1);
-            if (index >= 0 && target >= 0 && target < 3) Swap(handle.PanelId, _layout.PanelOrder[target]);
+            if (index >= 0 && target >= 0 && target < _layout.PanelOrder.Length) Swap(handle.PanelId, _layout.PanelOrder[target]);
             e.Handled = true;
         }
     }

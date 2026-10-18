@@ -87,11 +87,11 @@ public sealed class DailyToolsWindowTests
         var store = new FailingStore(); var model = new MainWindowViewModel(new DemoOrderStore()); var owner = new MainWindow(store) { DataContext = model };
         try
         {
-            owner.Show(); Pump(); store.Fail = true;
+            owner.Show(); Pump(); var before = model.CaptureEntrySuggestions(); store.Fail = true;
             var form = new EntrySuggestionsViewModel(model.CaptureEntrySuggestions(), owner.SaveEntrySuggestions) { ManagersText = "Новый менеджер", MaterialsText = "Ст3" };
             form.SaveCommand.Execute(null);
-            Assert.True(form.HasError); Assert.Equal("Новый менеджер", form.ManagersText); Assert.Empty(model.CaptureEntrySuggestions().Managers); Assert.Null(store.Saved);
-            Assert.Equal("Ст3", form.MaterialsText); Assert.Empty(model.CaptureEntrySuggestions().Materials);
+            Assert.True(form.HasError); Assert.Equal("Новый менеджер", form.ManagersText); Assert.Equal(before.Managers, model.CaptureEntrySuggestions().Managers); Assert.Null(store.Saved);
+            Assert.Equal("Ст3", form.MaterialsText); Assert.Equal(before.Materials, model.CaptureEntrySuggestions().Materials);
         }
         finally { store.Fail = false; owner.Close(); }
     }

@@ -18,7 +18,7 @@ public partial class MainWindowViewModel
         _source?.Path is not null ? "сохранено в MDB" : "до закрытия программы";
     public string? NewOrderHint => orderCreator is null && _source?.Path is not null
         ? "Изменение MDB доступно в Windows" : null;
-    public bool CanConfigureSource => sourceManager is not null && CanChoosePeriod && !IsLoadingOrders && !IsCopyingResult;
+    public bool CanConfigureSource => sourceManager is not null && CanChoosePeriod && !IsLoadingOrders && !IsRefreshingOrders && !IsCopyingResult;
 
     public void InitializeSource(OrderSource source)
     {
@@ -60,7 +60,7 @@ public partial class MainWindowViewModel
                 ResultText = "";
                 _resultOrderIds.Clear();
                 _resettingSearch = true;
-                try { ResetFilters(); FilterDate = date?.ToDateTime(TimeOnly.MinValue); }
+                try { ResetSearch(resetScope: true); FilterDate = date?.ToDateTime(TimeOnly.MinValue); }
                 finally { _resettingSearch = false; }
                 ApplySearch();
             }

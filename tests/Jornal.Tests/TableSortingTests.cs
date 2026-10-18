@@ -40,27 +40,28 @@ public sealed class TableSortingTests
             var calendar = window.FindControl<JournalDatePicker>("DateFilter")!;
             DataGridColumnHeader Header(string title) => grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(control => Equals(control.Content, title));
             void AssertIds(params int[] ids) => Assert.Equal(ids, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
-            AssertIds(80, 70);
+            AssertIds(70, 80);
             calendar.SelectedDate = day.ToDateTime(TimeOnly.MinValue); Pump();
             AssertIds(70);
 
             var next = first with { Id = 71, SpecificationNumber = "1018-900", ThicknessMillimeters = 4 };
             model.AcceptCreatedOrder(next); Pump();
-            Assert.Null(model.FilterDate); // Прежнее поведение после сохранения: показать все добавленные заявки.
-            AssertIds(80, 70, 71);
+            Assert.Equal(calendar.SelectedDate, model.FilterDate); // Добавление в открытый день сохраняет период.
+            AssertIds(70, 71);
             var later = first with { Id = 72, SpecificationNumber = "1018-1130", ThicknessMillimeters = 2 };
             var earlier = first with { Id = 73, SpecificationNumber = "1018-858", ThicknessMillimeters = 10 };
             var tomorrow = first with { Id = 74, OrderDate = day.AddDays(1), SpecificationNumber = "1019-800", ThicknessMillimeters = 12 };
             model.AcceptCreatedOrders([later, tomorrow, earlier]); Pump();
-            AssertIds(80, 73, 70, 71, 72, 74);
+            Assert.Null(model.FilterDate);
+            AssertIds(74, 72, 71, 70, 73, 80);
             Save(window, $"specification-order-{dark}");
 
             var edited = next with { SpecificationNumber = "1018-854" };
             model.AcceptEditedOrder(OrderRecord.FromSummary(edited)); Pump();
-            AssertIds(80, 71, 73, 70, 72, 74);
+            AssertIds(74, 72, 70, 73, 71, 80);
             reader.Rows = [tomorrow, earlier, previous, later, first, edited];
             await model.ReloadCommand.ExecuteAsync(null); Pump();
-            AssertIds(80, 71, 73, 70, 72, 74);
+            AssertIds(74, 72, 70, 73, 71, 80);
             calendar.SelectedDate = day.ToDateTime(TimeOnly.MinValue); Pump();
             AssertIds(71, 73, 70, 72);
 
@@ -73,7 +74,8 @@ public sealed class TableSortingTests
             AssertIds(73, 70, 71, 72);
             var newest = first with { Id = 75, SpecificationNumber = "1018-1145", ThicknessMillimeters = 5 };
             model.AcceptCreatedOrder(newest); Pump();
-            AssertIds(74, 73, 70, 80, 75, 71, 72);
+            AssertIds(73, 70, 75, 71, 72);
+            Assert.Equal(day.ToDateTime(TimeOnly.MinValue), model.FilterDate);
             Assert.Contains(":sortdescending", Header("Толщ., мм").Classes);
             Assert.DoesNotContain(":sortascending", Header("Дата").Classes);
             Assert.Equal("1018-1145", model.Orders.Single(row => row.Id == 75).SpecificationNumber);
@@ -111,14 +113,16 @@ public sealed class TableSortingTests
             var grid = window.FindControl<DataGrid>("OrdersGrid")!;
             var calendar = window.FindControl<JournalDatePicker>("DateFilter")!;
             var header = grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(control => control.Content is "Дата");
-            Assert.Equal(ascending, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
-            Assert.Contains(":sortascending", header.Classes);
+            Assert.Equal(ascending.Reverse(), grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Assert.Contains(":sortdescending", header.Classes);
             if (sortBeforeFilter)
             {
                 Click(window, header);
-                Assert.Equal(ascending.Reverse(), grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
-                Click(window, header);
                 Assert.Equal(ascending, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+                Click(window, header);
+                Assert.Equal(ascending.Reverse(), grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+                Assert.True(model.HasCustomSort); // Ручное DESC совпадает со стандартом, но сохраняет намерение.
+                Click(window, header); Assert.False(model.HasCustomSort);
             }
             // Меняем именно календарь: проверяем его привязку, а не только предикат модели.
             calendar.SelectedDate = day.ToDateTime(TimeOnly.MinValue); Pump();
@@ -149,6 +153,8 @@ public sealed class TableSortingTests
             Assert.Contains(":sortdescending", header.Classes);
 
             calendar.SelectedDate = null; Pump();
+            Assert.Equal(ascending.Reverse(), grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Click(window, header); Assert.False(model.HasCustomSort);
             Assert.Equal(ascending.Reverse(), grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
             Click(window, header);
             Assert.Equal(ascending, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));

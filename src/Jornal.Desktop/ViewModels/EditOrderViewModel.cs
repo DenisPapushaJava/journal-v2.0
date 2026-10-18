@@ -42,6 +42,8 @@ public partial class EditOrderViewModel : ObservableObject
     public EditOrderViewModel(OrderRecord expected, IOrderMaintenance store, string sourceDescription,
         Func<CancellationToken, Task<OrderRecord?>> refresh)
     {
+        Fields = Array.AsReadOnly<OrderEntryField>([OrderDate, SpecificationNumber, Manager, Customer, CuttingType, Material,
+            Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas, CuttingTime]);
         _expected = expected; _store = store; SourceDescription = sourceDescription; _refresh = refresh;
         if (!string.IsNullOrWhiteSpace(expected.CuttingType) && !CuttingMachine.LegacyNames.Contains(expected.CuttingType))
             CuttingType.Choices = [.. CuttingMachine.LegacyNames, expected.CuttingType];
@@ -95,8 +97,7 @@ public partial class EditOrderViewModel : ObservableObject
     public OrderEntryField Coefficient { get; } = new("Коэффициент");
     public OrderEntryField MaterialId { get; } = new("ID материала HansLaser");
     public OrderEntryField Gas { get; } = new("Газ HansLaser");
-    public IReadOnlyList<OrderEntryField> Fields => [OrderDate, SpecificationNumber, Manager, Customer, CuttingType, Material,
-        Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas, CuttingTime];
+    public IReadOnlyList<OrderEntryField> Fields { get; }
     public bool IsHansLaser => CuttingType.Value == "HansLaser";
     [ObservableProperty] private string _priceText = "Не рассчитана";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _error;

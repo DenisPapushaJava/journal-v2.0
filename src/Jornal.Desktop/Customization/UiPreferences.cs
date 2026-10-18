@@ -15,15 +15,18 @@ public sealed record ScreenLayout
     public double ResultHeight { get; init; } = MinimumResultHeight;
     [JsonConverter(typeof(TableRowHeightConverter))]
     public double RowHeight { get; init; } = TableDensity.DefaultHeight;
-    public string[] PanelOrder { get; init; } = ["orders", "clipboard", "status"];
+    public string[] PanelOrder { get; init; } = ["orders", "clipboard"];
     public Dictionary<string, double> PanelWidths { get; init; } = new()
-        { ["orders"] = 380, ["clipboard"] = 548, ["status"] = 592 };
+        { ["orders"] = 380, ["clipboard"] = 548 };
     public ColumnPreference[] Columns { get; init; } = [];
     public int ColumnSizingVersion { get; init; }
+    // Однократное поручение пользователя, а не номер выпуска или версия схемы.
+    public bool CompactPanelsPresetApplied { get; init; }
     [JsonConverter(typeof(WorkspaceLayoutConverter))]
     public WorkspaceLayout? Workspace { get; init; }
 
-    public static ScreenLayout CreateDefault() => new() { Workspace = new(), ColumnSizingVersion = CurrentColumnSizingVersion };
+    public static ScreenLayout CreateDefault() => new() { Workspace = WorkspaceLayout.CreateDefault(),
+        CompactPanelsPresetApplied = true, ColumnSizingVersion = CurrentColumnSizingVersion };
 
     public ScreenLayout Normalize()
     {
@@ -64,14 +67,25 @@ public sealed record UiPreferences
 {
     public int Version { get; init; } = 1;
     public bool DarkTheme { get; init; }
+    // Совместимость локального профиля первого варианта UX-73; новые записи используют силу.
+    [JsonConverter(typeof(RowContrastPreferenceConverter))]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool EnhancedRowContrast { get; init; }
+    [JsonConverter(typeof(RowHighlightStrengthConverter))]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? RowHighlightStrength { get; init; }
     public bool ShowTodayOnStartup { get; init; } = true;
+    [JsonConverter(typeof(AutomaticJournalRefreshConverter))]
+    public bool AutomaticJournalRefresh { get; init; } = true;
+    [JsonConverter(typeof(TrashRetentionDaysConverter))]
+    public int TrashRetentionDays { get; init; } = 30;
     public ScreenLayout Layout { get; init; } = new();
     public ResultTextStyle ResultFormatting { get; init; } = new();
     [JsonConverter(typeof(ResultPriceSettingsConverter))]
     public ResultPriceSettings ResultPricing { get; init; } = new();
     [JsonConverter(typeof(NewOrderColorSettingsConverter))]
     public NewOrderColorSettings NewOrderColor { get; init; } = new();
-    public EntrySuggestions EntrySuggestions { get; init; } = new();
+    public EntrySuggestions EntrySuggestions { get; init; } = EntrySuggestionDefaults.Create();
 }
 
 public sealed record PreferencesLoadResult(UiPreferences? Preferences, string? Error = null);

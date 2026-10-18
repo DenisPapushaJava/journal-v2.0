@@ -9,6 +9,8 @@ public partial class StatusFilterHeader : UserControl
 {
     private MainWindowViewModel? _model;
     private Flyout StatusPopup => (Flyout)StatusFilterButton.Flyout!;
+    public bool IsFilterOpen => StatusPopup.IsOpen;
+    public void ShowFilter() { if (_model?.CanBrowseJournal == true) StatusPopup.ShowAt(StatusFilterButton); }
     public StatusFilterHeader()
     {
         InitializeComponent();
@@ -33,12 +35,12 @@ public partial class StatusFilterHeader : UserControl
     {
         if (e.PropertyName is nameof(MainWindowViewModel.StatusFilter) or nameof(MainWindowViewModel.UseTechnologistColor)
             or nameof(MainWindowViewModel.TechnologistColorArgb) or nameof(MainWindowViewModel.FilterContextVersion)
-            || e.PropertyName == nameof(MainWindowViewModel.CanUseJournal) && _model?.CanUseJournal != true)
+            || e.PropertyName == nameof(MainWindowViewModel.CanBrowseJournal) && _model?.CanBrowseJournal != true)
             StatusPopup.Hide();
     }
     private void OnFilterOpened(object? sender, EventArgs e)
     {
-        if (_model?.CanUseJournal != true) { StatusPopup.Hide(); return; }
+        if (_model?.CanBrowseJournal != true) { StatusPopup.Hide(); return; }
         _model.BeginStatusFilterEdit();
         PopupPanel.DataContext = _model.StatusFilterEditor;
         PopupRoot.DataContext = _model;
@@ -53,7 +55,7 @@ public partial class StatusFilterHeader : UserControl
     { if (_model?.ApplyStatusFilterEdit() == true) StatusPopup.Hide(); }
     private void OnClearFilter(object? sender, RoutedEventArgs e)
     {
-        if (_model?.CanUseJournal != true) return;
+        if (_model?.CanBrowseJournal != true) return;
         _model.ClearStatusFilterCommand.Execute(null); StatusPopup.Hide();
     }
 }

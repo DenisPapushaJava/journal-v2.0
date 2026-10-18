@@ -4,7 +4,11 @@
         Width="1040" Height="680" MinWidth="860" MinHeight="540" WindowStartupLocation="CenterOwner">
   <Grid RowDefinitions="Auto,*,Auto,Auto">
     <StackPanel Margin="24,18,24,12" Spacing="6">
-      <TextBlock Text="Корзина заявок" FontSize="20" FontWeight="SemiBold" />
+      <Grid ColumnDefinitions="*,16,Auto">
+        <TextBlock Text="Корзина заявок" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <ui:JournalButton x:Name="ClearTrashButton" Grid.Column="2" Label="Очистить корзину" Icon="trash" Classes="danger"
+                          IsEnabled="{Binding CanClear}" Click="OnClearClick" />
+      </Grid>
       <TextBlock Text="Копии хранятся на этом компьютере 30 дней."
                  Classes="muted" TextWrapping="Wrap" />
       <TextBlock Text="{Binding SourceDescription}" Classes="muted" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceDescription}" />

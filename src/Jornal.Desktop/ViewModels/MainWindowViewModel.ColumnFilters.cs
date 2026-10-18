@@ -8,13 +8,19 @@ public partial class MainWindowViewModel
     private IReadOnlyList<OrderColumnFilterViewModel>? _columnFilters;
     public IReadOnlyList<OrderColumnFilterViewModel> ColumnFilters => _columnFilters ??=
         Enum.GetValues<OrderFilterColumn>().Select(column => new OrderColumnFilterViewModel(column,
-            BuildColumnFilterOptions, () => CanUseJournal, ApplySearch)).ToArray();
+            BuildColumnFilterOptions, () => CanBrowseJournal, ApplySearch, CancelRefreshForFilter)).ToArray();
+    private void CancelRefreshForFilter() { if (IsRefreshingOrders) CancelOrderLoading(); }
     public OrderColumnFilterViewModel ManagerFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.Manager);
     public OrderColumnFilterViewModel CuttingTypeFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.CuttingType);
     public OrderColumnFilterViewModel MaterialFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.Material);
     public OrderColumnFilterViewModel ThicknessFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.Thickness);
     public OrderColumnFilterViewModel BendingFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.Bending);
     public bool HasAnyColumnFilter => HasStatusFilter || ColumnFilters.Any(filter => filter.HasFilter);
+    public IReadOnlyList<AppliedTableFilter> ActiveTableFilters =>
+        (HasStatusFilter ? new[] { new AppliedTableFilter(this, StatusFilterSummary, StatusFilterDescription,
+            "Снять фильтр статуса", ClearStatusFilterCommand) } : [])
+        .Concat(ColumnFilters.Where(filter => filter.HasFilter).Select(filter => new AppliedTableFilter(filter,
+            filter.Summary, filter.Description, filter.ClearLabel, filter.ClearCommand))).ToArray();
     public int FilterContextVersion { get; private set; }
 
     private bool MatchesColumnFilters(OrderSummary order, OrderFilterColumn? except = null) =>
@@ -49,6 +55,7 @@ public partial class MainWindowViewModel
         FilterContextVersion++;
         OnPropertyChanged(nameof(FilterContextVersion));
         OnPropertyChanged(nameof(HasAnyColumnFilter));
+        OnPropertyChanged(nameof(ActiveTableFilters));
         foreach (var filter in ColumnFilters) filter.NotifyContextChanged();
     }
 }

@@ -122,7 +122,8 @@ public sealed class DailyToolsTests
             File.WriteAllText(path, "{\"Version\":1,\"EntrySuggestions\":{\"Managers\":[\"Иван\"],\"Customers\":[\"Клиент\"]}}");
             loaded = store.Load(); Assert.Null(loaded.Error); Assert.Equal("Иван", Assert.Single(loaded.Preferences!.EntrySuggestions.Managers));
             Assert.Equal("Клиент", Assert.Single(loaded.Preferences.EntrySuggestions.Customers)); Assert.Empty(loaded.Preferences.EntrySuggestions.Materials);
-            File.WriteAllText(path, "{\"Version\":1,\"DarkTheme\":true}"); loaded = store.Load(); Assert.Null(loaded.Error); Assert.True(loaded.Preferences!.DarkTheme); Assert.Empty(loaded.Preferences.EntrySuggestions.Customers);
+            File.WriteAllText(path, "{\"Version\":1,\"DarkTheme\":true}"); loaded = store.Load(); Assert.Null(loaded.Error); Assert.True(loaded.Preferences!.DarkTheme);
+            Assert.Equal(EntrySuggestionDefaults.Create().Customers, loaded.Preferences.EntrySuggestions.Customers);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

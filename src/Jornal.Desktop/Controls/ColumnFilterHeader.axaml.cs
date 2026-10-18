@@ -9,6 +9,8 @@ public partial class ColumnFilterHeader : UserControl
 {
     private OrderColumnFilterViewModel? _model;
     private Flyout FilterPopup => (Flyout)ColumnFilterButton.Flyout!;
+    public bool IsFilterOpen => FilterPopup.IsOpen;
+    public void ShowFilter() { if (_model?.CanUseJournal == true) FilterPopup.ShowAt(ColumnFilterButton); }
     public ColumnFilterHeader()
     {
         InitializeComponent();

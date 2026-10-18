@@ -17,11 +17,12 @@ public partial class MainWindowViewModel
     private int _trashPendingCount;
     public bool HasTrashItems => _trashCount > 0;
     public string TrashBadgeText => _trashCount > 99 ? "99+" : _trashCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
-    public string TrashHint => $"Локальная корзина · заявок: {_trashCount}. Восстановление в течение 30 дней" +
+    public string TrashHint => $"Локальная корзина · заявок: {_trashCount}" +
         (_trashPendingCount > 0 ? $". Требуют проверки: {_trashPendingCount}" : "");
     private IOrderMaintenance? Maintenance => _source?.Maintenance ?? orderReader as IOrderMaintenance ?? (orderReader as DemoOrderStore)?.Maintenance;
     private TrashSource TrashSource => new(_source?.Path is null ? "demo" : _source.IsLocalCopy ? "local" : "mdb", _source?.Path ?? _demoTrashId);
-    private OrderTrashService TrashService => new(Maintenance!, TrashSource, _source?.Path is null ? _demoTrash : _trashStore);
+    private OrderTrashService TrashService => new(Maintenance!, TrashSource, _source?.Path is null ? _demoTrash : _trashStore,
+        retentionDays: TrashRetentionDays);
     public bool CanEditOrder => Maintenance is not null && _selectedCount == 1 && _activeOrderId is not null && CanUseJournal && !RequiresReload;
     public bool CanTrashOrder => Maintenance is not null && _selectedCount > 0 && CanUseJournal && !RequiresReload;
     public bool CanOpenTrash => Maintenance is not null && CanUseJournal && !IsCopyingResult;
@@ -87,7 +88,7 @@ public partial class MainWindowViewModel
         OrderConfirmationViewModel form = null!;
         form = new(records.Count == 1 ? "Переместить заявку в корзину?" : $"Переместить в корзину: {records.Count}?",
             string.Join("\n\n", records.Select(Describe)),
-            "Заявки исчезнут из общей базы у всех пользователей. Восстановление на этом компьютере — 30 дней.\nИсточник: " + SourceDetails,
+            $"Заявки исчезнут из общей базы у всех пользователей. Восстановление на этом компьютере — {service.RetentionPeriodDays} дней.\nИсточник: " + SourceDetails,
             records.Count == 1 ? "В корзину" : $"В корзину ({records.Count})", async () =>
         {
             await WriteMaintenanceAsync(async () =>
