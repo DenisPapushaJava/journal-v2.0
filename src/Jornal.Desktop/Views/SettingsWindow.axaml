@@ -65,7 +65,7 @@
             </StackPanel>
             <settings:NewOrderColorPanel DataContext="{Binding Journal}" />
             <StackPanel Spacing="8">
-              <ui:JournalButton x:Name="EntrySuggestionsButton" Label="Списки для ввода" Icon="list-plus" Click="OnEntrySuggestionsClick" HorizontalAlignment="Left" IsEnabled="{Binding CanNavigate}" />
+              <ui:JournalButton x:Name="EntrySuggestionsButton" Label="Менеджеры, заказчики и материалы" Icon="list-plus" Click="OnEntrySuggestionsClick" HorizontalAlignment="Left" IsEnabled="{Binding CanNavigate}" />
               <TextBlock Text="{Binding Journal.EntrySuggestionsSummary}" Classes="muted" TextWrapping="Wrap" />
             </StackPanel>
           </StackPanel>

@@ -25,7 +25,7 @@ public sealed class JsonUiPreferencesStore(string path) : IUiPreferencesStore
                 return new(null, "Настройки экрана несовместимы с этой версией. Используется стандартный вид.");
             EntrySuggestions suggestions; string? error = null;
             try { suggestions = (preferences.EntrySuggestions ?? new()).Normalize(); }
-            catch (ArgumentException) { suggestions = new(); error = "Списки для ввода повреждены. Используются пустые списки."; }
+            catch (ArgumentException) { suggestions = new(); error = "Сохранённые списки повреждены. Используются пустые списки."; }
             return new(preferences with { Layout = preferences.Layout.Normalize(), ResultFormatting = (preferences.ResultFormatting ?? new()).Normalize(),
                 ResultPricing = (preferences.ResultPricing ?? new()).Normalize(), NewOrderColor = (preferences.NewOrderColor ?? new()).Normalize(), EntrySuggestions = suggestions }, error);
         }
