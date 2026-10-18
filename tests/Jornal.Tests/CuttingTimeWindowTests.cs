@@ -52,7 +52,7 @@ public sealed class CuttingTimeWindowTests
     }
 
     [AvaloniaFact]
-    public void OldColumnProfileKeepsItsOrderAndSizesAndCanHideNewTimeColumn()
+    public void OldColumnProfileKeepsItsOrderAndRelativeWeightsAndCanHideNewTimeColumn()
     {
         string[] ids = ["date", "specification", "manager", "customer", "cutting", "material", "thickness", "sheet-size",
             "sheet-count", "cut-length", "weight", "price", "delivery", "status"];
@@ -68,13 +68,17 @@ public sealed class CuttingTimeWindowTests
             Assert.Equal(headers.Reverse(), grid.Columns.Skip(1).Where(c => headers.Contains(c.Header))
                 .OrderBy(c => c.DisplayIndex).Select(c => (string)c.Header!));
             Assert.False(grid.Columns.Single(c => Equals(c.Header, "Менеджер")).IsVisible);
-            Assert.Equal(200, grid.Columns.Single(c => Equals(c.Header, "Дата")).Width.Value);
             var time = grid.Columns.Single(c => Equals(c.Header, "Время резки"));
             Assert.True(time.IsVisible);
             window.FindControl<StackPanel>("ColumnChoices")!.Children.OfType<CheckBox>().Single(c => Equals(c.Content, "Время резки")).IsChecked = false;
             Dispatcher.UIThread.RunJobs(); Assert.False(time.IsVisible);
         }
         finally { window.Close(); }
+        foreach (var (id, index) in ids.Select((id, index) => (id, index)))
+        {
+            var saved = store.Value!.Layout.Columns.Single(column => column.Id == id);
+            Assert.True(saved.Star); Assert.Equal(200 + index, saved.Width);
+        }
         Assert.False(store.Value!.Layout.Columns.Single(c => c.Id == "cutting-time").Visible);
         var reopened = new MainWindow(store) { DataContext = new MainWindowViewModel(new Reader([])) };
         try

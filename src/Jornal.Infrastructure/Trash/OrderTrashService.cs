@@ -18,11 +18,16 @@ public enum TrashState { DeletePending, Deleted, RestorePending, Restored, Cance
 public sealed record TrashEntry(int Version, Guid OperationId, TrashSource Source, OrderRecord Record,
     DateTimeOffset DeletedAt, TrashState State, DateTimeOffset? ConfirmedAt = null)
 {
+    // Старые архивы без поля сохраняют прежние 30 дней.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? RetentionDays { get; init; }
+    [JsonIgnore] public int RetentionPeriodDays => RetentionDays ?? OrderTrashService.RetentionDays;
     public void Validate()
     {
         if (Version != 1 || OperationId == Guid.Empty || !Enum.IsDefined(State) || Source is null || Record is null || DeletedAt == default)
             throw new InvalidDataException("Неподдерживаемая запись корзины. Архив не изменён.");
         Source.Validate(); Record.Validate();
+        if (!OrderTrashService.IsSupportedRetention(RetentionPeriodDays))
+            throw new InvalidDataException("Неизвестный срок хранения. Архив не изменён.");
     }
 }
 
@@ -46,9 +51,14 @@ public sealed record TrashDeleteResult(IReadOnlyList<TrashDeleteItem> Items)
     public Exception? Error => Items.FirstOrDefault(item => item.Outcome == TrashDeleteOutcome.Failed)?.Error;
 }
 
-public sealed class OrderTrashService(IOrderMaintenance maintenance, TrashSource source, ITrashStore store, TimeProvider? clock = null)
+public sealed record TrashPurgeResult(IReadOnlyList<Guid> RemovedIds, IReadOnlyList<TrashEntry>? Remaining, Exception? Error);
+
+public sealed class OrderTrashService(IOrderMaintenance maintenance, TrashSource source, ITrashStore store, TimeProvider? clock = null,
+    int retentionDays = 30)
 {
     public const int RetentionDays = 30;
+    public static bool IsSupportedRetention(int days) => days is 30 or 60 or 90;
+    public int RetentionPeriodDays { get; } = IsSupportedRetention(retentionDays) ? retentionDays : RetentionDays;
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
     public async Task<TrashEntry> DeleteAsync(OrderRecord expected, CancellationToken cancellationToken = default)
@@ -103,7 +113,8 @@ public sealed class OrderTrashService(IOrderMaintenance maintenance, TrashSource
     {
         if (pending.Contains(expected.Id))
             throw new OrderWriteException(OrderWriteFailure.Conflict, "Для этой заявки есть неподтверждённая операция. Обновите список и корзину перед повтором.");
-        var entry = new TrashEntry(1, Guid.NewGuid(), source, expected, _clock.GetUtcNow(), TrashState.DeletePending);
+        var entry = new TrashEntry(1, Guid.NewGuid(), source, expected, _clock.GetUtcNow(), TrashState.DeletePending)
+            { RetentionDays = RetentionPeriodDays };
         try { await lease.SaveAsync(entry); }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         { throw new OrderWriteException(OrderWriteFailure.NotSaved, "Не удалось надёжно сохранить копию в корзине. Заявка из базы не удалялась.", exception); }
@@ -174,7 +185,7 @@ public sealed class OrderTrashService(IOrderMaintenance maintenance, TrashSource
             // Пока исход не подтверждён, никакой срок хранения не разрешает уничтожать снимок.
             if (current.State is TrashState.Deleted or TrashState.Restored or TrashState.Cancelled &&
                 _clock.GetUtcNow() >= (current.ConfirmedAt ?? current.DeletedAt) &&
-                _clock.GetUtcNow() - (current.ConfirmedAt ?? current.DeletedAt) >= TimeSpan.FromDays(RetentionDays))
+                _clock.GetUtcNow() - (current.ConfirmedAt ?? current.DeletedAt) >= TimeSpan.FromDays(current.RetentionPeriodDays))
                 await lease.RemoveAsync(current.OperationId);
         }
         return (await lease.ReadAsync()).Where(entry => entry.State is TrashState.Deleted or TrashState.DeletePending or TrashState.RestorePending)
@@ -189,6 +200,48 @@ public sealed class OrderTrashService(IOrderMaintenance maintenance, TrashSource
         if (entry.State is TrashState.DeletePending or TrashState.RestorePending)
             throw new OrderWriteException(OrderWriteFailure.NotSaved, "Неподтверждённую копию нельзя удалить. Сначала обновите корзину и проверьте запись.");
         await lease.RemoveAsync(operationId);
+    }
+
+    public async Task<TrashPurgeResult> PurgeManyAsync(IReadOnlyCollection<TrashEntry> expected,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        var snapshot = expected.ToArray();
+        if (snapshot.Length == 0 || snapshot.Select(entry => entry.OperationId).Distinct().Count() != snapshot.Length)
+            throw new ArgumentException("Укажите непустой список копий без повторов.", nameof(expected));
+        source.Validate();
+        foreach (var entry in snapshot)
+        {
+            entry.Validate();
+            if (entry.Source.Key != source.Key || entry.State != TrashState.Deleted)
+                throw new ArgumentException("Удалять можно только подтверждённые копии текущего источника.", nameof(expected));
+        }
+        using var lease = await store.OpenAsync(source, cancellationToken);
+        var current = (await lease.ReadAsync()).ToDictionary(entry => entry.OperationId);
+        // Проверяем всю согласованную группу до первого удаления под одной блокировкой.
+        // Копии, добавленные после подтверждения, в группу не включаются.
+        if (snapshot.Any(entry => !current.TryGetValue(entry.OperationId, out var actual) || actual != entry))
+            throw new OrderWriteException(OrderWriteFailure.NotSaved, "Корзина изменилась. Обновите её и подтвердите очистку заново.");
+        var removed = new List<Guid>(snapshot.Length);
+        Exception? error = null;
+        foreach (var entry in snapshot)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await lease.RemoveAsync(entry.OperationId);
+                removed.Add(entry.OperationId);
+            }
+            catch (Exception exception) { error = exception; break; }
+        }
+        IReadOnlyList<TrashEntry>? remaining = null;
+        try
+        {
+            remaining = (await lease.ReadAsync()).Where(entry => entry.State is TrashState.Deleted or TrashState.DeletePending or TrashState.RestorePending)
+                .OrderByDescending(entry => entry.DeletedAt).ToArray();
+        }
+        catch (Exception exception) { error ??= exception; }
+        return new(removed, remaining, error);
     }
 
     private static async Task TryMarkAsync(ITrashLease lease, TrashEntry entry)

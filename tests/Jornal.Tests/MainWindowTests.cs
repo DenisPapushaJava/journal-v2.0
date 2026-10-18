@@ -25,6 +25,7 @@ public sealed class MainWindowTests
             Assert.Equal(3, grid.ItemsSource.Cast<OrderRowViewModel>().Count());
 
             search.Text = "5083h111";
+            ((Jornal.Desktop.Controls.JournalSearchBox)search).SubmitInput();
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal("5083H111", Assert.Single(grid.ItemsSource.Cast<OrderRowViewModel>()).MaterialName);

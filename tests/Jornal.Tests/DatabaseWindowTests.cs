@@ -153,17 +153,22 @@ public sealed class DatabaseWindowTests
             Pump();
             dialog.FindDescendant<TextBox>("DatabasePathInput")!.Focus();
             dialog.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-            window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null); Pump();
+            dialog.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null); Pump();
             Assert.True(form.IsConnected, form.Error);
             Click(dialog, "CloseSettingsButton");
+            window.Activate(); Pump();
             var table = window.FindDescendant<DataGrid>("OrdersGrid")!;
             table.SelectAll(); Pump();
-            foreach (var name in new[] { "NewOrderButton", "DeliveryNumberButton", "SetWorkButton", "SetReadyButton", "ClearColorButton" })
+            foreach (var name in new[] { "NewOrderButton", "DeliveryNumberButton", "SetCustomColorButton", "ClearColorButton" })
                 Assert.False(window.FindDescendant<JournalButton>(name)!.IsEffectivelyEnabled, name);
             Assert.True(window.FindDescendant<JournalButton>("AddResultButton")!.IsEffectivelyEnabled);
             Assert.True(window.FindDescendant<JournalButton>("SettingsButton")!.IsEffectivelyEnabled);
+            var resultButton = window.FindDescendant<JournalButton>("AddResultButton")!;
+            var clicks = 0; resultButton.Click += (_, _) => clicks++;
+            var before = $"active={window.IsActive}, selected={table.SelectedItems.Count}, loading={model.IsLoadingOrders}, refreshing={model.IsRefreshingOrders}";
             Click(window, "AddResultButton");
-            Assert.Contains("1235", model.ResultText);
+            Assert.True(model.ResultText.Contains("1235", StringComparison.Ordinal),
+                $"{before}; clicks={clicks}, selected={table.SelectedItems.Count}, loading={model.IsLoadingOrders}, refreshing={model.IsRefreshingOrders}, message={model.ResultMessage}");
             Assert.Equal(1234.5678m, model.Orders[0].StoredCuttingPrice);
             Assert.Contains("только чтение", window.FindDescendant<TextBlock>("SourceDescriptionText")!.Text);
             InBounds(window, window.FindDescendant<Control>("SettingsButton")!);
@@ -172,6 +177,7 @@ public sealed class DatabaseWindowTests
             dialog = OpenSourceSettings(window);
             dialog.FindDescendant<TextBox>("DatabasePathInput")!.Text = "Не сохранять";
             dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            // Escape уже закрыл диалог; KeyUp получает вернувшееся главное окно.
             window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); Pump();
             Assert.False(dialog.IsVisible); Assert.Equal(OrderSourceTests.DatabasePath, model.DatabasePath);
         }
@@ -194,7 +200,14 @@ public sealed class DatabaseWindowTests
     private static void Click(Window window, string name)
     {
         var control = window.FindDescendant<Control>(name)!;
+        control.BringIntoView(); Pump();
         var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
+        // После закрытия модального окна сначала переводим указатель в главное,
+        // как при обычном действии пользователя, затем нажимаем кнопку.
+        window.MouseMove(point); Pump();
+        var hit = window.InputHitTest(point) as Visual;
+        Assert.True(ReferenceEquals(hit, control) || hit?.GetVisualAncestors().Contains(control) == true,
+            $"Клик {name} попал в {hit?.GetType().Name}: {point}, bounds={control.Bounds}");
         window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();
     }
     private static void Pump() { Dispatcher.UIThread.RunJobs(); }

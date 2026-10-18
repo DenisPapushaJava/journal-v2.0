@@ -5,18 +5,14 @@ public static class OrderSearch
     public static IEnumerable<OrderSummary> Filter(IEnumerable<OrderSummary> orders, string? searchText)
     {
         ArgumentNullException.ThrowIfNull(orders);
-        var query = searchText?.Trim();
-        if (string.IsNullOrEmpty(query))
+        var query = new OrderSearchQuery(searchText);
+        if (query.Text.Length == 0)
         {
             return orders;
         }
 
-        return orders.Where(order => Matches(order, query));
+        return orders.Where(query.Matches);
     }
 
-    public static bool Matches(OrderSummary order, string query) =>
-        order.SpecificationNumber.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-        order.ManagerName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-        order.CustomerName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-        order.MaterialName.Contains(query, StringComparison.OrdinalIgnoreCase);
+    public static bool Matches(OrderSummary order, string query) => new OrderSearchQuery(query).Matches(order);
 }

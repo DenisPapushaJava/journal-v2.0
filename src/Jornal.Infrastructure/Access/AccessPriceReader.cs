@@ -5,7 +5,7 @@ namespace Jornal.Infrastructure.Access;
 
 public sealed class AccessPriceReader(string path) : IPriceReader, IMachineCatalogReader
 {
-    public async Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => Task.Run(async () =>
     {
         try
         {
@@ -18,7 +18,7 @@ public sealed class AccessPriceReader(string path) : IPriceReader, IMachineCatal
         catch (Exception exception) when (exception is OrderReadException or IOException or UnauthorizedAccessException or ArgumentException)
         { throw new PriceReadException("Не удалось прочитать каталог станков.", exception); }
 
-    }
+    }, cancellationToken);
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default)
     {
         PriceTables.ValidateName(tableName);

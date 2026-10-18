@@ -41,7 +41,7 @@ public sealed class ApplicationShellTests
             Assert.Equal(13, grid.FontSize);
             Assert.Equal(18, grid.Columns.Count);
 
-            foreach (var name in new[] { "ResultPanel", "OrdersCommands", "ClipboardCommands", "StatusCommands", "FiltersPanel", "TablePanel", "ColumnsButton" })
+            foreach (var name in new[] { "ResultPanel", "OrdersCommands", "ClipboardCommands", "FiltersPanel", "TablePanel", "ColumnsButton" })
             {
                 var control = window.FindControl<Control>(name)!;
                 var bounds = new Rect(control.Bounds.Size).TransformToAABB(control.TransformToVisual(window)!.Value);
@@ -65,6 +65,17 @@ public sealed class ApplicationShellTests
             Assert.Equal(0, Grid.GetRow(search));
             Assert.Equal(2, Grid.GetColumn(search));
             Assert.True(window.FindControl<TextBox>("SearchBox")!.Bounds.Width >= 160);
+            var clock = window.FindControl<HeaderClock>("CurrentDateTime")!;
+            var source = window.FindControl<TextBlock>("SourceDescriptionText")!;
+            source.SetCurrentValue(TextBlock.TextProperty, "Источник: " + new string('Ш', 200));
+            Dispatcher.UIThread.RunJobs();
+            Rect Bounds(Control control) => new Rect(control.Bounds.Size).TransformToAABB(control.TransformToVisual(window)!.Value);
+            Assert.InRange(Math.Abs(Bounds(clock).Center.X - window.ClientSize.Width / 2), 0, 0.5);
+            Assert.True(Bounds(source).Right + 12 <= Bounds(clock).Left);
+            Assert.True(Bounds(clock).Right + 12 <= Bounds(window.FindControl<JournalButton>("PricesButton")!).Left);
+            Assert.Contains(source.TextLayout.TextLines, line => line.HasCollapsed);
+            Assert.False(clock.Focusable);
+            Assert.False(string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(clock)));
             Assert.False(window.FindControl<JournalButton>("AddResultButton")!.IsEnabled);
             Assert.All(window.GetVisualDescendants().OfType<Avalonia.Svg.Svg>().Where(icon => icon.IsEffectivelyVisible), icon => Assert.NotNull(icon.Model));
             Assert.Contains(window.GetVisualDescendants().OfType<Avalonia.Svg.Svg>(), icon => icon.Path?.EndsWith("/calendar-days.svg", StringComparison.Ordinal) == true);
@@ -102,12 +113,14 @@ public sealed class ApplicationShellTests
 
             var search = window.FindControl<TextBox>("SearchBox")!;
             search.Text = "00010002";
+            ((JournalSearchBox)search).SubmitInput();
             Dispatcher.UIThread.RunJobs();
             Assert.Single(viewModel.Orders);
-            viewModel.SearchScopeIndex = 1;
+            viewModel.SearchScopeIndex = 4;
             Assert.Empty(viewModel.Orders);
-            viewModel.SearchScopeIndex = 6;
+            viewModel.SearchScopeIndex = 0;
             search.Text = "2,5";
+            ((JournalSearchBox)search).SubmitInput();
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("Ст-3", Assert.Single(viewModel.Orders).MaterialName);
             viewModel.ResetFiltersCommand.Execute(null);
@@ -188,6 +201,7 @@ public sealed class ApplicationShellTests
             var search = window.FindControl<TextBox>("SearchBox")!;
             Assert.Same(search, window.FocusManager!.GetFocusedElement());
             search.Text = "5083";
+            ((JournalSearchBox)search).SubmitInput();
             Dispatcher.UIThread.RunJobs();
             Assert.Single(viewModel.Orders);
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
@@ -200,6 +214,7 @@ public sealed class ApplicationShellTests
             Assert.Equal(2, reader.ReadCount);
 
             var grid = window.FindControl<DataGrid>("OrdersGrid")!;
+            Assert.Equal("15.10.2026", grid.CollectionView.Cast<OrderRowViewModel>().First().DateText);
             var header = grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(h => Equals(h.Content, "Дата"));
             var point = header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2), window)!.Value;
             window.MouseDown(point, MouseButton.Left);

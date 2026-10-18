@@ -2,9 +2,11 @@
              xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
              x:Class="Jornal.Desktop.Controls.Settings.DiagnosticsPanel" x:DataType="vm:DiagnosticsViewModel">
   <Grid RowDefinitions="Auto,*,Auto">
-    <TextBlock Text="Диагностика" FontSize="20" FontWeight="SemiBold" Margin="24,18" />
+    <Border Classes="settings-page-header">
+      <TextBlock Text="Диагностика" Classes="settings-page-title" />
+    </Border>
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="24,0" Spacing="12">
+    <StackPanel Margin="24,16" Spacing="12">
       <CheckBox x:Name="AutomaticReportsCheckBox" Content="Автоматически отправлять технические отчёты"
                 IsChecked="{Binding SendAutomatically, Mode=TwoWay}" />
       <TextBlock Text="{Binding PrivacyText}" TextWrapping="Wrap" Classes="muted" />

@@ -25,7 +25,10 @@ public sealed partial class MainWindowCustomization
                 picture.Height = source.Bounds.Height * scale;
                 try
                 {
-                    _dragBitmap = new RenderTargetBitmap(new PixelSize((int)Math.Ceiling(source.Bounds.Width), (int)Math.Ceiling(source.Bounds.Height)));
+                    // Сохраняем всю панель, но выделяем пиксели только для миниатюры.
+                    var displayScale = _window.RenderScaling;
+                    _dragBitmap = new RenderTargetBitmap(new PixelSize((int)Math.Ceiling(picture.Width * displayScale), (int)Math.Ceiling(picture.Height * displayScale)),
+                        new Vector(96 * scale * displayScale, 96 * scale * displayScale));
                     _dragBitmap.Render(source);
                     picture.Source = _dragBitmap;
                 }

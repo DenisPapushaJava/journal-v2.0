@@ -11,6 +11,7 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
     private long? _cuttingDurationMinutes = order.CuttingDurationMinutes;
     private NumericTextSortKey? _sheetCountSortKey = NumericTextSortKey.Parse(order.SheetCount);
     private NumericTextSortKey? _weightSortKey = NumericTextSortKey.Parse(order.WeightKilograms);
+    private SpecificationNumberSortKey _specificationNumberSortKey = new(order.SpecificationNumber);
     internal void Update(OrderSummary replacement)
     {
         if (replacement.Id != Id) throw new ArgumentException("Нельзя заменить идентификатор строки.", nameof(replacement));
@@ -18,6 +19,7 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
         _cuttingDurationMinutes = replacement.CuttingDurationMinutes;
         _sheetCountSortKey = NumericTextSortKey.Parse(replacement.SheetCount);
         _weightSortKey = NumericTextSortKey.Parse(replacement.WeightKilograms);
+        _specificationNumberSortKey = new(replacement.SpecificationNumber);
         OnPropertyChanged(string.Empty);
     }
 
@@ -26,6 +28,8 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
     internal OrderSummary Source => _order;
     public int Id => _order.Id;
     public DateOnly? OrderDate => _order.OrderDate;
+    public (DateOnly? Date, SpecificationNumberSortKey Specification, int Id) OrderDateSortKey => (OrderDate, _specificationNumberSortKey, Id);
+    public (SpecificationNumberSortKey Number, int Id) SpecificationSortKey => (_specificationNumberSortKey, Id);
     public int? Color => _order.Color;
     public bool HasBending => _order.HasBending;
     public string BendingText => _order.AnnotationsUnavailable || _order.AnnotationsNeedReview ? "?" : HasBending ? "✓" : "";

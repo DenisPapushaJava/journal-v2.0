@@ -16,6 +16,8 @@ public partial class NewOrderViewModel : ObservableObject
 
     public NewOrderViewModel(IManualOrderCreator creator, bool isLocalCopy = false, bool isDatabase = false, int initialColor = OrderColors.None)
     {
+        Fields = Array.AsReadOnly<OrderEntryField>([OrderDate, SpecificationNumber, Manager, Customer,
+            CuttingType, Material, Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas, CuttingTime]);
         _creator = creator;
         InitialColor = initialColor;
         Annotations.PropertyChanged += (_, e) =>
@@ -94,8 +96,7 @@ public partial class NewOrderViewModel : ObservableObject
     public OrderEntryField MaterialId { get; } = new("ID материала HansLaser");
     public OrderEntryField Gas { get; } = new("Газ HansLaser");
     public bool IsHansLaser => CuttingType.Value == "HansLaser";
-    public IReadOnlyList<OrderEntryField> Fields => [OrderDate, SpecificationNumber, Manager, Customer,
-        CuttingType, Material, Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas, CuttingTime];
+    public IReadOnlyList<OrderEntryField> Fields { get; }
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSaveError))] private string? _saveError;
     [ObservableProperty] private bool _hasValidationErrors;

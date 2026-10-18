@@ -2,9 +2,9 @@
              xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
              x:Class="Jornal.Desktop.Controls.Settings.AppUpdatesPanel" x:DataType="vm:AppUpdatesViewModel">
   <Grid RowDefinitions="Auto,*,Auto">
-    <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}" BorderThickness="0,0,0,1" Padding="24,16">
+    <Border Classes="settings-page-header">
       <StackPanel Spacing="4">
-        <TextBlock Text="Обновления" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Text="Обновления" Classes="settings-page-title" />
         <TextBlock Text="{Binding CurrentVersion, StringFormat='Текущая версия: {0}'}" Classes="muted" />
       </StackPanel>
     </Border>

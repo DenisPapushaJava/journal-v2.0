@@ -88,6 +88,7 @@ public sealed class ResultWindowTests
             window.Show();
             Pump();
             var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            table.CollectionView.SortDescriptions.Clear();
             table.CollectionView.SortDescriptions.Add(Avalonia.Collections.DataGridSortDescription.FromPath(nameof(OrderRowViewModel.ThicknessMillimeters), System.ComponentModel.ListSortDirection.Descending));
             table.SelectAll();
             Pump();

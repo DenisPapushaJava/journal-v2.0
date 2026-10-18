@@ -93,7 +93,7 @@ public sealed class TableControlsTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ColumnsMenuCanHideEverythingAndRemainsReachable(bool dark)
+    public void ColumnsMenuKeepsIndividualChoicesAndCanShowAllColumns(bool dark)
     {
         var window = new MainWindow { DataContext = new MainWindowViewModel(new DemoOrderStore()) { IsDarkTheme = dark } };
         try
@@ -102,6 +102,10 @@ public sealed class TableControlsTests
             Dispatcher.UIThread.RunJobs();
             var grid = window.FindControl<DataGrid>("OrdersGrid")!;
             var button = window.FindControl<JournalButton>("ColumnsButton")!;
+            var header = button.GetVisualAncestors().OfType<DataGridColumnHeader>().Single();
+            var menuLeft = button.TranslatePoint(default, header)!.Value.X;
+            Assert.Equal(24, grid.Columns[0].ActualWidth);
+            Assert.True(menuLeft >= 0 && menuLeft + button.Bounds.Width <= header.Bounds.Width);
             var original = button.TranslatePoint(default, window)!.Value;
             grid.ScrollIntoView(grid.ItemsSource.Cast<OrderRowViewModel>().Last(), grid.Columns.Last());
             Dispatcher.UIThread.RunJobs();
@@ -110,19 +114,19 @@ public sealed class TableControlsTests
             Click(window, button);
             Assert.True(button.Flyout!.IsOpen);
             // Flyout имеет собственный TopLevel, используем настоящие кнопки его окна.
-            var hide = window.FindControl<JournalButton>("HideAllColumnsButton")!;
+            Assert.Null(window.FindControl<JournalButton>("HideAllColumnsButton"));
+            var show = window.FindControl<JournalButton>("ShowAllColumnsButton")!;
             var checkedOption = window.FindControl<StackPanel>("ColumnChoices")!.Children.OfType<CheckBox>().First();
             var checkBackground = checkedOption.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "NormalRectangle");
             var glyph = checkedOption.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single(path => path.Name == "CheckGlyph");
             Assert.True(Contrast(BrushColor(glyph.Fill), BrushColor(checkBackground.Background)) >= 4.5);
-            SavePreview(TopLevel.GetTopLevel(hide)!, $"columns-menu-{(dark ? "dark" : "light")}");
-            Click(TopLevel.GetTopLevel(hide)!, hide);
-            Assert.All(grid.Columns.Skip(1), column => Assert.False(column.IsVisible));
+            SavePreview(TopLevel.GetTopLevel(show)!, $"columns-menu-{(dark ? "dark" : "light")}");
+            Click(TopLevel.GetTopLevel(checkedOption)!, checkedOption);
+            Assert.False(grid.Columns[1].IsVisible);
+            Assert.False(checkedOption.IsChecked);
+            Assert.All(grid.Columns.Skip(2), column => Assert.True(column.IsVisible));
             Assert.True(grid.Columns[0].IsVisible);
             Assert.True(button.IsEffectivelyVisible);
-            Assert.All(window.FindControl<StackPanel>("ColumnChoices")!.Children.OfType<CheckBox>(), box => Assert.False(box.IsChecked));
-            SavePreview(window, $"columns-hidden-{(dark ? "dark" : "light")}");
-            var show = window.FindControl<JournalButton>("ShowAllColumnsButton")!;
             Click(TopLevel.GetTopLevel(show)!, show);
             Assert.All(grid.Columns, column => Assert.True(column.IsVisible));
             Assert.All(window.FindControl<StackPanel>("ColumnChoices")!.Children.OfType<CheckBox>(), box => Assert.True(box.IsChecked));

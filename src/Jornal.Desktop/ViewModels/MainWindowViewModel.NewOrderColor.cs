@@ -35,6 +35,7 @@ public partial class MainWindowViewModel
     {
         if (!TryColor(value, out var argb) || argb == _technologistColorArgb) return;
         _technologistColorArgb = argb;
+        OnStatusFilterColorChanged();
         foreach (var option in FrequentTechnologistColors.Concat(OtherTechnologistColors)) option.IsSelected = option.Argb == argb;
         foreach (var name in new[] { nameof(TechnologistColorArgb), nameof(TechnologistColorHex), nameof(EffectiveNewOrderColor), nameof(NewOrderColorPreviewText) }) OnPropertyChanged(name);
     }

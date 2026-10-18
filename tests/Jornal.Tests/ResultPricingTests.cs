@@ -161,6 +161,7 @@ public sealed class ResultPricingTests
     private static void Click(Window window, string name)
     {
         var control = window.FindDescendant<Control>(name)!;
+        control.BringIntoView(); Pump();
         var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
         window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();
     }

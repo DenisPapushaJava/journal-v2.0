@@ -8,9 +8,23 @@ public sealed class OrderDurationPreparingReader(IOrderReader reader, IOrderDura
     private bool _prepared;
     private bool _annotationsPrepared;
     public string? PreparationWarning { get; private set; }
+    // Фоновая проверка не инициирует/не повторяет подготовку схемы.
+    public Task<IReadOnlyList<OrderSummary>> ReadSnapshotAsync(DateOnly? date, CancellationToken cancellationToken = default) =>
+        date is { } day ? reader.ReadDayAsync(day, cancellationToken) : reader.ReadAsync(cancellationToken);
     public async Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default)
     {
         var rows = await reader.ReadAsync(cancellationToken);
+        return await PrepareAsync(rows, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<OrderSummary>> ReadDayAsync(DateOnly date, CancellationToken cancellationToken = default)
+    {
+        var rows = await reader.ReadDayAsync(date, cancellationToken);
+        return await PrepareAsync(rows, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<OrderSummary>> PrepareAsync(IReadOnlyList<OrderSummary> rows, CancellationToken cancellationToken)
+    {
         var warnings = new List<string>();
         if (!_prepared)
         {

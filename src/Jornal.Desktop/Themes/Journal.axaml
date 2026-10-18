@@ -2,6 +2,7 @@
         xmlns:svg="clr-namespace:Avalonia.Svg;assembly=Svg.Controls.Avalonia"
         xmlns:ui="using:Jornal.Desktop.Controls">
   <Styles.Resources>
+    <ui:OrderRowOutlineWidthConverter x:Key="OrderRowOutlineWidth" />
     <ui:OrderRowBrushConverter x:Key="OrderRowBackground" />
     <ui:OrderRowBrushConverter x:Key="OrderRowForeground" Foreground="True" />
     <ControlTheme x:Key="JournalCommandButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -185,6 +186,43 @@
   <Style Selector="Border.command-panel">
     <Setter Property="Padding" Value="16,10,16,12" />
   </Style>
+  <Style Selector="Border.layout-drop-guide">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
+  </Style>
+  <Style Selector="Border.layout-drop-guide TextBlock.layout-drop-label">
+    <Setter Property="Foreground" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="Border.layout-drop-guide.forbidden">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
+    <Setter Property="Background" Value="{DynamicResource JournalDangerBackground}" />
+  </Style>
+  <Style Selector="Border.layout-drop-guide.forbidden TextBlock.layout-drop-label">
+    <Setter Property="Foreground" Value="{DynamicResource JournalDangerForeground}" />
+  </Style>
+  <Style Selector="GridSplitter.workspace-splitter">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent">
+          <Border x:Name="WorkspaceSplitterLine" Background="{DynamicResource JournalBorder}" CornerRadius="1" Opacity="0.45" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="GridSplitter.workspace-splitter.columns /template/ Border#WorkspaceSplitterLine">
+    <Setter Property="Width" Value="2" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,8" />
+  </Style>
+  <Style Selector="GridSplitter.workspace-splitter.rows /template/ Border#WorkspaceSplitterLine">
+    <Setter Property="Height" Value="2" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="8,0" />
+  </Style>
+  <Style Selector="GridSplitter.workspace-splitter:pointerover /template/ Border#WorkspaceSplitterLine, GridSplitter.workspace-splitter:focus /template/ Border#WorkspaceSplitterLine, Window.customizing GridSplitter.workspace-splitter /template/ Border#WorkspaceSplitterLine">
+    <Setter Property="Background" Value="{DynamicResource JournalAccent}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
   <Style Selector="Grid.docked Border.command-panel">
     <Setter Property="Padding" Value="12,8" />
   </Style>
@@ -301,12 +339,33 @@
   <Style Selector="Button.command.result-tool:disabled">
     <Setter Property="Opacity" Value="0.7" />
   </Style>
+  <Style Selector="Button.command.read-refresh-pending:disabled">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
   <Style Selector="Window:not(.customizing) Border.result-editor:focus-within">
     <Setter Property="BorderBrush" Value="#8297B0" />
   </Style>
   <Style Selector="TextBox.result-editor /template/ Border#PART_BorderElement">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.command.status-filter-trigger:not(:pointerover):not(:pressed)">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+  </Style>
+  <Style Selector="Button.command.status-filter-trigger.active, Button.command.status-filter-chip">
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="Button.command.status-filter-trigger.active">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="Button.command.status-filter-trigger:pointerover:not(:disabled), Button.command.status-filter-chip:pointerover:not(:disabled), Button.command.status-filter-trigger:pressed, Button.command.status-filter-chip:pressed">
+    <Setter Property="Background" Value="{DynamicResource JournalControlPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+  </Style>
+  <Style Selector="CheckBox.status-filter-option /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Margin" Value="8,0,0,0" />
   </Style>
   <Style Selector="RadioButton.filter">
     <Setter Property="Theme" Value="{StaticResource JournalFilterButton}" />
@@ -370,6 +429,65 @@
   <Style Selector="TextBox">
     <Setter Property="PlaceholderForeground" Value="{DynamicResource JournalMuted}" />
   </Style>
+  <Style Selector="Border.search-field">
+    <Setter Property="Background" Value="{DynamicResource JournalInput}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalControlBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="Border.search-field:pointerover, Border.search-field:focus-within, Border.search-field.popup-open">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="ComboBox.search-scope">
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="8,4,0,4" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+  <Style Selector="ComboBox.search-scope /template/ Border#Background, ComboBox.search-scope /template/ Border#HighlightBackground">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ComboBox.search-scope:pointerover /template/ Border#Background, ComboBox.search-scope:focus-visible /template/ Border#HighlightBackground">
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
+  </Style>
+  <Style Selector="TextBox.search-input">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+  </Style>
+  <Style Selector="TextBox.search-input /template/ Border#PART_BorderElement, TextBox.search-input:focus /template/ Border#PART_BorderElement, TextBox.search-input:pointerover /template/ Border#PART_BorderElement, TextBox.search-input:disabled /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode">
+    <Setter Property="Theme" Value="{StaticResource JournalFilterButton}" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Padding" Value="6,0" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode:checked">
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode:pointerover:not(:disabled), ToggleButton.search-mode:pressed">
+    <Setter Property="Background" Value="{DynamicResource JournalControlPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode:focus-visible">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode:disabled">
+    <Setter Property="Opacity" Value="0.6" />
+  </Style>
+  <Style Selector="Button.command.search-clear:not(:pointerover):not(:pressed)">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
   <Style Selector="CalendarDatePicker /template/ Button#PART_Button">
     <Setter Property="Theme" Value="{StaticResource JournalCalendarButton}" />
   </Style>
@@ -403,6 +521,8 @@
         <Binding Path="IsPointerOver" RelativeSource="{RelativeSource Self}" />
         <Binding Path="IsKeyboardFocusWithin" RelativeSource="{RelativeSource Self}" />
         <Binding Path="ActualThemeVariant" RelativeSource="{RelativeSource Self}" />
+        <ReflectionBinding Path="DataContext.RowHighlightStrength" RelativeSource="{RelativeSource AncestorType=DataGrid}" />
+        <Binding Path="(ui:OrderRowFocus.KeyboardNavigation)" RelativeSource="{RelativeSource AncestorType=DataGrid}" />
       </MultiBinding>
     </Setter>
     <Setter Property="Foreground">
@@ -412,23 +532,53 @@
         <Binding Path="IsPointerOver" RelativeSource="{RelativeSource Self}" />
         <Binding Path="IsKeyboardFocusWithin" RelativeSource="{RelativeSource Self}" />
         <Binding Path="ActualThemeVariant" RelativeSource="{RelativeSource Self}" />
+        <ReflectionBinding Path="DataContext.RowHighlightStrength" RelativeSource="{RelativeSource AncestorType=DataGrid}" />
+        <Binding Path="(ui:OrderRowFocus.KeyboardNavigation)" RelativeSource="{RelativeSource AncestorType=DataGrid}" />
       </MultiBinding>
     </Setter>
   </Style>
   <Style Selector="DataGridRow /template/ Rectangle#BackgroundRectangle">
     <Setter Property="IsVisible" Value="False" />
   </Style>
+  <Style Selector="DataGrid#OrdersGrid DataGridRow:selected /template/ Rectangle#BackgroundRectangle, DataGrid#OrdersGrid DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle, DataGrid#OrdersGrid DataGridRow:selected:focus /template/ Rectangle#BackgroundRectangle, DataGrid#OrdersGrid DataGridRow:selected:pointerover:focus /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="IsVisible" Value="True" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Fill" Value="{x:Null}" />
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="Stroke" Value="{DynamicResource JournalRowOutline}" />
+    <Setter Property="StrokeThickness" Value="1" />
+    <Setter Property="Margin" Value="24,0,0,0" />
+    <Setter Property="Grid.RowSpan" Value="3" />
+    <Setter Property="DataGridFrozenGrid.IsFrozen" Value="True" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Width" Value="{Binding Bounds.Width, RelativeSource={RelativeSource AncestorType=DataGridRowsPresenter}, Converter={StaticResource OrderRowOutlineWidth}}" />
+  </Style>
+  <Style Selector="DataGridRow /template/ Rectangle#PART_BottomGridLine">
+    <Setter Property="Opacity" Value="0.4" />
+  </Style>
+  <Style Selector="DataGrid#OrdersGrid DataGridRow:selected /template/ Rectangle#PART_BottomGridLine">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
   <Style Selector="DataGridCell:focus /template/ Grid#FocusVisual">
     <Setter Property="IsVisible" Value="False" />
   </Style>
   <Style Selector="CheckBox.row-selection /template/ Border#NormalRectangle">
-    <Setter Property="BorderBrush" Value="{ReflectionBinding $parent[DataGridRow].Foreground}" />
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+  <Style Selector="CheckBox.row-selection:unchecked:not(:disabled) /template/ Border#NormalRectangle">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalControlBorder}" />
+    <Setter Property="Background" Value="{DynamicResource JournalInput}" />
+  </Style>
+  <Style Selector="CheckBox.row-selection:unchecked:pointerover:not(:disabled) /template/ Border#NormalRectangle">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
   </Style>
   <Style Selector="CheckBox.row-selection /template/ Grid">
     <Setter Property="Height" Value="{ReflectionBinding Height, RelativeSource={RelativeSource TemplatedParent}}" />
   </Style>
-  <Style Selector="CheckBox.row-selection:unchecked /template/ Border#NormalRectangle">
-    <Setter Property="Background" Value="Transparent" />
+  <Style Selector="CheckBox.row-selection /template/ Grid#RootGrid">
+    <Setter Property="Width" Value="20" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
   </Style>
   <Style Selector="DataGridCell TextBlock">
     <Setter Property="ui:TableCellPresentation.Enabled" Value="True" />

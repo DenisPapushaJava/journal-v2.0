@@ -21,10 +21,12 @@
     <ProjectReference Include="../Jornal.Parsing/Jornal.Parsing.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Customization/Data/entry-suggestions.json" />
     <AvaloniaResource Include="../../docs/design/assets/journal-icon.png" Link="Assets/Journal.png" />
     <AvaloniaResource Include="../../docs/design/assets/startup/*.jpg" Link="Assets/Startup/%(Filename)%(Extension)" />
     <AvaloniaResource Include="../../logo.png" Link="Assets/Startup/company-logo.png" />
     <AvaloniaResource Include="../../docs/design/assets/lucide/*.svg" Link="Assets/Icons/%(Filename)%(Extension)" />
+    <Content Include="../../docs/licenses/Avalonia.DataGrid.txt" Link="Licenses/Avalonia.DataGrid.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../docs/licenses/Velopack.txt" Link="Licenses/Velopack.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../LICENSE" Link="Licenses/Journal.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../docs/design/assets/lucide/LICENSE" Link="Licenses/Lucide.txt" CopyToOutputDirectory="PreserveNewest" />

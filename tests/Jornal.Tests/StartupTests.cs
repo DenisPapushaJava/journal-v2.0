@@ -78,6 +78,8 @@ public sealed class StartupTests
         Window? lifetimeWindow = null;
         var constructions = 0;
         var main = new MainWindow();
+        WindowState? firstShownState = null;
+        main.Opened += (_, _) => firstShownState = main.WindowState;
         var startup = new DesktopStartup(() => { constructions++; return main; }, window => lifetimeWindow = window);
         lifetimeWindow = startup.Splash;
         var mainWasVisibleAtSplashClose = false;
@@ -95,9 +97,14 @@ public sealed class StartupTests
             await startup.Completion!.WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken);
             Assert.True(elapsed.Elapsed >= TimeSpan.FromSeconds(1.95), $"Заставка закрылась слишком рано: {elapsed.Elapsed}");
             Assert.Same(main, lifetimeWindow);
+            Assert.Equal(WindowState.Maximized, firstShownState);
+            Assert.Equal(WindowState.Maximized, main.WindowState);
+            Assert.True(main.CanResize); Assert.True(main.CanMaximize);
             Assert.True(mainWasVisibleAtSplashClose);
             Assert.False(startup.Splash.IsVisible);
             Assert.Null(startup.Splash.FindControl<Image>("ArtworkImage")!.Source);
+            main.WindowState = WindowState.Normal;
+            Assert.Equal(WindowState.Normal, main.WindowState);
         }
         finally { main.Close(); startup.Splash.Close(); }
     }
@@ -166,6 +173,7 @@ public sealed class StartupTests
             Assert.True(startup.Splash.IsVisible);
             Assert.False(main.IsVisible);
             Assert.True(model.IsLoadingOrders);
+            Assert.Equal(WindowState.Maximized, main.WindowState);
             Assert.Equal(0, restartStore.Taken);
             Assert.Equal("Загружаем заявки…", startup.Splash.FindControl<TextBlock>("LaunchStatus")!.Text);
             SavePreview(startup.Splash, "splash-loading-orders");
@@ -175,6 +183,7 @@ public sealed class StartupTests
             await startup.Completion!.WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken);
             Assert.False(startup.Splash.IsVisible);
             Assert.True(main.IsVisible);
+            Assert.Equal(WindowState.Maximized, main.WindowState);
             if (fail) Assert.Contains("Сетевая база недоступна", model.ErrorMessage);
             else { Assert.Equal(orders.Count, model.Orders.Count); Assert.False(model.HasError); }
             Assert.False(model.IsLoadingOrders);

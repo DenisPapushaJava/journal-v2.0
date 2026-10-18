@@ -9,6 +9,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Jornal.Core.Orders;
+using Jornal.Desktop.Controls;
 using Jornal.Desktop.ViewModels;
 using Jornal.Desktop.Views;
 using Jornal.Infrastructure.Demo;
@@ -18,6 +19,150 @@ namespace Jornal.Tests;
 
 public sealed class TableSortingTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DefaultOrderPlacesNewAndBatchOrdersByNumberAndKeepsUserSort(bool dark)
+    {
+        var seed = (await new DemoOrderStore().ReadAsync()).First();
+        var day = new DateOnly(2026, 10, 18);
+        var first = seed with { Id = 70, OrderDate = day, SpecificationNumber = "1018-859", ThicknessMillimeters = 8 };
+        var previous = seed with { Id = 80, OrderDate = day.AddDays(-1), SpecificationNumber = "1017-1000", ThicknessMillimeters = 6 };
+        var reader = new Reader([first, previous]);
+        var model = new MainWindowViewModel(reader) { IsDarkTheme = dark };
+        var window = new MainWindow { DataContext = model, Width = 1366, Height = 768 };
+        try
+        {
+            // Заставка может загрузить данные до показа главного окна.
+            await window.LoadInitialOrdersAsync();
+            window.Show(); Pump();
+            var grid = window.FindControl<DataGrid>("OrdersGrid")!;
+            var calendar = window.FindControl<JournalDatePicker>("DateFilter")!;
+            DataGridColumnHeader Header(string title) => grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(control => Equals(control.Content, title));
+            void AssertIds(params int[] ids) => Assert.Equal(ids, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            AssertIds(70, 80);
+            calendar.SelectedDate = day.ToDateTime(TimeOnly.MinValue); Pump();
+            AssertIds(70);
+
+            var next = first with { Id = 71, SpecificationNumber = "1018-900", ThicknessMillimeters = 4 };
+            model.AcceptCreatedOrder(next); Pump();
+            Assert.Equal(calendar.SelectedDate, model.FilterDate); // Добавление в открытый день сохраняет период.
+            AssertIds(70, 71);
+            var later = first with { Id = 72, SpecificationNumber = "1018-1130", ThicknessMillimeters = 2 };
+            var earlier = first with { Id = 73, SpecificationNumber = "1018-858", ThicknessMillimeters = 10 };
+            var tomorrow = first with { Id = 74, OrderDate = day.AddDays(1), SpecificationNumber = "1019-800", ThicknessMillimeters = 12 };
+            model.AcceptCreatedOrders([later, tomorrow, earlier]); Pump();
+            Assert.Null(model.FilterDate);
+            AssertIds(74, 72, 71, 70, 73, 80);
+            Save(window, $"specification-order-{dark}");
+
+            var edited = next with { SpecificationNumber = "1018-854" };
+            model.AcceptEditedOrder(OrderRecord.FromSummary(edited)); Pump();
+            AssertIds(74, 72, 70, 73, 71, 80);
+            reader.Rows = [tomorrow, earlier, previous, later, first, edited];
+            await model.ReloadCommand.ExecuteAsync(null); Pump();
+            AssertIds(74, 72, 70, 73, 71, 80);
+            calendar.SelectedDate = day.ToDateTime(TimeOnly.MinValue); Pump();
+            AssertIds(71, 73, 70, 72);
+
+            Click(window, Header("Спецификация")); AssertIds(71, 73, 70, 72);
+            Assert.Contains(":sortascending", Header("Спецификация").Classes);
+            Click(window, Header("Спецификация")); AssertIds(72, 70, 73, 71);
+            Assert.Contains(":sortdescending", Header("Спецификация").Classes);
+            Click(window, Header("Дата")); AssertIds(71, 73, 70, 72);
+            Click(window, Header("Толщ., мм")); Click(window, Header("Толщ., мм"));
+            AssertIds(73, 70, 71, 72);
+            var newest = first with { Id = 75, SpecificationNumber = "1018-1145", ThicknessMillimeters = 5 };
+            model.AcceptCreatedOrder(newest); Pump();
+            AssertIds(73, 70, 75, 71, 72);
+            Assert.Equal(day.ToDateTime(TimeOnly.MinValue), model.FilterDate);
+            Assert.Contains(":sortdescending", Header("Толщ., мм").Classes);
+            Assert.DoesNotContain(":sortascending", Header("Дата").Classes);
+            Assert.Equal("1018-1145", model.Orders.Single(row => row.Id == 75).SpecificationNumber);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task DateSortingUsesNumericSpecificationBeforeIdAndSurvivesCalendarChanges(bool dark, bool sortBeforeFilter)
+    {
+        var seed = (await new DemoOrderStore().ReadAsync()).First();
+        var day = new DateOnly(2026, 10, 18);
+        OrderSummary[] rows =
+        [
+            seed with { Id = 30, OrderDate = day, SpecificationNumber = "1018-900" },
+            seed with { Id = 50, OrderDate = day.AddDays(-1) },
+            seed with { Id = 2, OrderDate = day, SpecificationNumber = "1018-1121" },
+            seed with { Id = 3, OrderDate = null },
+            seed with { Id = 10, OrderDate = day, SpecificationNumber = "1018-859" },
+            seed with { Id = 8, OrderDate = day, SpecificationNumber = "1018-0900" },
+            seed with { Id = 100, OrderDate = day.AddDays(1) },
+            seed with { Id = 1, OrderDate = null }
+        ];
+        int[] ascending = [1, 3, 50, 10, 8, 30, 2, 100];
+        var reader = new Reader(rows);
+        var model = new MainWindowViewModel(reader) { IsDarkTheme = dark };
+        var window = new MainWindow { DataContext = model, Width = 1366, Height = 768 };
+        try
+        {
+            window.Show(); Pump();
+            var grid = window.FindControl<DataGrid>("OrdersGrid")!;
+            var calendar = window.FindControl<JournalDatePicker>("DateFilter")!;
+            var header = grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(control => control.Content is "Дата");
+            Assert.Equal(ascending.Reverse(), grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Assert.Contains(":sortdescending", header.Classes);
+            if (sortBeforeFilter)
+            {
+                Click(window, header);
+                Assert.Equal(ascending, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+                Click(window, header);
+                Assert.Equal(ascending.Reverse(), grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+                Assert.True(model.HasCustomSort); // Ручное DESC совпадает со стандартом, но сохраняет намерение.
+                Click(window, header); Assert.False(model.HasCustomSort);
+            }
+            // Меняем именно календарь: проверяем его привязку, а не только предикат модели.
+            calendar.SelectedDate = day.ToDateTime(TimeOnly.MinValue); Pump();
+            Assert.Equal(calendar.SelectedDate, model.FilterDate);
+            Assert.Equal(new[] { 10, 8, 30, 2 }, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Assert.Contains(":sortascending", header.Classes);
+            var arrow = header.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single(path => path.Name == "SortIcon");
+            Assert.True(arrow.IsEffectivelyVisible);
+
+            var selected = grid.GetVisualDescendants().OfType<DataGridRow>()
+                .Single(row => row.IsEffectivelyVisible && row.DataContext is OrderRowViewModel { Id: 10 });
+            Click(window, selected.GetVisualDescendants().OfType<CheckBox>().Single(box => box.Classes.Contains("row-selection")));
+            Click(window, header);
+            Assert.Equal(new[] { 2, 30, 8, 10 }, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Assert.Contains(":sortdescending", header.Classes);
+            Assert.Equal(10, Assert.IsType<OrderRowViewModel>(Assert.Single(grid.SelectedItems)).Id);
+            Assert.Equal(new[] { "1018-1121", "1018-900", "1018-0900", "1018-859" },
+                grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.SpecificationNumber));
+            Assert.All(model.Orders, row => Assert.Equal("18.10.2026", row.DateText));
+
+            calendar.SelectedDate = day.AddDays(10).ToDateTime(TimeOnly.MinValue); Pump();
+            Assert.Empty(grid.CollectionView); Assert.Empty(grid.SelectedItems);
+            calendar.SelectedDate = day.ToDateTime(TimeOnly.MinValue); Pump();
+            Assert.Equal(new[] { 2, 30, 8, 10 }, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            reader.Rows = rows.Reverse().ToArray();
+            await model.ReloadCommand.ExecuteAsync(null); Pump();
+            Assert.Equal(new[] { 2, 30, 8, 10 }, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Assert.Contains(":sortdescending", header.Classes);
+
+            calendar.SelectedDate = null; Pump();
+            Assert.Equal(ascending.Reverse(), grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Click(window, header); Assert.False(model.HasCustomSort);
+            Assert.Equal(ascending.Reverse(), grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Click(window, header);
+            Assert.Equal(ascending, grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id));
+            Assert.Contains(":sortascending", header.Classes);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(false, "Вес, кг")]
     [InlineData(true, "Вес, кг")]
@@ -105,7 +250,8 @@ public sealed class TableSortingTests
 
     private sealed class Reader(IReadOnlyList<OrderSummary> rows) : IOrderReader
     {
-        public Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) => Task.FromResult(rows);
+        public IReadOnlyList<OrderSummary> Rows { get; set; } = rows;
+        public Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) => Task.FromResult(Rows);
     }
     private static void Pump() => Dispatcher.UIThread.RunJobs();
     private static Color Color(IBrush? brush) => Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;

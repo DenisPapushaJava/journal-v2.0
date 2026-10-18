@@ -109,11 +109,13 @@ public sealed class OleDbOrderExtras(string path) : IOrderDurationInitializer
             throw new OrderReadException("Неподдерживаемая длина поля привязки времени резки.");
     }
 
-    internal static IReadOnlyDictionary<int, OrderCuttingTime> ReadAll(OleDbConnection connection, OleDbTransaction? transaction = null)
+    internal static IReadOnlyDictionary<int, OrderCuttingTime> ReadAll(OleDbConnection connection, OleDbTransaction? transaction = null, DateOnly? date = null)
     {
         if (!Exists(connection)) return new Dictionary<int, OrderCuttingTime>();
         Validate(connection, transaction);
-        using var command = Command(connection, transaction); command.CommandText = $"SELECT * FROM [{TableName}]";
+        using var command = Command(connection, transaction);
+        command.CommandText = date is null ? $"SELECT * FROM [{TableName}]" :
+            $"SELECT [e].* FROM [{TableName}] AS [e] INNER JOIN [Orders] AS [o] ON [e].[OrderId]=[o].[Код]" + OrderDayQuery.Where(command, date, "[o].[Дата]");
         using var reader = command.ExecuteReader()!;
         var result = new Dictionary<int, OrderCuttingTime>();
         while (reader.Read())

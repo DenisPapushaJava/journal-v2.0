@@ -74,11 +74,13 @@ public sealed class OleDbOrderAnnotations(string path) : IOrderAnnotationsInitia
             if (column is null || Convert.ToInt32(column["CHARACTER_MAXIMUM_LENGTH"], CultureInfo.InvariantCulture) != size) throw new OrderReadException("Неизвестная длина поля пометок.");
         }
     }
-    internal static IReadOnlyDictionary<int, OrderAnnotations> ReadAll(OleDbConnection connection, OleDbTransaction? transaction = null)
+    internal static IReadOnlyDictionary<int, OrderAnnotations> ReadAll(OleDbConnection connection, OleDbTransaction? transaction = null, DateOnly? date = null)
     {
         if (!Exists(connection)) return new Dictionary<int, OrderAnnotations>();
         Validate(connection, transaction);
-        using var command = Command(connection, transaction); command.CommandText = $"SELECT * FROM [{OrderAnnotationsData.TableName}]";
+        using var command = Command(connection, transaction);
+        command.CommandText = date is null ? $"SELECT * FROM [{OrderAnnotationsData.TableName}]" :
+            $"SELECT [e].* FROM [{OrderAnnotationsData.TableName}] AS [e] INNER JOIN [Orders] AS [o] ON [e].[OrderId]=[o].[Код]" + OrderDayQuery.Where(command, date, "[o].[Дата]");
         using var reader = command.ExecuteReader()!; var result = new Dictionary<int, OrderAnnotations>();
         while (reader.Read())
         {

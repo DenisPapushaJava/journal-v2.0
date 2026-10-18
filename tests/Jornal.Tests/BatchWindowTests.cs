@@ -32,6 +32,7 @@ public sealed class BatchWindowTests
             var table = window.FindControl<DataGrid>("OrdersGrid")!;
             table.Columns[1].Width = new DataGridLength(128);
             table.Columns[3].IsVisible = false;
+            table.CollectionView.SortDescriptions.Clear();
             table.CollectionView.SortDescriptions.Add(Avalonia.Collections.DataGridSortDescription.FromPath(
                 nameof(OrderRowViewModel.ThicknessMillimeters), System.ComponentModel.ListSortDirection.Descending));
             var first = model.Orders[0];
@@ -181,6 +182,7 @@ public sealed class BatchWindowTests
         {
             window.Show(); Pump();
             var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            table.CollectionView.SortDescriptions.Clear();
             table.CollectionView.SortDescriptions.Add(Avalonia.Collections.DataGridSortDescription.FromPath(
                 nameof(OrderRowViewModel.StatusText), System.ComponentModel.ListSortDirection.Ascending));
             Assert.Equal(3, table.CollectionView.Cast<OrderRowViewModel>().First().Id);
@@ -234,6 +236,7 @@ public sealed class BatchWindowTests
     }
     private static void Click(Window window, string name)
     {
+        if (TableStatusTestActions.TryExecute(window, name)) return;
         var control = window.FindControl<Control>(name)!;
         var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
         window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();

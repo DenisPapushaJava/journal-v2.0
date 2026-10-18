@@ -61,6 +61,11 @@ public sealed class TableDensityTests
                     Assert.InRange(box.Bounds.Height, 24, height);
                     var outline = box.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "NormalRectangle");
                     var outlinePoint = outline.TranslatePoint(default, row)!.Value;
+                    var cell = box.GetVisualAncestors().OfType<DataGridCell>().Single();
+                    var horizontal = outline.TranslatePoint(default, cell)!.Value.X;
+                    Assert.Equal(24, grid.Columns[0].ActualWidth);
+                    Assert.InRange(horizontal, 1, 3);
+                    Assert.InRange(cell.Bounds.Width - horizontal - outline.Bounds.Width, 1, 3);
                     Assert.True(outlinePoint.Y >= 1 && outlinePoint.Y + outline.Bounds.Height <= row.Bounds.Height - 1,
                         $"Чекбокс обрезан при {height}/{scale}: контур {outlinePoint}/{outline.Bounds}, строка {row.Bounds}.");
                 }
@@ -78,7 +83,7 @@ public sealed class TableDensityTests
             }
             Assert.Empty(grid.SelectedItems);
             window.FindControl<TextBox>("RowHeightInput")!.Text = "24"; Pump();
-            var checkbox = grid.GetVisualDescendants().OfType<CheckBox>().First(box => box.Classes.Contains("row-selection"));
+            var checkbox = grid.GetVisualDescendants().OfType<CheckBox>().First(box => box.IsEffectivelyVisible && box.Classes.Contains("row-selection"));
             Click(window, checkbox);
             Assert.Single(grid.SelectedItems);
             model.SearchText = "нет совпадений"; Pump();

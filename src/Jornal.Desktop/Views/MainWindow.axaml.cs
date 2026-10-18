@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
@@ -13,6 +14,7 @@ using Jornal.Core.Orders;
 using Jornal.Desktop.Customization;
 using Jornal.Desktop.Clipboard;
 using Jornal.Desktop.Updates;
+using Jornal.Desktop.Tables;
 
 namespace Jornal.Desktop.Views;
 
@@ -25,15 +27,30 @@ public partial class MainWindow : Window
     private bool _updateDraftRestored;
 
     private readonly MainWindowCustomization _customization;
+    private readonly JournalTableSorting _sorting;
 
     public MainWindow() : this(new MemoryUiPreferencesStore()) { }
 
     public MainWindow(IUiPreferencesStore preferencesStore, IUpdateRestartStore? restartStore = null)
     {
         InitializeComponent();
+        ColumnsButton.AttachedToVisualTree += (_, _) =>
+        {
+            if (ColumnsButton.FindAncestorOfType<DataGridColumnHeader>() is { } header)
+                header.Classes.Add("selection-column");
+        };
         ConfigureSpecificationDrop();
+        ActiveColumnFilters.FocusFallbackRequested += (_, _) => OrdersGrid.Focus();
         _restartStore = restartStore;
         _customization = new MainWindowCustomization(this, preferencesStore);
+        _sorting = new JournalTableSorting(OrdersGrid, (summary, description) =>
+        {
+            if (_viewModel is not { } model) return;
+            model.SortingSummary = summary; model.SortingDescription = description;
+        }, () => _viewModel?.FilterDate is null ? ListSortDirection.Descending : ListSortDirection.Ascending);
+        ConfigureContextMenus();
+        _journalRefreshTimer.Tick += OnJournalRefreshTick;
+        ConfigureJournalPointerTracking();
         DataContextChanged += (_, _) => ConnectViewModel();
         foreach (var column in OrdersGrid.Columns.Skip(1))
         {
@@ -47,9 +64,10 @@ public partial class MainWindow : Window
     protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        if (Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current?.HasPreviousFatal == true)
-            DiagnosticsButton.Label = "Сбой предыдущего запуска · Диагностика";
+        RefreshDiagnosticsIndicator();
         _customization.Initialize();
+        _sorting.Synchronize();
+        _journalRefreshTimer.Start();
         if (_viewModel is not null)
         {
             if (!_updateDraftRestored && _restartStore is not null)
@@ -65,6 +83,12 @@ public partial class MainWindow : Window
 
     public Task LoadInitialOrdersAsync(CancellationToken cancellationToken = default) =>
         _initialOrdersLoad ??= LoadInitialOrdersCoreAsync(cancellationToken);
+
+    public void InitializeStartupPeriod()
+    {
+        _customization.Initialize();
+        _viewModel?.InitializeStartupPeriod();
+    }
 
     private async Task LoadInitialOrdersCoreAsync(CancellationToken cancellationToken)
     {
@@ -83,26 +107,46 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        SearchBox.CancelPendingInput();
+        _journalRefreshTimer.Stop();
+        _journalPressedPointers.Clear();
+        _journalAutoRefresh?.Dispose();
         _updateChecksLifetime.Cancel();
         _updateChecksLifetime.Dispose();
         _customization.Close();
+        _sorting.Dispose();
+        _ordersMenu.Dispose(); _resultMenu.Close();
         if (_viewModel is not null)
         {
             _viewModel.ReloadCommand.Cancel();
+            _viewModel.CancelOrderLoading();
             _viewModel.Updates.CheckCommand.Cancel();
             _viewModel.Updates.DownloadCommand.Cancel();
+            _viewModel.Updates.ClearRestart();
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _viewModel.SelectionRestoreRequested -= OnSelectionRestore;
+            _viewModel.SelectionClearingRequested -= OnSelectionClearingRequested;
+            _viewModel.SortingResetRequested -= OnSortingResetRequested;
+            DisconnectReadContext(_viewModel);
         }
         base.OnClosed(e);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.None && _viewModel?.CanEnterSearch == true)
+        {
+            SearchBox.SubmitInput();
+            _viewModel.ReloadCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
         if (_viewModel?.IsImportingSpecification == true && e.Key == Key.Escape)
         { _specificationImportCancellation?.Cancel(); e.Handled = true; return; }
         if (_viewModel?.HasSpecificationImportError == true && e.Key == Key.Escape)
         { _viewModel.DismissSpecificationImportErrorCommand.Execute(null); e.Handled = true; return; }
+        if (e.Key == Key.Escape && _customization.CancelDrag())
+        { e.Handled = true; return; }
         if (_viewModel?.IsCustomizing == true)
         {
             if (e.Key == Key.Escape)
@@ -115,7 +159,7 @@ public partial class MainWindow : Window
             { _customization.Save(); e.Handled = true; return; }
         }
         base.OnKeyDown(e);
-        if (_viewModel?.CanUseJournal == true && e.Key == Key.F && e.KeyModifiers == KeyModifiers.Control)
+        if (_viewModel?.CanEnterSearch == true && e.Key == Key.F && e.KeyModifiers == KeyModifiers.Control)
         {
             SearchBox.Focus();
             SearchBox.SelectAll();
@@ -125,16 +169,27 @@ public partial class MainWindow : Window
 
     private void ConnectViewModel()
     {
+        CloseContextMenus();
+        SearchBox.CancelPendingInput();
         if (_viewModel is not null)
         {
+            _viewModel.CancelOrderLoading();
+            _viewModel.Updates.ClearRestart();
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _viewModel.SelectionRestoreRequested -= OnSelectionRestore;
+            _viewModel.SelectionClearingRequested -= OnSelectionClearingRequested;
+            _viewModel.SortingResetRequested -= OnSortingResetRequested;
+            DisconnectReadContext(_viewModel);
         }
         _viewModel = DataContext as MainWindowViewModel;
+        InitializeAutoRefresh();
         if (_viewModel is not null)
         {
             _viewModel.PropertyChanged += OnViewModelChanged;
             _viewModel.SelectionRestoreRequested += OnSelectionRestore;
+            _viewModel.SelectionClearingRequested += OnSelectionClearingRequested;
+            _viewModel.SortingResetRequested += OnSortingResetRequested;
+            ConnectReadContext(_viewModel);
             _viewModel.Updates.ConfigureRestart(
                 () => _viewModel.CanCheckUpdates && !OwnedWindows.Any(window => window is not AppUpdatesWindow && window is not SettingsWindow { CanRestart: true }),
                 () =>
@@ -147,18 +202,48 @@ public partial class MainWindow : Window
                 () => { foreach (var window in OwnedWindows.ToArray()) window.Close(); Close(); });
         }
         UpdateTheme();
+        _sorting.Synchronize();
+    }
+
+    private void OnSortingResetRequested(object? sender, EventArgs e)
+    {
+        var returnFocus = ActiveSortButton.IsKeyboardFocusWithin;
+        _sorting.RestoreDefault();
+        if (returnFocus) OrdersGrid.Focus();
     }
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(MainWindowViewModel.IsRefreshingOrders) && _viewModel?.IsRefreshingOrders != true) ClearReadRefreshAppearance();
+        if (e.PropertyName is nameof(MainWindowViewModel.SourceDescription) or nameof(MainWindowViewModel.AutomaticJournalRefresh)) ConfigureAutoRefresh();
+        if (e.PropertyName == nameof(MainWindowViewModel.FilterDate)) _sorting.Synchronize();
+        if (e.PropertyName?.StartsWith("Can", StringComparison.Ordinal) == true ||
+            e.PropertyName is nameof(MainWindowViewModel.SelectionText) or nameof(MainWindowViewModel.FilterContextVersion) or
+                nameof(MainWindowViewModel.SourceDescription) or nameof(MainWindowViewModel.ResultText)) CloseContextMenus();
+        if (e.PropertyName == nameof(MainWindowViewModel.SearchText)) SearchBox.CancelPendingInput();
+        if (e.PropertyName is nameof(MainWindowViewModel.SearchScopeIndex) or nameof(MainWindowViewModel.SearchExactMatch)
+            && SearchBox.IsPending) SearchBox.SubmitInput();
         if (e.PropertyName is nameof(MainWindowViewModel.IsImportingSpecification) or nameof(MainWindowViewModel.HasSpecificationImportError)) UpdateSpecificationFocus();
         if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme))
         { UpdateTheme(); _customization.AppearanceChanged(); }
         if (e.PropertyName is nameof(MainWindowViewModel.ResultFontSizePoints) or nameof(MainWindowViewModel.ResultTextColor) or
-            nameof(MainWindowViewModel.UseResultMinimumPrice) or nameof(MainWindowViewModel.ResultMinimumPrice) or
+            nameof(MainWindowViewModel.UseResultMinimumPrice) or nameof(MainWindowViewModel.ResultMinimumPrice) or nameof(MainWindowViewModel.ShowTodayOnStartup) or
+            nameof(MainWindowViewModel.AutomaticJournalRefresh) or nameof(MainWindowViewModel.TrashRetentionDays) or nameof(MainWindowViewModel.RowHighlightStrength) or
             nameof(MainWindowViewModel.UseTechnologistColor) or nameof(MainWindowViewModel.TechnologistColorArgb) or nameof(MainWindowViewModel.EntrySuggestionsSummary))
             _customization.AppearanceChanged();
     }
+
+    private void OnSearchPendingChanged(object? sender, EventArgs e)
+    {
+        if (_viewModel is null) return;
+        _viewModel.IsSearchPending = SearchBox.IsPending;
+        if (SearchBox.IsPending) OnSelectionClearingRequested(this, EventArgs.Empty);
+    }
+    private void OnSelectionClearingRequested(object? sender, EventArgs e)
+    { OrdersGrid.SelectedItems.Clear(); UpdateSelection(); }
+    private void OnSearchClearRequested(object? sender, EventArgs e) => _viewModel?.ClearSearchCommand.Execute(null);
+    private void OnClearSearchClick(object? sender, RoutedEventArgs e)
+    { SearchBox.ClearInput(); SearchBox.Focus(); }
 
     private void UpdateTheme() => RequestedThemeVariant = _viewModel?.IsDarkTheme == true
         ? ThemeVariant.Dark : ThemeVariant.Light;
@@ -183,13 +268,6 @@ public partial class MainWindow : Window
     }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e) => UpdateSelection();
-    private async void OnDiagnosticsClick(object? sender, RoutedEventArgs e)
-    {
-        if (OwnedWindows.Count > 0 || Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current is not { } service) return;
-        service.AcknowledgePreviousFatal();
-        DiagnosticsButton.Label = "Диагностика";
-        await ShowSettingsAsync(SettingsSection.Diagnostics);
-    }
     private async void OnEditOrderClick(object? sender, RoutedEventArgs e) => await EditOrderAsync();
     private async Task EditOrderAsync()
     {
@@ -223,9 +301,15 @@ public partial class MainWindow : Window
         await dialog.ShowDialog(this);
     }
     private void OnCurrentCellChanged(object? sender, EventArgs e) => UpdateSelection();
-    private void UpdateSelection() =>
-        _viewModel?.UpdateSelection(OrdersGrid.SelectedItems.Cast<OrderRowViewModel>(),
-            OrdersGrid.SelectedItem as OrderRowViewModel);
+    private void UpdateSelection()
+    {
+        if (_viewModel?.IsApplyingReadSnapshot != true)
+        {
+            if (_viewModel?.IsRefreshingOrders == true) ClearReadRefreshAppearance();
+            _viewModel?.UpdateSelection(OrdersGrid.SelectedItems.Cast<OrderRowViewModel>(),
+                OrdersGrid.SelectedItem as OrderRowViewModel);
+        }
+    }
 
     private void OnClearSelection(object? sender, RoutedEventArgs e)
     {
@@ -242,7 +326,15 @@ public partial class MainWindow : Window
         await dialog.ShowDialog<bool>(this);
     }
 
-    private async void OnSettingsClick(object? sender, RoutedEventArgs e) => await ShowSettingsAsync(SettingsSection.General);
+    private async void OnSettingsClick(object? sender, RoutedEventArgs e) => await ShowSettingsAsync(
+        Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current?.HasPreviousFatal == true ? SettingsSection.Diagnostics : SettingsSection.General);
+
+    private void RefreshDiagnosticsIndicator()
+    {
+        var previousFatal = Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current?.HasPreviousFatal == true;
+        DiagnosticsBadge.IsVisible = previousFatal;
+        SettingsButton.Label = previousFatal ? "Настройки · Сбой предыдущего запуска: Диагностика" : "Настройки";
+    }
 
     private async void OnPricesClick(object? sender, RoutedEventArgs e)
     {
@@ -257,7 +349,7 @@ public partial class MainWindow : Window
         var form = new SettingsViewModel(_viewModel, Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current, section);
         var dialog = new SettingsWindow { DataContext = form };
         await dialog.ShowDialog(this);
-        if (Jornal.Infrastructure.Diagnostics.AppDiagnostics.Current?.HasPreviousFatal == false) DiagnosticsButton.Label = "Диагностика";
+        RefreshDiagnosticsIndicator();
         if (dialog.CustomizeRequested && _viewModel.CanConfigureScreen) _customization.Begin();
     }
 
@@ -300,8 +392,10 @@ public partial class MainWindow : Window
     private void OnDismissPreferencesError(object? sender, RoutedEventArgs e)
     { if (_viewModel is not null) _viewModel.PreferencesError = null; }
 
-    private void OnShowAllColumns(object? sender, RoutedEventArgs e) => SetAllColumnsVisible(true);
-    private void OnHideAllColumns(object? sender, RoutedEventArgs e) => SetAllColumnsVisible(false);
+    private void OnShowAllColumns(object? sender, RoutedEventArgs e)
+    {
+        foreach (var column in OrdersGrid.Columns.Skip(1)) column.IsVisible = true;
+    }
 
     private void OnDecreaseRowHeight(object? sender, RoutedEventArgs e) => ChangeRowHeight(-1);
     private void OnIncreaseRowHeight(object? sender, RoutedEventArgs e) => ChangeRowHeight(1);
@@ -335,8 +429,4 @@ public partial class MainWindow : Window
         else if (e.Key is Key.Up or Key.Down) { ChangeRowHeight(e.Key == Key.Up ? 1 : -1); e.Handled = true; }
     }
 
-    private void SetAllColumnsVisible(bool visible)
-    {
-        foreach (var column in OrdersGrid.Columns.Skip(1)) column.IsVisible = visible;
-    }
 }

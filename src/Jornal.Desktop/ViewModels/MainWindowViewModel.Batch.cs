@@ -60,6 +60,7 @@ public partial class MainWindowViewModel
             if (updated.Count != ids.Count || !updated.Select(order => order.Id).ToHashSet().SetEquals(ids))
                 throw new InvalidOperationException("Адаптер вернул неполный набор изменённых заявок.");
             var replacements = updated.ToDictionary(order => order.Id);
+            CancelOrderLoading();
             _allOrders = _allOrders.Select(order => replacements.GetValueOrDefault(order.Id, order)).ToArray();
             // Сохраняем объекты видимых строк: положение и выделение не привязаны к их индексам.
             foreach (var row in Orders.ToArray())
@@ -70,6 +71,7 @@ public partial class MainWindowViewModel
             }
             HasNoOrders = Orders.Count == 0;
             CountText = $"Заявок: {Orders.Count} из {_allOrders.Count}";
+            NotifyFilterContextChanged();
             var surviving = Orders.Where(row => selectedIds.Contains(row.Id)).ToArray();
             var active = surviving.FirstOrDefault(row => row.Id == activeId) ?? surviving.FirstOrDefault();
             UpdateSelection(surviving, active);
@@ -93,13 +95,6 @@ public partial class MainWindowViewModel
 
     private bool MatchesCurrentFilters(OrderSummary order)
     {
-        var matchesStatus = StatusFilter switch
-        {
-            OrderStatusFilter.Work => order.Color == OrderColors.Work,
-            OrderStatusFilter.Ready => order.Color == OrderColors.Ready,
-            OrderStatusFilter.Shipped => order.Color == OrderColors.Shipped, _ => true
-        };
-        return matchesStatus && (!FilterDate.HasValue || order.OrderDate == DateOnly.FromDateTime(FilterDate.Value)) &&
-            MatchesSearch(order, SearchText.Trim());
+        return MatchesStatusFilter(order) && MatchesColumnFilters(order) && MatchesSearchAndDate(order);
     }
 }

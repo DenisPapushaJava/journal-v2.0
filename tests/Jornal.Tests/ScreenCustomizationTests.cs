@@ -37,7 +37,7 @@ public sealed class ScreenCustomizationTests
             Assert.False(Find<DataGrid>(window, "OrdersGrid").GetVisualDescendants().OfType<CheckBox>()
                 .First(box => box.Classes.Contains("row-selection")).IsEffectivelyEnabled);
             Assert.False(Find<Grid>(window, "FiltersPanel").IsEffectivelyEnabled);
-            foreach (var name in new[] { "OrdersMoveHandle", "ClipboardMoveHandle", "StatusMoveHandle", "ResultMoveHandle", "SaveLayoutButton", "CancelLayoutButton", "ResetLayoutButton" })
+            foreach (var name in new[] { "OrdersMoveHandle", "ClipboardMoveHandle", "ResultMoveHandle", "SaveLayoutButton", "CancelLayoutButton", "ResetLayoutButton" })
             {
                 var control = Find<Control>(window, name);
                 Assert.True(control.IsEffectivelyVisible);
@@ -71,8 +71,8 @@ public sealed class ScreenCustomizationTests
             Pump();
             var initialWidth = table.Columns[1].Width;
             Click(window, "PersonalizeButton");
-            Drag(window, "OrdersMoveHandle", Center(window, Find<Border>(window, "StatusCommands")));
-            Assert.Equal(4, Grid.GetColumn(Find<Border>(window, "OrdersCommands")));
+            Drag(window, "OrdersMoveHandle", Center(window, Find<Border>(window, "ClipboardCommands")));
+            Assert.Equal(2, Grid.GetColumn(Find<Border>(window, "OrdersCommands")));
             Drag(window, "ResultMoveHandle", Center(window, Find<Grid>(window, "CommandGroups")));
             Assert.Equal(2, Grid.GetRow(Find<Grid>(window, "ResultSlot")));
             table.Columns[1].Width = new DataGridLength(190);
@@ -132,7 +132,7 @@ public sealed class ScreenCustomizationTests
             Pump();
             Click(window, "PersonalizeButton");
             Click(window, "ResetLayoutButton");
-            Assert.Equal(2, Grid.GetColumn(Find<Border>(window, "OrdersCommands")));
+            Assert.True(Bounds(window, Find<Border>(window, "OrdersCommands")).Right < Bounds(window, Find<Grid>(window, "ResultSlot")).Left);
             Assert.True(Find<Grid>(window, "DockArea").IsVisible);
             Assert.All(table.Columns, column => Assert.True(column.IsVisible));
             Assert.Equal("5083", model.SearchText);
@@ -243,6 +243,42 @@ public sealed class ScreenCustomizationTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(1.5)]
+    [InlineData(2)]
+    public void DragPreviewKeepsTheWholePanelWithinABoundedBitmapAndReleasesItOnCancel(double displayScale)
+    {
+        var (window, _) = Open(width: 1920, height: 1080);
+        try
+        {
+            window.SetRenderScaling(displayScale); Pump();
+            Click(window, "PersonalizeButton");
+            var source = Find<Grid>(window, "ResultSlot");
+            var start = Center(window, Find<LayoutHandle>(window, "ResultMoveHandle"));
+            var target = Center(window, Find<Border>(window, "OrdersCommands"));
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(target, RawInputModifiers.LeftMouseButton);
+            Pump();
+            var picture = Find<Image>(window, "DragPreviewImage");
+            var bitmap = Assert.IsType<Avalonia.Media.Imaging.RenderTargetBitmap>(picture.Source);
+            Assert.InRange(picture.Width, 1, 320);
+            Assert.InRange(picture.Height, 1, 180);
+            Assert.InRange(bitmap.PixelSize.Width, 1, (int)Math.Ceiling(320 * displayScale));
+            Assert.InRange(bitmap.PixelSize.Height, 1, (int)Math.Ceiling(180 * displayScale));
+            // Низкий DPI уменьшает число пикселей, а не обрезает правую/нижнюю часть панели.
+            Assert.InRange(bitmap.Size.Width, source.Bounds.Width, source.Bounds.Width + 96 / bitmap.Dpi.X + .01);
+            Assert.InRange(bitmap.Size.Height, source.Bounds.Height, source.Bounds.Height + 96 / bitmap.Dpi.Y + .01);
+            Screenshot(window, "bounded-drag-preview-" + displayScale);
+            PressKey(window, Key.Escape);
+            window.MouseUp(target, MouseButton.Left);
+            Pump();
+            Assert.Null(picture.Source);
+            Assert.Equal(1, source.Opacity);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void EscapeCancelsDragFirstAndThenEditWithoutClearingSearch()
     {
@@ -252,7 +288,7 @@ public sealed class ScreenCustomizationTests
             model.SearchText = "5083";
             Click(window, "PersonalizeButton");
             var start = Center(window, Find<LayoutHandle>(window, "OrdersMoveHandle"));
-            var target = Center(window, Find<Border>(window, "StatusCommands"));
+            var target = Center(window, Find<Border>(window, "ClipboardCommands"));
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(target, RawInputModifiers.LeftMouseButton);
             Pump();
@@ -331,7 +367,7 @@ public sealed class ScreenCustomizationTests
         Pump();
         if (name == "OrdersMoveHandle")
         {
-            Assert.Equal(new Thickness(2), Find<Border>(window, "StatusCommands").BorderThickness);
+            Assert.Equal(new Thickness(2), Find<Border>(window, "ClipboardCommands").BorderThickness);
             Screenshot(window, "customization-drop-target");
         }
         window.MouseUp(target, MouseButton.Left);

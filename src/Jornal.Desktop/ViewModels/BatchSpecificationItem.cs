@@ -19,6 +19,7 @@ public sealed partial class BatchSpecificationItem : ObservableObject
     public string FileName { get; }
     public string DisplayName => (_owner.BatchItems.IndexOf(this) + 1) + ". " + FileName;
     internal string? Path { get; }
+    internal bool DuplicateCheckFailed { get; set; }
     internal CancellationToken ReadCancellation => _readCancellation.Token;
     public NewOrderViewModel Form { get; }
     [ObservableProperty] private bool _isIncluded = true;

@@ -75,7 +75,7 @@ public sealed class BatchConcurrencyTests
     public async Task EmptyDeliveryDoesNotFallThroughToSearchInOtherFields()
     {
         var store = new DemoOrderStore(); var model = await BatchOrderTests.Model(store);
-        model.SearchScopeIndex = 4; model.SearchText = "Менеджер";
+        model.SearchScopeIndex = 2; model.SearchText = "Менеджер";
         Assert.Empty(model.Orders);
         model.SearchScopeIndex = 0;
         Assert.Equal(3, model.Orders.Count);

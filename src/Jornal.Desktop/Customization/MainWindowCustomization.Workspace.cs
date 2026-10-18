@@ -8,193 +8,276 @@ namespace Jornal.Desktop.Customization;
 
 public sealed partial class MainWindowCustomization
 {
-    private const double ZoneGap = 12;
+    private static readonly WorkspaceNode CompactWorkspace = WorkspaceLayout.CreateDefault().Normalize().Root!;
+    private readonly Dictionary<string, Grid> _workspaceGrids = new();
+    private WorkspaceNode? _renderedWorkspace;
+    private bool _updatingWorkspace;
+    private IPointer? _workspaceResizePointer;
+    private WorkspaceNode? _workspaceResizeSnapshot;
+    private bool _cancelingWorkspaceResize;
+    private WorkspaceDrop? _workspaceDrop;
+    private sealed record WorkspaceDrop(WorkspaceNode Root, string Source);
     private Grid Board => Find<Grid>("DockBoard");
     private Control Panel(string id) => id == "result" ? Find<Grid>("ResultSlot") : _panels[id];
-    private static double PanelMinimumWidth(string id) => id == "result" ? 480 : 304;
-    private static double PanelMinimumHeight(string id) => id switch
-        { "result" => 106, "orders" => 106, "status" => 140, _ => 174 };
     private static string PanelTitle(string id) => id switch
-        { "result" => "Результат", "orders" => "Заявки", "status" => "Присвоить статус", _ => "Буфер обмена и БЛЦБ" };
+        { "result" => "Результат", "orders" => "Заявки", _ => "Буфер обмена и БЛЦБ" };
+    private GridSplitter[] WorkspaceSplitters => [Find<GridSplitter>("WorkspaceFirstSplitter"),
+        Find<GridSplitter>("WorkspaceSecondSplitter"), Find<GridSplitter>("WorkspaceRowsSplitter")];
 
-    private WorkspaceLayout? CaptureWorkspace()
+    // Размер окна сам по себе не меняет сохранённые пропорции, в том числе при временной адаптации.
+    private WorkspaceLayout? CaptureWorkspace() => _layout.Workspace;
+
+    private void DetachWorkspaceControls()
     {
-        if (_layout.Workspace is not { } workspace) return null;
-        var widths = new[] { 0, 2, 4 }.Select(index => Board.ColumnDefinitions[index].ActualWidth).ToArray();
-        var top = Board.RowDefinitions[0].ActualHeight;
-        var bottom = Board.RowDefinitions[2].ActualHeight;
-        return workspace with
-        {
-            ColumnWidths = widths.All(width => width > 0) ? widths : workspace.ColumnWidths,
-            TopFraction = top + bottom > 0 ? top / (top + bottom) : workspace.TopFraction
-        };
+        foreach (var panel in _panels.Values.Cast<Control>().Append(Find<Grid>("ResultSlot"))
+                     .Append(Find<LayoutHandle>("ResultResizeHandle")).Concat(WorkspaceSplitters))
+            if (panel.Parent is Panel parent) parent.Children.Remove(panel);
+        Board.Children.Clear();
+        _workspaceGrids.Clear();
+        _renderedWorkspace = null;
     }
 
     private void ApplyWorkspace()
     {
+        DetachWorkspaceControls();
         var docked = _layout.Workspace is not null;
-        var result = Find<Grid>("ResultSlot");
-        var resize = Find<LayoutHandle>("ResultResizeHandle");
-        // Все элементы сохраняются: ввод, bindings, команды и NameScope не пересоздаются.
-        foreach (var panel in _panels.Values.Cast<Control>().Append(result).Append(resize))
-            if (panel.Parent is Panel parent) parent.Children.Remove(panel);
-
         _groups.IsVisible = !docked;
         Find<Grid>("DockArea").IsVisible = docked;
         Find<Border>("ResultPanel").Margin = docked ? new Thickness(0) : new Thickness(0, 0, 0, 4);
-        ToolTip.SetTip(resize, docked ? "Высота блоков · ↑ ↓" : "Изменить высоту результата · ↑ ↓ с клавиатуры");
-        AutomationProperties.SetName(resize, docked ? "Изменить высоту блоков" : "Изменить высоту результата");
+        var resize = Find<LayoutHandle>("ResultResizeHandle");
+        ToolTip.SetTip(resize, docked ? "Высота панелей · ↑ ↓" : "Изменить высоту результата · ↑ ↓ с клавиатуры");
+        AutomationProperties.SetName(resize, docked ? "Изменить высоту панелей" : "Изменить высоту результата");
         if (!docked)
         {
             foreach (var panel in _panels.Values)
-            { Grid.SetRow(panel, 0); Grid.SetRowSpan(panel, 1); _groups.Children.Add(panel); }
-            Grid.SetColumn(result, 0); Grid.SetRowSpan(result, 1);
-            _top.Children.Add(result);
-            result.Children.Add(resize);
+            { Grid.SetRow(panel, 0); Grid.SetRowSpan(panel, 1); Grid.SetColumnSpan(panel, 1); _groups.Children.Add(panel); }
+            var result = Find<Grid>("ResultSlot");
+            Grid.SetColumn(result, 0); Grid.SetRowSpan(result, 1); Grid.SetColumnSpan(result, 1);
+            _top.Children.Add(result); result.Children.Add(resize);
             return;
         }
-        var workspace = _layout.Workspace!;
-        Board.ColumnDefinitions.Clear();
-        var ids = workspace.Panels;
-        var minimums = new[] { PanelMinimumWidth(ids[0]), Math.Max(PanelMinimumWidth(ids[1]), PanelMinimumWidth(ids[2])), PanelMinimumWidth(ids[3]) };
-        for (var index = 0; index < 3; index++)
-        {
-            if (index > 0) Board.ColumnDefinitions.Add(new ColumnDefinition(ZoneGap, GridUnitType.Pixel));
-            Board.ColumnDefinitions.Add(new ColumnDefinition(workspace.ColumnWidths[index], GridUnitType.Star) { MinWidth = minimums[index] });
-        }
-        Board.RowDefinitions.Clear();
-        Board.RowDefinitions.Add(new RowDefinition(workspace.TopFraction, GridUnitType.Star) { MinHeight = PanelMinimumHeight(ids[1]) });
-        Board.RowDefinitions.Add(new RowDefinition(ZoneGap, GridUnitType.Pixel));
-        Board.RowDefinitions.Add(new RowDefinition(1 - workspace.TopFraction, GridUnitType.Star) { MinHeight = PanelMinimumHeight(ids[2]) });
-        for (var slot = 0; slot < 4; slot++)
-        {
-            var panel = Panel(ids[slot]);
-            Grid.SetColumn(panel, slot == 0 ? 0 : slot == 3 ? 4 : 2);
-            Grid.SetRow(panel, slot == 2 ? 2 : 0);
-            Grid.SetRowSpan(panel, slot is 0 or 3 ? 3 : 1);
-            Board.Children.Add(panel);
-        }
         Find<Grid>("DockResizeSlot").Children.Add(resize);
+        UpdateWorkspaceSize();
     }
+
+    private double AvailableWorkspaceHeight()
+    {
+        var body = Find<Grid>("BodyGrid");
+        if (body.Bounds.Height <= 0) return 472;
+        var error = Find<Border>("LoadErrorPanel");
+        return Math.Clamp(body.Bounds.Height - 12 - Math.Max(36, Find<Grid>("FiltersPanel").Bounds.Height)
+            - 40 - (Model?.IsCustomizing == true ? 96 : 128) - 2 - 8
+            - (error.IsVisible ? error.Bounds.Height + error.Margin.Bottom : 0), 106, 472);
+    }
+
+    private double AvailableWorkspaceWidth() => Find<Grid>("BodyGrid").Bounds.Width is > 0 and var width
+        ? width : Math.Max(0, _window.ClientSize.Width - 48);
+
+    private bool WorkspaceFits(WorkspaceNode root)
+    {
+        var minimum = WorkspaceGeometry.Minimum(root);
+        return minimum.Width <= AvailableWorkspaceWidth() + .5 && minimum.Height <= AvailableWorkspaceHeight() + .5;
+    }
+
+    private double WorkspaceHeight(WorkspaceLayout workspace, WorkspaceNode root) =>
+        Math.Max(WorkspaceGeometry.Minimum(root).Height, Math.Min(workspace.Height - 8, AvailableWorkspaceHeight())) + 8;
 
     private void UpdateWorkspaceSize()
     {
-        if (_layout.Workspace is not { } workspace) return;
-        var height = WorkspaceHeight(workspace);
-        _top.RowDefinitions[0].Height = new GridLength(height);
-        _top.RowDefinitions[1].Height = new GridLength(0);
-        _top.RowDefinitions[2].Height = new GridLength(0);
+        if (_updatingWorkspace || _layout.Workspace is not { Root: { } desired } workspace) return;
+        _updatingWorkspace = true;
+        try
+        {
+            var root = WorkspaceFits(desired) ? desired : CompactWorkspace;
+            if (!ReferenceEquals(_renderedWorkspace, root))
+            {
+                // Перестройка только при изменении структуры/режима адаптации, не на каждом resize.
+                CancelDrag();
+                RenderWorkspace(root);
+            }
+            _top.RowDefinitions[0].Height = new GridLength(WorkspaceHeight(workspace, root));
+            _top.RowDefinitions[1].Height = new GridLength(0);
+            _top.RowDefinitions[2].Height = new GridLength(0);
+        }
+        finally { _updatingWorkspace = false; }
     }
 
-    private double WorkspaceHeight(WorkspaceLayout workspace)
+    private void RenderWorkspace(WorkspaceNode root)
     {
-        var ids = workspace.Panels;
-        var minimum = Math.Max(Math.Max(PanelMinimumHeight(ids[0]), PanelMinimumHeight(ids[3])),
-            PanelMinimumHeight(ids[1]) + ZoneGap + PanelMinimumHeight(ids[2])) + 8;
-        var error = Find<Border>("LoadErrorPanel");
-        var available = Find<Grid>("BodyGrid").Bounds.Height - 24 - Math.Max(36, Find<Grid>("FiltersPanel").Bounds.Height)
-            - 36 - 160 - (error.IsVisible ? error.Bounds.Height + error.Margin.Bottom : 0);
-        return Math.Max(minimum, Math.Min(workspace.Height, available));
+        // Экземпляры панелей сохраняются: текст, bindings, команды и NameScope не пересоздаются.
+        var resize = Find<LayoutHandle>("ResultResizeHandle");
+        DetachWorkspaceControls();
+        Find<Grid>("DockResizeSlot").Children.Add(resize);
+        var splitters = new Queue<GridSplitter>(WorkspaceSplitters);
+        void Build(WorkspaceNode node, Grid grid, string path)
+        {
+            _workspaceGrids[path] = grid;
+            grid.ColumnDefinitions.Clear(); grid.RowDefinitions.Clear();
+            var columns = node.Axis == WorkspaceAxis.Columns;
+            if (columns) grid.RowDefinitions.Add(new RowDefinition(1, GridUnitType.Star));
+            else grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
+            for (var index = 0; index < node.Children.Length; index++)
+            {
+                if (index > 0)
+                {
+                    if (columns) grid.ColumnDefinitions.Add(new ColumnDefinition(WorkspaceGeometry.Gap, GridUnitType.Pixel));
+                    else grid.RowDefinitions.Add(new RowDefinition(WorkspaceGeometry.Gap, GridUnitType.Pixel));
+                }
+                var minimum = WorkspaceGeometry.Minimum(node.Children[index]);
+                if (columns) grid.ColumnDefinitions.Add(new ColumnDefinition(node.Weights[index], GridUnitType.Star) { MinWidth = minimum.Width });
+                else grid.RowDefinitions.Add(new RowDefinition(node.Weights[index], GridUnitType.Star) { MinHeight = minimum.Height });
+            }
+            // Сначала границы родителя — три прежних именованных разделителя остаются доступными.
+            for (var index = 1; index < node.Children.Length; index++)
+            {
+                var splitter = splitters.Dequeue();
+                splitter.Width = columns ? WorkspaceGeometry.Gap : double.NaN;
+                splitter.Height = columns ? double.NaN : WorkspaceGeometry.Gap;
+                splitter.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+                splitter.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+                splitter.ResizeDirection = columns ? GridResizeDirection.Columns : GridResizeDirection.Rows;
+                splitter.Classes.Set("columns", columns); splitter.Classes.Set("rows", !columns);
+                Grid.SetRow(splitter, columns ? 0 : index * 2 - 1); Grid.SetColumn(splitter, columns ? index * 2 - 1 : 0);
+                Grid.SetRowSpan(splitter, 1); Grid.SetColumnSpan(splitter, 1);
+                ToolTip.SetTip(splitter, columns ? "Ширина панелей · ← →" : "Высота панелей · ↑ ↓");
+                AutomationProperties.SetName(splitter, (columns ? "Ширина" : "Высота") + ": " +
+                    string.Join(", ", node.Children[index - 1].PanelIds().Concat(node.Children[index].PanelIds()).Select(PanelTitle)));
+                grid.Children.Add(splitter);
+            }
+            for (var index = 0; index < node.Children.Length; index++)
+            {
+                var child = node.Children[index];
+                var control = child.PanelId is { } id ? Panel(id) : new Grid();
+                Grid.SetColumn(control, columns ? index * 2 : 0); Grid.SetRow(control, columns ? 0 : index * 2);
+                Grid.SetColumnSpan(control, 1); Grid.SetRowSpan(control, 1);
+                grid.Children.Add(control);
+                if (child.PanelId is null) Build(child, (Grid)control, path + "/" + index);
+            }
+        }
+        Build(root, Board, "root");
+        _renderedWorkspace = root;
+    }
+
+    private WorkspaceNode CaptureRenderedWorkspace()
+    {
+        WorkspaceNode CaptureNode(WorkspaceNode node, string path)
+        {
+            if (node.PanelId is not null) return node;
+            var grid = _workspaceGrids[path];
+            var weights = Enumerable.Range(0, node.Children.Length).Select(index => node.Axis == WorkspaceAxis.Columns
+                ? grid.ColumnDefinitions[index * 2].Width.Value : grid.RowDefinitions[index * 2].Height.Value).ToArray();
+            return node with { Weights = weights.All(value => value > 0) ? weights : node.Weights,
+                Children = node.Children.Select((child, index) => CaptureNode(child, path + "/" + index)).ToArray() };
+        }
+        return CaptureNode(_renderedWorkspace!, "root");
+    }
+
+    private void WorkspaceSplitterChanged()
+    {
+        if (_cancelingWorkspaceResize || _applying || _updatingWorkspace || _layout.Workspace is not { } workspace || _renderedWorkspace is null) return;
+        // Явное движение разделителя фиксирует видимую компоновку; обычное сжатие окна — нет.
+        var root = CaptureRenderedWorkspace();
+        _layout = _layout with { Workspace = workspace with { Root = root } };
+        _renderedWorkspace = root;
+        Changed();
+    }
+
+    private bool CancelWorkspaceResize()
+    {
+        if (_workspaceResizePointer is not { } pointer) return false;
+        var snapshot = _workspaceResizeSnapshot!;
+        _workspaceResizePointer = null; _workspaceResizeSnapshot = null;
+        _cancelingWorkspaceResize = true;
+        try { pointer.Capture(null); }
+        finally { _cancelingWorkspaceResize = false; }
+        RenderWorkspace(snapshot);
+        return true;
     }
 
     private void ResizeHeight(double height) => _layout = _layout.Workspace is { } workspace
         ? _layout with { Workspace = workspace with { Height = Math.Clamp(height, 106, 480) } }
         : _layout with { ResultHeight = Math.Clamp(height, ScreenLayout.MinimumResultHeight, ScreenLayout.MaximumResultHeight) };
 
-    private void SwapWorkspace(string source, string target)
+    private void ApplyWorkspaceMove(WorkspaceNode root, string source)
     {
-        if (Capture() is not { Workspace: { } workspace } captured) return;
-        var panels = workspace.Panels.ToArray();
-        var first = Array.IndexOf(panels, source);
-        var second = Array.IndexOf(panels, target);
-        if (first < 0 || second < 0 || first == second) return;
-        (panels[first], panels[second]) = (panels[second], panels[first]);
-        Apply(captured with { Workspace = workspace with { Panels = panels } });
+        var snapshot = Capture();
+        Apply(snapshot with { Workspace = snapshot.Workspace! with { Root = root } });
         Find<LayoutHandle>(source switch { "result" => "ResultMoveHandle", "orders" => "OrdersMoveHandle",
-            "status" => "StatusMoveHandle", _ => "ClipboardMoveHandle" }).Focus();
+            _ => "ClipboardMoveHandle" }).Focus();
     }
 
-    private void MoveWorkspaceByKey(string source, Key key)
+    private void MoveWorkspaceByKey(string source, Key key, bool place)
     {
-        var panels = _layout.Workspace!.Panels;
-        var slot = Array.IndexOf(panels, source);
-        var target = (slot, key) switch
-        {
-            (0, Key.Right) => 1, (1, Key.Left) or (2, Key.Left) => 0,
-            (1, Key.Right) or (2, Key.Right) => 3, (3, Key.Left) => 1,
-            (1, Key.Down) => 2, (2, Key.Up) => 1, _ => -1
-        };
-        if (target >= 0) SwapWorkspace(source, panels[target]);
+        if (_renderedWorkspace is null) return;
+        var origin = BoundsInWindow(Panel(source));
+        var target = _renderedWorkspace.PanelIds().Where(id => id != source)
+            .Select(id => (Id: id, Bounds: BoundsInWindow(Panel(id))))
+            .Where(item => key switch { Key.Left => item.Bounds.Center.X < origin.Center.X - 1,
+                Key.Right => item.Bounds.Center.X > origin.Center.X + 1, Key.Up => item.Bounds.Center.Y < origin.Center.Y - 1,
+                _ => item.Bounds.Center.Y > origin.Center.Y + 1 })
+            .OrderBy(item => Math.Pow(item.Bounds.Center.X - origin.Center.X, 2) + Math.Pow(item.Bounds.Center.Y - origin.Center.Y, 2))
+            .Select(item => item.Id).FirstOrDefault();
+        var placement = !place ? WorkspacePlacement.Swap : key switch { Key.Left => WorkspacePlacement.Left,
+            Key.Right => WorkspacePlacement.Right, Key.Up => WorkspacePlacement.Top, _ => WorkspacePlacement.Bottom };
+        if (target is not null && WorkspaceNode.Move(_renderedWorkspace, source, target, placement) is { } root && WorkspaceFits(root))
+            ApplyWorkspaceMove(root, source);
     }
 
     private void FindWorkspaceTarget(LayoutHandle handle, Point point)
     {
-        foreach (var id in _layout.Workspace!.Panels)
+        _workspaceDrop = null;
+        if (_renderedWorkspace is null) return;
+        var board = BoundsInWindow(Board);
+        if (!board.Contains(point)) return;
+        var placement = WorkspacePlacement.Swap;
+        string? target = null;
+        Rect targetBounds = board;
+        // Узкий край всего блока позволяет поставить панель над/под всеми остальными.
+        if (point.Y - board.Y < 6) placement = WorkspacePlacement.Top;
+        else if (board.Bottom - point.Y < 6) placement = WorkspacePlacement.Bottom;
+        else if (point.X - board.X < 6) placement = WorkspacePlacement.Left;
+        else if (board.Right - point.X < 6) placement = WorkspacePlacement.Right;
+        else
         {
-            var panel = Panel(id);
-            if (id == handle.PanelId || !BoundsInWindow(panel).Contains(point)) continue;
-            _dropTarget = id;
-            if (id == "result") Find<Border>("ResultPanel").Classes.Add("drop-target");
-            else _panels[id].Classes.Add("drop-target");
-            ShowDropGuide(ProjectedDestination(handle.PanelId, id));
-            break;
+            target = _renderedWorkspace.PanelIds().FirstOrDefault(id => id != handle.PanelId && BoundsInWindow(Panel(id)).Contains(point));
+            if (target is null) return;
+            targetBounds = BoundsInWindow(Panel(target));
+            var x = (point.X - targetBounds.X) / targetBounds.Width;
+            var y = (point.Y - targetBounds.Y) / targetBounds.Height;
+            if (Math.Min(x, 1 - x) < Math.Min(y, 1 - y) && Math.Min(x, 1 - x) < .22)
+                placement = x < .5 ? WorkspacePlacement.Left : WorkspacePlacement.Right;
+            else if (Math.Min(y, 1 - y) < .25) placement = y < .5 ? WorkspacePlacement.Top : WorkspacePlacement.Bottom;
         }
+        if (WorkspaceNode.Move(_renderedWorkspace, handle.PanelId, target, placement) is not { } root) return;
+        var allowed = WorkspaceFits(root);
+        var rejectedBounds = placement switch
+        {
+            WorkspacePlacement.Left => new Rect(targetBounds.X, targetBounds.Y, targetBounds.Width / 3, targetBounds.Height),
+            WorkspacePlacement.Right => new Rect(targetBounds.Right - targetBounds.Width / 3, targetBounds.Y, targetBounds.Width / 3, targetBounds.Height),
+            WorkspacePlacement.Top => new Rect(targetBounds.X, targetBounds.Y, targetBounds.Width, targetBounds.Height / 3),
+            WorkspacePlacement.Bottom => new Rect(targetBounds.X, targetBounds.Bottom - targetBounds.Height / 3, targetBounds.Width, targetBounds.Height / 3),
+            _ => targetBounds
+        };
+        var bounds = allowed ? WorkspaceGeometry.Arrange(root, new Rect(board.Position,
+            new Size(board.Width, WorkspaceHeight(_layout.Workspace!, root) - 8)))[handle.PanelId] : rejectedBounds;
+        ShowDropGuide(bounds);
+        var guide = Find<Border>("DropGuide");
+        guide.Classes.Set("forbidden", !allowed);
+        Find<TextBlock>("DropGuideText").Text = !allowed ? "Недостаточно места" : placement switch
+            { WorkspacePlacement.Left => "Слева", WorkspacePlacement.Right => "Справа", WorkspacePlacement.Top => "Сверху",
+                WorkspacePlacement.Bottom => "Снизу", _ => "Поменять местами" };
+        if (!allowed) Find<TextBlock>("DragPreviewText").Text = PanelTitle(handle.PanelId) + " · Недостаточно места";
+        if (allowed) _workspaceDrop = new(root, handle.PanelId);
     }
 
-    private void ShowDropGuide(Control panel)
-        => ShowDropGuide(BoundsInWindow(panel));
-
+    private void ShowDropGuide(Control panel) => ShowDropGuide(BoundsInWindow(panel));
     private void ShowDropGuide(Rect bounds)
     {
         var guide = Find<Border>("DropGuide");
-        guide.Width = bounds.Width;
-        guide.Height = bounds.Height;
-        Canvas.SetLeft(guide, bounds.Left);
-        Canvas.SetTop(guide, bounds.Top);
+        guide.Classes.Remove("forbidden");
+        guide.Width = bounds.Width; guide.Height = bounds.Height;
+        Canvas.SetLeft(guide, bounds.Left); Canvas.SetTop(guide, bounds.Top);
         Find<TextBlock>("DropGuideText").Text = "Поменять местами";
         guide.IsVisible = true;
-    }
-
-    private Rect ProjectedDestination(string source, string target)
-    {
-        var workspace = CaptureWorkspace()!;
-        var panels = workspace.Panels.ToArray();
-        var slot = Array.IndexOf(panels, target);
-        var from = Array.IndexOf(panels, source);
-        (panels[from], panels[slot]) = (panels[slot], panels[from]);
-        workspace = workspace with { Panels = panels };
-        var widths = Distribute(Board.Bounds.Width - ZoneGap * 2, workspace.ColumnWidths,
-            [PanelMinimumWidth(panels[0]), Math.Max(PanelMinimumWidth(panels[1]), PanelMinimumWidth(panels[2])), PanelMinimumWidth(panels[3])]);
-        var height = WorkspaceHeight(workspace) - 8;
-        var heights = Distribute(height - ZoneGap, [workspace.TopFraction, 1 - workspace.TopFraction],
-            [PanelMinimumHeight(panels[1]), PanelMinimumHeight(panels[2])]);
-        var origin = BoundsInWindow(Board).TopLeft;
-        return slot switch
-        {
-            0 => new Rect(origin, new Size(widths[0], height)),
-            3 => new Rect(origin + new Vector(widths[0] + widths[1] + ZoneGap * 2, 0), new Size(widths[2], height)),
-            _ => new Rect(origin + new Vector(widths[0] + ZoneGap, slot == 2 ? heights[0] + ZoneGap : 0),
-                new Size(widths[1], heights[slot == 2 ? 1 : 0]))
-        };
-    }
-
-    // Та же раскладка звёздных размеров с минимальными границами, что у связанных Grid-зон.
-    private static double[] Distribute(double available, double[] weights, double[] minimums)
-    {
-        var result = new double[weights.Length];
-        var pending = Enumerable.Range(0, weights.Length).ToList();
-        while (pending.Count > 0)
-        {
-            var total = pending.Sum(index => weights[index]);
-            var limited = pending.Where(index => available * weights[index] / total < minimums[index]).ToArray();
-            if (limited.Length == 0)
-            {
-                foreach (var index in pending) result[index] = available * weights[index] / total;
-                break;
-            }
-            foreach (var index in limited)
-            { result[index] = minimums[index]; available -= result[index]; pending.Remove(index); }
-        }
-        return result;
     }
 }

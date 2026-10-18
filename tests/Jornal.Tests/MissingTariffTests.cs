@@ -1,4 +1,5 @@
 using System.Runtime.ExceptionServices;
+using Avalonia.Headless.XUnit;
 using Jornal.Core.Orders;
 using Jornal.Core.Pricing;
 using Jornal.Desktop.ViewModels;
@@ -113,7 +114,7 @@ public sealed class MissingTariffTests
         Assert.True(form.IsSaved); Assert.Equal(0m, form.CreatedOrder!.StoredCuttingPrice);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task UnavailablePriceSourceBlocksTheWholeBatchAndCanBeRetriedWithoutRepeatedReads()
     {
         using var fixture = new LocalJournalFixture();

@@ -85,6 +85,7 @@ public sealed class MdbBatchWindowTests
     private static void Pump() => Dispatcher.UIThread.RunJobs();
     private static void Click(Window window, string name)
     {
+        if (TableStatusTestActions.TryExecute(window, name)) return;
         var control = window.FindControl<Control>(name)!;
         var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
         window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();
