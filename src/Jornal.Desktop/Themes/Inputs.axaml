@@ -23,8 +23,8 @@
   <Style Selector="AutoCompleteBox.invalid /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
     <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
   </Style>
-  <!-- Fluent меняет кисти внутри шаблонов при наведении/фокусе. Все состояния
-       обычных полей используют палитру Journal; редактор письма оформлен отдельно. -->
+  <!-- Fluent меняет кисти внутри шаблонов при наведении/фокусе. Редактор письма
+       и внутренний ввод составного поиска оформлены отдельно: их фон не заменять. -->
   <Style Selector="TextBox:not(.result-editor)">
     <Setter Property="CaretBrush" Value="{DynamicResource JournalText}" />
     <Setter Property="SelectionBrush" Value="{DynamicResource JournalAccent}" />
@@ -36,15 +36,15 @@
   <Style Selector="TextBox:not(.result-editor):pointerover:not(:disabled), TextBox:not(.result-editor):focus:not(:disabled)">
     <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
   </Style>
-  <Style Selector="TextBox:not(.result-editor):not(#PART_TextBox):not(#PART_EditableTextBox):pointerover:not(:disabled) /template/ Border#PART_BorderElement">
+  <Style Selector="TextBox:not(.result-editor):not(.search-input):not(#PART_TextBox):not(#PART_EditableTextBox):pointerover:not(:disabled) /template/ Border#PART_BorderElement">
     <Setter Property="Background" Value="{DynamicResource JournalInput}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
   </Style>
-  <Style Selector="TextBox:not(.result-editor):not(#PART_TextBox):not(#PART_EditableTextBox):focus:not(:disabled) /template/ Border#PART_BorderElement">
+  <Style Selector="TextBox:not(.result-editor):not(.search-input):not(#PART_TextBox):not(#PART_EditableTextBox):focus:not(:disabled) /template/ Border#PART_BorderElement">
     <Setter Property="Background" Value="{DynamicResource JournalInput}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
   </Style>
-  <Style Selector="TextBox:not(.result-editor):disabled /template/ Border#PART_BorderElement">
+  <Style Selector="TextBox:not(.result-editor):not(.search-input):disabled /template/ Border#PART_BorderElement">
     <Setter Property="Background" Value="{DynamicResource JournalRaised}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalBorder}" />
   </Style>

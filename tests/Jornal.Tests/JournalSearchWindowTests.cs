@@ -68,6 +68,16 @@ public sealed class JournalSearchWindowTests
             Assert.NotEqual(normalBorder, ((ISolidColorBrush)group.BorderBrush!).Color);
             var inputBorder = box.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "PART_BorderElement");
             Assert.Equal(default, inputBorder.BorderThickness);
+            Assert.Equal(0, ((ISolidColorBrush)inputBorder.Background!).Color.A);
+            window.FindControl<JournalButton>("ReloadButton")!.Focus();
+            var hoverPoint = box.TranslatePoint(new Point(box.Bounds.Width / 2, box.Bounds.Height / 2), window)!.Value;
+            window.MouseMove(hoverPoint); Pump();
+            Assert.True(box.IsPointerOver);
+            Assert.Equal(0, ((ISolidColorBrush)inputBorder.Background!).Color.A);
+            model.IsLoadingOrders = true; Pump();
+            Assert.False(box.IsEffectivelyEnabled);
+            Assert.Equal(0, ((ISolidColorBrush)inputBorder.Background!).Color.A);
+            model.IsLoadingOrders = false; Pump();
             Assert.Equal(default, field.BorderThickness);
             Assert.Equal(4, model.Orders.Count);
             grid.SelectedItem = model.Orders[0]; Pump();
