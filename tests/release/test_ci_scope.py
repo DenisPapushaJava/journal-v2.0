@@ -56,10 +56,13 @@ class ScopeTests(unittest.TestCase):
         self.assertIn('SCOPE_RESULT: ${{ needs.scope.result }}', build)
         self.assertIn('scripts/ci_scope.py gate', build)
         jet = build.split('- name: Test native Access transactions', 1)[1].split('- name:', 1)[0]
-        self.assertIn("if: needs.scope.outputs.code == 'true' && runner.os == 'Windows'", jet)
+        self.assertIn("if: ${{ !cancelled() && needs.scope.outputs.code == 'true' && runner.os == 'Windows' }}", jet)
+        self.assertNotIn("outputs.packaging", jet)
         self.assertIn("JOURNAL_REQUIRE_NATIVE_TESTS: '1'", jet)
         release = (ROOT / '.github/workflows/release.yml').read_text(encoding='utf-8')
         self.assertNotIn('needs.scope', release)
+        native_release = release.split('- name: Test native Access transactions', 1)[1].split('- name:', 1)[0]
+        self.assertIn("if: ${{ !cancelled() && runner.os == 'Windows' }}", native_release)
         for step in ['Test Windows offline installer and Access host', 'Test native Access transactions',
                      'Test Linux update and restart', 'Test Windows install and restart']:
             self.assertIn(step, release)
