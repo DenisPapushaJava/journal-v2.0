@@ -75,11 +75,23 @@ public sealed class MachineWindowTests
             form.ApplyImport(preview); Pump();
             Assert.True(form.Material.NeedsReview); Assert.False(form.SaveCommand.CanExecute(null));
             var entry = window.GetVisualDescendants().OfType<OrderEntryControl>().Single(control => ReferenceEquals(control.DataContext, form.Material));
-            Assert.Equal(suggestions, entry.FindControl<AutoCompleteBox>("SuggestionsInput")!.IsVisible);
+            var combo = entry.FindControl<ComboBox>("EditableSuggestionsInput")!;
+            Assert.Equal(suggestions, combo.IsVisible);
             var input = entry.GetVisualDescendants().OfType<TextBox>().Single(control => control.IsEffectivelyVisible);
-            var border = input.GetVisualDescendants().OfType<Border>().Single(control => control.Name == "PART_BorderElement");
+            var border = suggestions
+                ? combo.GetVisualDescendants().OfType<Border>().Single(control => control.Name == "Background")
+                : input.GetVisualDescendants().OfType<Border>().Single(control => control.Name == "PART_BorderElement");
             Assert.Equal(new Thickness(2), border.BorderThickness);
             Assert.Equal(((ISolidColorBrush)Application.Current!.FindResource(window.ActualThemeVariant, "WorkForeground")!).Color, ((ISolidColorBrush)border.BorderBrush!).Color);
+            if (suggestions)
+            {
+                combo.Focus(); combo.IsDropDownOpen = true; Pump();
+                Assert.Equal("Сталь 20/09Г2С", form.Material.Value); Assert.True(form.Material.NeedsReview);
+                var popup = TopLevel.GetTopLevel(combo.ContainerFromIndex(0)!)!;
+                popup.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                popup.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); Pump();
+                Assert.False(combo.IsDropDownOpen); Assert.True(window.IsVisible); Assert.True(form.Material.NeedsReview);
+            }
             var confirm = window.GetVisualDescendants().OfType<JournalButton>().Single(button => button.Label == "Подтвердить материал" && button.IsEffectivelyVisible);
             InBounds(window, confirm); Save(window, $"waterjet-material-review-{dark}-{suggestions}"); Click(window, confirm);
             Assert.False(form.Material.NeedsReview); Assert.Equal("Сталь 20/09Г2С", form.Material.Value);

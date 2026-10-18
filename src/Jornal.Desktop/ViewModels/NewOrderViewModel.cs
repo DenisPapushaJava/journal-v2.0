@@ -82,7 +82,7 @@ public partial class NewOrderViewModel : ObservableObject
     public OrderEntryField Customer { get; } = new("Заказчик *");
     public OrderEntryField CuttingType { get; } = new("Вид резки / станок *", choices:
         ["Лазер", "Плазма", "Газо-кислородная", "HansLaser"]);
-    public OrderEntryField Material { get; } = new("Материал *");
+    public OrderEntryField Material { get; } = new("Материал *") { UseEditableSuggestions = true };
     public OrderEntryField Thickness { get; } = new("Толщина, мм *");
     public OrderEntryField SheetSize { get; } = new("Размер листа, мм *");
     public OrderEntryField SheetCount { get; } = new("Количество листов *");

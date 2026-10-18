@@ -14,13 +14,29 @@
     </TextBox>
     <AutoCompleteBox x:Name="SuggestionsInput" Grid.Column="2" Text="{Binding SuggestionText, Mode=TwoWay}"
                      ItemsSource="{Binding Suggestions}" IsVisible="{Binding HasSuggestions}" MinHeight="36" FontSize="14"
-                     IsTextCompletionEnabled="False" MinimumPrefixLength="1" FilterMode="Contains" MaxDropDownHeight="240"
+                     IsTextCompletionEnabled="False" MinimumPrefixLength="1" FilterMode="StartsWith" MaxDropDownHeight="240"
                      Classes.invalid="{Binding HasError}" Classes.needs-review="{Binding NeedsReview}" ToolTip.Tip="{Binding InputHint}" AutomationProperties.Name="{Binding Label}">
       <AutoCompleteBox.InnerRightContent>
         <ui:JournalButton Label="Подтвердить материал" Icon="check" IconOnly="True" Width="28" Height="28" Padding="0" Margin="2,0"
                           IsVisible="{Binding NeedsReview}" Command="{Binding ConfirmReviewCommand}" ToolTip.Tip="Проверьте материал и подтвердите значение" />
       </AutoCompleteBox.InnerRightContent>
     </AutoCompleteBox>
+    <ComboBox x:Name="EditableSuggestionsInput" Grid.Column="2" IsEditable="True" IsTextSearchEnabled="False"
+              Text="{Binding SuggestionText, Mode=TwoWay}" ItemsSource="{Binding Suggestions}" IsVisible="{Binding HasEditableSuggestions}"
+              MinHeight="36" FontSize="14" MaxDropDownHeight="240" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+              Classes.editable-entry="True" Classes.invalid="{Binding HasError}" Classes.needs-review="{Binding NeedsReview}"
+              ToolTip.Tip="{Binding InputHint}" AutomationProperties.Name="{Binding Label}">
+      <ComboBox.Styles>
+        <Style Selector="ComboBox /template/ TextBox#PART_EditableTextBox">
+          <Setter Property="InnerRightContent">
+            <Template>
+              <ui:JournalButton Label="Подтвердить материал" Icon="check" IconOnly="True" Width="28" Height="28" Padding="0" Margin="2,0"
+                                IsVisible="{Binding NeedsReview}" Command="{Binding ConfirmReviewCommand}" ToolTip.Tip="Проверьте материал и подтвердите значение" />
+            </Template>
+          </Setter>
+        </Style>
+      </ComboBox.Styles>
+    </ComboBox>
     <Grid Grid.Column="2" ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding HasChoices}">
     <Grid>
     <ComboBox x:Name="Choice" ItemsSource="{Binding Choices}" SelectedItem="{Binding SelectedChoice, Mode=TwoWay}"

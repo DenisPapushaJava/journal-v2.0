@@ -71,11 +71,13 @@ public sealed class DailyToolsTests
         var form = model.CreateOrderForm()!;
         Assert.Equal(value.Managers, form.Manager.Suggestions); Assert.Equal(value.Customers, form.Customer.Suggestions);
         Assert.Equal(value.Materials, form.Material.Suggestions);
+        Assert.True(form.Material.HasEditableSuggestions);
         Assert.Empty(form.Material.Value); form.Material.Value = "Сплав_X77"; Assert.Equal("Сплав_X77", form.Material.Value);
         Assert.Empty(form.Manager.Value); form.Manager.Value = "Другое имя"; Assert.Equal("Другое имя", form.Manager.Value);
         var row = model.Orders[0]; model.UpdateSelection([row], row); var edit = (await model.CreateEditFormAsync(TestContext.Current.CancellationToken))!;
         Assert.Equal(value.Managers, edit.Manager.Suggestions); Assert.Equal((await store.ReadAsync(TestContext.Current.CancellationToken)).Single(order => order.Id == row.Id).ManagerName, edit.Manager.Value);
         Assert.Equal(value.Materials, edit.Material.Suggestions); Assert.Equal(row.MaterialName, edit.Material.Value);
+        Assert.True(edit.Material.HasEditableSuggestions);
         var copy = model.CaptureEntrySuggestions(); copy.Managers[0] = "Повреждено"; Assert.Equal("Иван", model.CaptureEntrySuggestions().Managers[0]);
         copy.Materials[0] = "Повреждено"; Assert.Equal("Ст3", model.CaptureEntrySuggestions().Materials[0]);
     }
@@ -94,7 +96,7 @@ public sealed class DailyToolsTests
         await form.ImportFilesAsync(["two.html"], token, appendToCurrent: true);
         Assert.Equal(2, form.BatchItems.Count);
         foreach (var item in form.BatchItems)
-        { Assert.Equal(suggestions.Materials, item.Form.Material.Suggestions); Assert.Equal(material, item.Form.Material.Value); }
+        { Assert.Equal(suggestions.Materials, item.Form.Material.Suggestions); Assert.Equal(material, item.Form.Material.Value); Assert.True(item.Form.Material.HasEditableSuggestions); }
         form.BatchItems[0].Form.Material.Value = "Другая_марка";
         Assert.All(form.BatchItems, item => Assert.Equal(suggestions.Materials, item.Form.Material.Suggestions));
         Assert.Equal("Другая_марка", form.BatchItems[0].Form.Material.Value);

@@ -70,6 +70,17 @@
     <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
   </Style>
+  <Style Selector="ComboBox.editable-entry /template/ TextBox#PART_EditableTextBox">
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+  <Style Selector="ComboBox.editable-entry:focus-within:not(.invalid):not(.needs-review) /template/ Border#Background">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="ComboBox.editable-entry.needs-review /template/ Border#Background">
+    <Setter Property="BorderBrush" Value="{DynamicResource WorkForeground}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
   <Style Selector="ComboBox.invalid /template/ Border#Background, ComboBox.invalid:pointerover /template/ Border#Background, ComboBox.invalid:focus /template/ Border#Background">
     <Setter Property="BorderBrush" Value="{DynamicResource JournalDangerForeground}" />
   </Style>

@@ -35,7 +35,7 @@ public sealed partial class SpecificationDropWindowTests
             Assert.Equal(machine, first.CuttingType.Value); Assert.Equal(machine, second.CuttingType.Value);
             await form.LoadMachinesAsync(); Dispatcher.UIThread.RunJobs();
             Assert.Equal(machine, first.CuttingType.Value); Assert.Equal(machine, second.CuttingType.Value);
-            var choice = window.GetVisualDescendants().OfType<ComboBox>().Single(control => ReferenceEquals(control.DataContext, first.CuttingType));
+            var choice = window.GetVisualDescendants().OfType<ComboBox>().Single(control => control.IsEffectivelyVisible && ReferenceEquals(control.DataContext, first.CuttingType));
             choice.SelectedItem = null; Dispatcher.UIThread.RunJobs();
             Assert.Equal("", first.CuttingType.Value); Assert.True(first.CuttingType.HasError);
             Assert.False(DataValidationErrors.GetHasErrors(choice));

@@ -56,7 +56,7 @@ public sealed class ThicknessOptionsWindowTests
             Assert.Equal("6", thickness.Value); Assert.True(thickness.ThicknessOptions!.HasUnavailableValue);
             Assert.Equal(before, await File.ReadAllBytesAsync(fixture.Path, token));
             var entry = window.GetVisualDescendants().OfType<OrderEntryControl>().Single(control => ReferenceEquals(control.DataContext, thickness));
-            var combo = entry.GetVisualDescendants().OfType<ComboBox>().Single();
+            var combo = entry.FindControl<ComboBox>("Choice")!;
             Assert.True(combo.IsEffectivelyVisible); Assert.Null(combo.SelectedItem);
             Assert.DoesNotContain(entry.GetVisualDescendants().OfType<TextBox>(), box => box.IsEffectivelyVisible);
             combo.SelectedItem = null; Dispatcher.UIThread.RunJobs(); Assert.Equal("6", thickness.Value);

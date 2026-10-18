@@ -96,32 +96,84 @@ public sealed class DailyToolsWindowTests
         finally { store.Fail = false; owner.Close(); }
     }
     [AvaloniaTheory]
-    [InlineData(false)] [InlineData(true)]
-    public async Task AutocompleteKeepsFreeInputAndUsesSharedInputSurface(bool dark)
+    [InlineData(false, "Менеджер")] [InlineData(true, "Менеджер")]
+    [InlineData(false, "Заказчик")] [InlineData(true, "Заказчик")]
+    public async Task AutocompleteMatchesOnlyTheBeginningAndKeepsFreeInput(bool dark, string label)
     {
-        var field = new OrderEntryField("Менеджер") { Suggestions = new[] { "Иван", "Пётр" } };
+        var field = new OrderEntryField(label) { Suggestions = new[] { "Роман", "Руслан", "Пётр", "Артём", "Иван" } };
         var entry = new OrderEntryControl { DataContext = field };
         var window = new Window { Content = entry, Width = 640, Height = 120, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
         try
         {
             window.Show(); Pump(); var autocomplete = entry.FindControl<AutoCompleteBox>("SuggestionsInput")!;
             Assert.True(autocomplete.IsVisible); Assert.False(entry.FindControl<TextBox>("Input")!.IsVisible);
-            Assert.False(autocomplete.IsTextCompletionEnabled); Assert.Equal(AutoCompleteFilterMode.Contains, autocomplete.FilterMode);
+            Assert.False(autocomplete.IsTextCompletionEnabled);
+            IReadOnlyList<string> candidates = [];
+            autocomplete.Populated += (_, e) => candidates = e.Data.Cast<string>().ToArray();
             var text = Assert.Single(autocomplete.GetVisualDescendants().OfType<TextBox>());
             entry.FocusInput(); Pump(); Assert.True(autocomplete.IsKeyboardFocusWithin);
             Assert.Equal(14, text.FontSize);
             Assert.Equal(((ISolidColorBrush)Application.Current!.FindResource(window.ActualThemeVariant, "JournalInput")!).Color, ((ISolidColorBrush)text.Background!).Color);
-            text.Focus(); text.Text = "ва"; Pump(); await Task.Delay(30, TestContext.Current.CancellationToken); Pump();
+            text.Focus(); text.Text = "Р"; Pump(); await Task.Delay(30, TestContext.Current.CancellationToken); Pump();
             Assert.True(autocomplete.IsDropDownOpen);
+            Assert.Equal(new[] { "Роман", "Руслан" }, candidates); Assert.Equal("Р", field.Value);
+            text.Text = "рО"; Pump(); await Task.Delay(30, TestContext.Current.CancellationToken); Pump();
+            Assert.Equal(new[] { "Роман" }, candidates); Assert.Equal("рО", field.Value);
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null); window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null); Pump();
             window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null); window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null); Pump();
-            Assert.Equal("Иван", field.Value);
+            Assert.Equal("Роман", field.Value);
             text.Text = "Свободное имя"; Pump(); Assert.Equal("Свободное имя", field.Value);
             field.Value = "Иван"; Pump(); Assert.Equal("Иван", text.Text);
-            Save(window, "autocomplete-" + dark);
+            Save(window, "autocomplete-" + label + "-" + dark);
             autocomplete.Text = null; Pump(); Assert.Empty(field.Value);
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, "Сплав_X77")] [InlineData(true, "Сплав_X77")]
+    [InlineData(false, "Ст3")] [InlineData(true, "Ст3")]
+    public void MaterialDropdownShowsAllGradesAndKeepsEditableTextAndImportReview(bool dark, string initial)
+    {
+        var field = new OrderEntryField("Материал", initial)
+        { UseEditableSuggestions = true, Suggestions = new[] { "Ст3", "09Г2С", "Амг3" }, NeedsReview = true };
+        var entry = new OrderEntryControl { DataContext = field };
+        var window = new Window { Content = entry, Width = 640, Height = 180, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        try
+        {
+            window.Show(); Pump();
+            var combo = entry.FindControl<ComboBox>("EditableSuggestionsInput")!;
+            Assert.True(combo.IsVisible); Assert.True(combo.IsEditable); Assert.Equal(initial, field.Value); Assert.Equal(initial, combo.Text);
+            Assert.False(entry.FindControl<AutoCompleteBox>("SuggestionsInput")!.IsVisible);
+            Assert.True(field.NeedsReview); entry.FocusInput(); Pump(); Assert.True(combo.IsKeyboardFocusWithin);
+            var text = combo.GetVisualDescendants().OfType<TextBox>().Single();
+            text.Text = "Ст"; Pump(); Assert.Equal("Ст", field.Value); Assert.False(field.NeedsReview);
+            var border = combo.GetVisualDescendants().OfType<Border>().Single(control => control.Name == "Background");
+            Assert.Equal(new Thickness(2), border.BorderThickness);
+            Assert.Equal(((ISolidColorBrush)Application.Current!.FindResource(window.ActualThemeVariant, "JournalAccent")!).Color, ((ISolidColorBrush)border.BorderBrush!).Color);
+            Assert.Equal(new[] { "Ст3", "09Г2С", "Амг3" }, combo.Items.Cast<string>());
+            Click(combo.GetVisualDescendants().OfType<PathIcon>().Single(icon => icon.Name == "DropDownGlyph")); Pump();
+            Assert.True(combo.IsDropDownOpen); Assert.Equal("Ст", field.Value);
+            var chosen = combo.ContainerFromIndex(2)!; Assert.NotNull(chosen);
+            Save(TopLevel.GetTopLevel(chosen)!, "material-dropdown-" + initial + "-" + dark);
+            Click(chosen); Pump(); Assert.False(combo.IsDropDownOpen); Assert.Equal("Амг3", field.Value);
+            combo.Focus(); Pump();
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null); window.KeyRelease(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null); Pump();
+            Assert.Equal("09Г2С", field.Value);
+            text.Text = "Своя_марка"; Pump(); Assert.Equal("Своя_марка", field.Value);
+            field.Suggestions = new[] { "Ст3", "Aisi-304" }; Pump(); Assert.Equal("Своя_марка", field.Value);
+            field.Suggestions = []; Pump(); Assert.True(entry.FindControl<TextBox>("Input")!.IsVisible); Assert.Equal("Своя_марка", field.Value);
+            field.Suggestions = new[] { "Ст3", "Aisi-304" }; Pump(); Assert.Equal("Своя_марка", field.Value);
+            text.Text = null; Pump(); Assert.Empty(field.Value);
+        }
+        finally { window.Close(); }
+    }
+
+    private static void Click(Control control)
+    {
+        var root = TopLevel.GetTopLevel(control)!;
+        var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), root)!.Value;
+        root.MouseMove(point); root.MouseDown(point, MouseButton.Left); root.MouseUp(point, MouseButton.Left); Pump();
     }
     private static void Pump() => Dispatcher.UIThread.RunJobs();
     private static void CheckButtons(Window window)
@@ -129,7 +181,7 @@ public sealed class DailyToolsWindowTests
         foreach (var button in window.GetVisualDescendants().OfType<JournalButton>().Where(button => button.IsEffectivelyVisible))
         { var point = button.TranslatePoint(default, window)!.Value; Assert.True(point.X >= 0 && point.Y >= 0 && point.X + button.Bounds.Width <= window.ClientSize.Width + 0.1 && point.Y + button.Bounds.Height <= window.ClientSize.Height + 0.1); }
     }
-    private static void Save(Window window, string name)
+    private static void Save(TopLevel window, string name)
     {
         if (Environment.GetEnvironmentVariable("JOURNAL_SCREENSHOT_DIR") is not { } directory) return;
         Directory.CreateDirectory(directory); using var image = new RenderTargetBitmap(PixelSize.FromSize(window.ClientSize, 1)); image.Render(window); image.Save(Path.Combine(directory, "daily-" + name + ".png"), new PngBitmapEncoderOptions());

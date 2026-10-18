@@ -9,11 +9,13 @@ public partial class OrderEntryField(string label, string value = "",
     IReadOnlyList<string>? choices = null) : ObservableObject
 {
     public string Label { get; } = label;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasChoices)), NotifyPropertyChangedFor(nameof(HasSuggestions)), NotifyPropertyChangedFor(nameof(HasPlainInput)), NotifyPropertyChangedFor(nameof(SelectedChoice)), NotifyPropertyChangedFor(nameof(UnlistedChoice))] private IReadOnlyList<string>? _choices = choices;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasChoices)), NotifyPropertyChangedFor(nameof(HasSuggestions)), NotifyPropertyChangedFor(nameof(HasEditableSuggestions)), NotifyPropertyChangedFor(nameof(HasPlainInput)), NotifyPropertyChangedFor(nameof(SelectedChoice)), NotifyPropertyChangedFor(nameof(UnlistedChoice))] private IReadOnlyList<string>? _choices = choices;
     public bool HasChoices => Choices is not null;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSuggestions)), NotifyPropertyChangedFor(nameof(HasPlainInput))] private IReadOnlyList<string>? _suggestions;
-    public bool HasSuggestions => !HasChoices && Suggestions is { Count: > 0 };
-    public bool HasPlainInput => !HasChoices && !HasSuggestions;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSuggestions)), NotifyPropertyChangedFor(nameof(HasEditableSuggestions)), NotifyPropertyChangedFor(nameof(HasPlainInput))] private IReadOnlyList<string>? _suggestions;
+    public bool UseEditableSuggestions { get; init; }
+    public bool HasSuggestions => !HasChoices && !UseEditableSuggestions && Suggestions is { Count: > 0 };
+    public bool HasEditableSuggestions => !HasChoices && UseEditableSuggestions && Suggestions is { Count: > 0 };
+    public bool HasPlainInput => !HasChoices && !HasSuggestions && !HasEditableSuggestions;
     public ThicknessOptionsViewModel? ThicknessOptions { get; internal set; }
     public bool HasThicknessOptions => ThicknessOptions is not null;
     [ObservableProperty] private bool _isChoiceLoading;
