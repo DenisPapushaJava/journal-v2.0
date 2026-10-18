@@ -22,6 +22,7 @@ public sealed partial class MainWindowCustomization
     private readonly MainWindow _window;
     private readonly IUiPreferencesStore _store;
     private readonly DataGrid _table;
+    private readonly ResponsiveTableColumns _responsiveColumns;
     private readonly Grid _groups;
     private readonly Grid _top;
     private readonly Dictionary<string, Border> _panels;
@@ -44,6 +45,7 @@ public sealed partial class MainWindowCustomization
         _window = window;
         _store = store;
         _table = Find<DataGrid>("OrdersGrid");
+        _responsiveColumns = new(_table);
         _groups = Find<Grid>("CommandGroups");
         _top = Find<Grid>("TopArea");
         _panels = new() { ["orders"] = Find<Border>("OrdersCommands"),
@@ -154,6 +156,7 @@ public sealed partial class MainWindowCustomization
         Flush();
         _saveTimer.Stop();
         foreach (var column in _table.Columns.Skip(1)) column.PropertyChanged -= OnColumnChanged;
+        _responsiveColumns.Dispose();
     }
 
     public bool Flush()
@@ -173,6 +176,13 @@ public sealed partial class MainWindowCustomization
     }
 
     public double RowHeight => _layout.RowHeight;
+
+    public void FitTableToViewport()
+    {
+        if (!_initialized || _applying) return;
+        _responsiveColumns.FitVisible();
+        Changed();
+    }
 
     private void ApplyTableDensity()
     {
@@ -209,6 +219,7 @@ public sealed partial class MainWindowCustomization
 
     private void OnColumnChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
+        if (_responsiveColumns.IsAdjusting) return;
         if (e.Property.Name == nameof(DataGridColumn.IsVisible)) Changed();
         if (e.Property.Name == nameof(DataGridColumn.Width) && e.OldValue is DataGridLength oldWidth &&
             e.NewValue is DataGridLength newWidth && (oldWidth.Value != newWidth.Value || oldWidth.UnitType != newWidth.UnitType)) Changed();
@@ -224,7 +235,7 @@ public sealed partial class MainWindowCustomization
 
     private ColumnPreference[] CaptureColumns() => _table.Columns.Skip(1).Select((column, index) =>
         new ColumnPreference(ColumnIds[index], column.DisplayIndex, column.IsVisible,
-            column.Width.IsStar, column.Width.Value)).ToArray();
+            _responsiveColumns.DesiredWidth(column).IsStar, _responsiveColumns.DesiredWidth(column).Value)).ToArray();
 
     private ScreenLayout Capture() => (_layout with
     {
@@ -248,7 +259,7 @@ public sealed partial class MainWindowCustomization
         {
             var preference = columns[id];
             var column = _table.Columns[index + 1];
-            column.Width = new DataGridLength(preference.Width, preference.Star ? DataGridLengthUnitType.Star : DataGridLengthUnitType.Pixel);
+            _responsiveColumns.SetWidth(column, new DataGridLength(preference.Width, preference.Star ? DataGridLengthUnitType.Star : DataGridLengthUnitType.Pixel));
             column.IsVisible = preference.Visible;
         }
         var sorted = columns.Values.OrderBy(column => column.Position)

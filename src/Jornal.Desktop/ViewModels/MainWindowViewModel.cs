@@ -43,6 +43,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             nameof(TrashOrderHint), nameof(CanClearSelection), nameof(CanOpenPrices) })
             OnPropertyChanged(name);
         NotifyClipboardAvailability();
+        foreach (var filter in ColumnFilters) filter.NotifyAvailability();
         ReloadCommand.NotifyCanExecuteChanged();
         SetOrderColorCommand.NotifyCanExecuteChanged();
     }
@@ -156,10 +157,12 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     [RelayCommand]
     private void ResetFilters()
     {
+        foreach (var filter in ColumnFilters) filter.Reset();
         SearchText = string.Empty;
         SearchScopeIndex = 0;
         StatusFilter = OrderStatusFilter.All;
         FilterDate = null;
+        ApplySearch();
     }
 
     [RelayCommand(CanExecute = nameof(CanUseJournal))]
@@ -202,6 +205,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         UpdateSelection([], null);
         HasNoOrders = Orders.Count == 0;
         CountText = $"Заявок: {Orders.Count} из {_allOrders.Count}";
+        NotifyFilterContextChanged();
     }
 
     private bool MatchesSearch(OrderSummary order, string query)

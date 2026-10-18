@@ -25,7 +25,12 @@ public partial class MainWindowViewModel
         StatusFilterEditorViewModel.CreateOptions(UseTechnologistColor, TechnologistColorArgb)
             .Where(option => (StatusFilter & option.Value) != 0).Select(option => option.Label)) : "Фильтр статуса";
 
-    public void BeginStatusFilterEdit() => StatusFilterEditor.Begin(StatusFilter, UseTechnologistColor, TechnologistColorArgb);
+    public void BeginStatusFilterEdit()
+    {
+        var counts = _allOrders.Where(order => MatchesSearchAndDate(order) && MatchesColumnFilters(order))
+            .GroupBy(StatusCategory).ToDictionary(group => group.Key, group => group.Count());
+        StatusFilterEditor.Begin(StatusFilter, UseTechnologistColor, TechnologistColorArgb, counts);
+    }
     public bool ApplyStatusFilterEdit()
     {
         if (!CanUseJournal || !StatusFilterEditor.CanApply) return false;
@@ -35,16 +40,13 @@ public partial class MainWindowViewModel
     [RelayCommand] private void ClearStatusFilter() => StatusFilter = OrderStatusFilter.All;
     partial void OnStatusFilterChanged(OrderStatusFilter value) => ApplySearch();
 
-    private bool MatchesStatusFilter(OrderSummary order)
-    {
-        var category = order.Color switch
+    private OrderStatusFilter StatusCategory(OrderSummary order) => order.Color switch
         {
             OrderColors.Work => OrderStatusFilter.Work, OrderColors.Ready => OrderStatusFilter.Ready,
             OrderColors.Shipped => OrderStatusFilter.Shipped,
             _ => UseTechnologistColor && order.Color == TechnologistColorArgb ? OrderStatusFilter.Mine : OrderStatusFilter.Unmarked
         };
-        return (StatusFilter & category) != 0;
-    }
+    private bool MatchesStatusFilter(OrderSummary order) => (StatusFilter & StatusCategory(order)) != 0;
 
     partial void OnUseTechnologistColorChanged(bool value)
     {
@@ -68,5 +70,6 @@ public partial class MainWindowViewModel
     private void NotifyStatusFilterContext()
     {
         OnPropertyChanged(nameof(HasStatusFilter)); OnPropertyChanged(nameof(StatusFilterSummary)); OnPropertyChanged(nameof(StatusFilterDescription));
+        NotifyFilterContextChanged();
     }
 }

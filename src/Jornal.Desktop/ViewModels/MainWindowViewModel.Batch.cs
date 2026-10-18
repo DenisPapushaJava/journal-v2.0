@@ -70,6 +70,7 @@ public partial class MainWindowViewModel
             }
             HasNoOrders = Orders.Count == 0;
             CountText = $"Заявок: {Orders.Count} из {_allOrders.Count}";
+            NotifyFilterContextChanged();
             var surviving = Orders.Where(row => selectedIds.Contains(row.Id)).ToArray();
             var active = surviving.FirstOrDefault(row => row.Id == activeId) ?? surviving.FirstOrDefault();
             UpdateSelection(surviving, active);
@@ -93,7 +94,6 @@ public partial class MainWindowViewModel
 
     private bool MatchesCurrentFilters(OrderSummary order)
     {
-        return MatchesStatusFilter(order) && (!FilterDate.HasValue || order.OrderDate == DateOnly.FromDateTime(FilterDate.Value)) &&
-            MatchesSearch(order, SearchText.Trim());
+        return MatchesStatusFilter(order) && MatchesColumnFilters(order) && MatchesSearchAndDate(order);
     }
 }

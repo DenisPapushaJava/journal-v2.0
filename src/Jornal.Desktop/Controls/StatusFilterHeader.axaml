@@ -16,13 +16,14 @@
               <ItemsControl x:Name="StatusFilterOptions" ItemsSource="{Binding Options}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:StatusFilterOption">
-                    <CheckBox Classes="status-filter-option" FontWeight="Normal" MinHeight="34" IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                    <CheckBox Classes="status-filter-option" FontWeight="Normal" MinHeight="34" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsChecked="{Binding IsChecked, Mode=TwoWay}"
                               AutomationProperties.Name="{Binding Label}">
                       <CheckBox.Content>
-                        <Grid ColumnDefinitions="*,8,14">
+                        <Grid ColumnDefinitions="*,8,14,12,Auto">
                           <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
                           <Border Grid.Column="2" Width="14" Height="14" CornerRadius="3" IsVisible="{Binding HasColor}"
                                   Background="{Binding ColorBrush}" BorderBrush="{DynamicResource JournalBorder}" BorderThickness="1" />
+                          <TextBlock Grid.Column="4" Text="{Binding Count}" Foreground="{DynamicResource JournalMuted}" VerticalAlignment="Center" />
                         </Grid>
                       </CheckBox.Content>
                     </CheckBox>

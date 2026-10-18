@@ -32,7 +32,8 @@ public partial class StatusFilterHeader : UserControl
     private void OnModelChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(MainWindowViewModel.StatusFilter) or nameof(MainWindowViewModel.UseTechnologistColor)
-            or nameof(MainWindowViewModel.TechnologistColorArgb) || e.PropertyName == nameof(MainWindowViewModel.CanUseJournal) && _model?.CanUseJournal != true)
+            or nameof(MainWindowViewModel.TechnologistColorArgb) or nameof(MainWindowViewModel.FilterContextVersion)
+            || e.PropertyName == nameof(MainWindowViewModel.CanUseJournal) && _model?.CanUseJournal != true)
             StatusPopup.Hide();
     }
     private void OnFilterOpened(object? sender, EventArgs e)

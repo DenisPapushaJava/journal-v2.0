@@ -17,6 +17,7 @@ public sealed partial class StatusFilterOption(OrderStatusFilter value, string l
 {
     public OrderStatusFilter Value { get; } = value;
     public string Label { get; } = label;
+    public int Count { get; internal set; }
     public bool HasColor => color.HasValue;
     public IBrush ColorBrush { get; } = color is { } argb
         ? new ImmutableSolidColorBrush(Color.FromUInt32(unchecked((uint)argb))) : Brushes.Transparent;
@@ -33,12 +34,14 @@ public sealed partial class StatusFilterEditorViewModel : ObservableObject
     public OrderStatusFilter Selection => AllChecked == true ? OrderStatusFilter.All
         : Options.Where(option => option.IsChecked).Aggregate(OrderStatusFilter.None, (selection, option) => selection | option.Value);
 
-    public void Begin(OrderStatusFilter selection, bool personalColorEnabled, int personalColor)
+    public void Begin(OrderStatusFilter selection, bool personalColorEnabled, int personalColor,
+        IReadOnlyDictionary<OrderStatusFilter, int>? counts = null)
     {
         foreach (var option in Options) option.PropertyChanged -= OnOptionChanged;
         Options = CreateOptions(personalColorEnabled, personalColor);
         foreach (var option in Options)
         {
+            option.Count = counts?.GetValueOrDefault(option.Value) ?? 0;
             option.IsChecked = (selection & option.Value) != 0;
             option.PropertyChanged += OnOptionChanged;
         }

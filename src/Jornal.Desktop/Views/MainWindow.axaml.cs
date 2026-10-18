@@ -306,6 +306,7 @@ public partial class MainWindow : Window
     private void OnDecreaseRowHeight(object? sender, RoutedEventArgs e) => ChangeRowHeight(-1);
     private void OnIncreaseRowHeight(object? sender, RoutedEventArgs e) => ChangeRowHeight(1);
     private void OnResetRowHeight(object? sender, RoutedEventArgs e) => _customization.SetRowHeight(TableDensity.DefaultHeight);
+    private void OnFitTableToViewport(object? sender, RoutedEventArgs e) => _customization.FitTableToViewport();
 
     private void ChangeRowHeight(int step) => _customization.SetRowHeight(Math.Clamp(_customization.RowHeight + step,
         TableDensity.MinimumHeight, TableDensity.MaximumHeight));
