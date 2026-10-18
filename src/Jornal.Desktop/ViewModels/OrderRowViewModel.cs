@@ -26,6 +26,8 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
     internal OrderSummary Source => _order;
     public int Id => _order.Id;
     public DateOnly? OrderDate => _order.OrderDate;
+    // При отборе одного дня дата у всех строк равна. Код даёт устойчивый порядок как при чтении списка.
+    public (DateOnly? Date, int Id) OrderDateSortKey => (OrderDate, Id);
     public int? Color => _order.Color;
     public bool HasBending => _order.HasBending;
     public string BendingText => _order.AnnotationsUnavailable || _order.AnnotationsNeedReview ? "?" : HasBending ? "✓" : "";

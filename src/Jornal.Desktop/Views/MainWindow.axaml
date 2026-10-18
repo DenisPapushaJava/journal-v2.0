@@ -306,7 +306,7 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding DateText}" SortMemberPath="OrderDate" Width="90*" MinWidth="88" />
+                <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding DateText}" SortMemberPath="OrderDateSortKey" Width="90*" MinWidth="88" />
                 <DataGridTextColumn Header="Спецификация" Binding="{ReflectionBinding SpecificationNumber}" Width="112*" MinWidth="106" />
                 <DataGridTextColumn Header="Менеджер" Binding="{ReflectionBinding ManagerName}" Width="124*" MinWidth="118">
                   <DataGridTextColumn.HeaderTemplate>
