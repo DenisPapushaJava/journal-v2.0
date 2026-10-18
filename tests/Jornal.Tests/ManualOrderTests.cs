@@ -72,7 +72,7 @@ public sealed class ManualOrderTests
 
         form.Thickness.Value = "1,5";
         form.CuttingType.Value = "Плазма";
-        Assert.True(form.Thickness.HasError);
+        Assert.False(form.Thickness.HasError);
         form.CuttingType.Value = "Лазер";
         Assert.False(form.Thickness.HasError);
         Assert.Equal("Заказчик 'Б'", form.Customer.Value);
@@ -80,16 +80,18 @@ public sealed class ManualOrderTests
 
     [Theory]
     [InlineData("Лазер", "20", true)]
-    [InlineData("Лазер", "20,1", false)]
+    [InlineData("Лазер", "20,1", true)]
     [InlineData("Плазма", "2", true)]
-    [InlineData("Плазма", "33", false)]
+    [InlineData("Плазма", "1,5", true)]
+    [InlineData("Плазма", "33", true)]
     [InlineData("Газо-кислородная", "16", true)]
     [InlineData("Газо-кислородная", "200", true)]
-    [InlineData("Газо-кислородная", "15", false)]
+    [InlineData("Газо-кислородная", "15", true)]
+    [InlineData("Газо-кислородная", "201", true)]
     [InlineData("HansLaser", "60", true)]
-    [InlineData("HansLaser", "61", false)]
+    [InlineData("HansLaser", "61", true)]
     [InlineData("HansLaser", "0", false)]
-    public async Task ThicknessKeepsLegacyMachineRanges(string machine, string thickness, bool valid)
+    public async Task ThicknessMustBePositiveWithoutFixedMachineRanges(string machine, string thickness, bool valid)
     {
         var form = ValidForm(new DemoOrderStore());
         form.CuttingType.Value = machine;

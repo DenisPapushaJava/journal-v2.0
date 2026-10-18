@@ -274,14 +274,6 @@ public partial class NewOrderViewModel : ObservableObject
         {
             if (!TryDecimal(Thickness.Value, out var thickness) || thickness <= 0)
                 Thickness.Error = "Введите положительное число; дробь через запятую или точку.";
-            else if (CuttingType.Value == "Лазер" && thickness > 20)
-                Thickness.Error = "Для лазера — до 20 мм.";
-            else if (CuttingType.Value == "Плазма" && (thickness < 2 || thickness > 32))
-                Thickness.Error = "Для плазмы — от 2 до 32 мм.";
-            else if (CuttingType.Value == "Газо-кислородная" && (thickness < 16 || thickness > 200))
-                Thickness.Error = "Для газокислородной резки — от 16 до 200 мм.";
-            else if (CuttingType.Value == "HansLaser" && thickness > 60)
-                Thickness.Error = "Для HansLaser — до 60 мм.";
         }
         if (CutLength.Error is null && !int.TryParse(CutLength.Value.Trim(), NumberStyles.None,
             CultureInfo.InvariantCulture, out _))

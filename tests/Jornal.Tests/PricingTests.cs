@@ -19,7 +19,7 @@ public sealed class PricingTests
     [InlineData("HansLaser", "60", null, "PriceLL500")]
     [InlineData("HansLaser", "60", "01", "PriceLL500")]
     [InlineData("HansLaser", "60", " 1", "PriceLL500")]
-    public void UsesLegacyPriceTableAndThicknessBoundaries(string kind, string thickness, string? id, string expected)
+    public void UsesLegacyPriceTableAndMaterialId(string kind, string thickness, string? id, string expected)
     {
         var request = new CuttingPriceRequest(kind, Number(thickness), 25, 1m, id);
         Assert.Equal(expected, CuttingPriceCalculator.SelectTable(request));
@@ -33,10 +33,16 @@ public sealed class PricingTests
     [InlineData("Газо-кислородная", "15.9")]
     [InlineData("Газо-кислородная", "200.1")]
     [InlineData("HansLaser", "60.1")]
-    public void RangeIsCheckedEvenWhenTariffExists(string kind, string thickness)
+    public void TariffAllowsThicknessOutsideFormerMachineRange(string kind, string thickness)
     {
-        var error = Assert.Throws<PriceCalculationException>(() => CuttingPriceCalculator.SelectTable(new(kind, Number(thickness), 1, 1)));
-        Assert.Equal(PriceCalculationFailure.ThicknessOutOfRange, error.Failure);
+        var request = new CuttingPriceRequest(kind, Number(thickness), 25, 1.25m);
+        var name = CuttingPriceCalculator.SelectTable(request);
+        var table = new PriceTable(name, true, [new(request.ThicknessMillimeters,
+            PriceTableChange.ColumnName(request.ThicknessMillimeters), 17)]);
+        Assert.Equal(531m, CuttingPriceCalculator.Calculate(request, table).StoredPrice);
+        Assert.Equal(new[] { request.ThicknessMillimeters }, CuttingPriceCalculator.AvailableThicknesses(kind, null, table));
+        var missing = CuttingPriceCalculator.CalculateResult(request, table with { Rates = [] });
+        Assert.Equal(PriceCalculationFailure.PriceUnavailable, missing.Failure);
     }
 
     [Fact]
@@ -130,10 +136,21 @@ public sealed class PricingTests
         Assert.Equal(870m, (await service.CalculateAsync(request, TestContext.Current.CancellationToken)).StoredPrice);
         Assert.Equal(PriceTables.HansLaserId2, reader.Requested);
         reader.Requested = null;
-        await Assert.ThrowsAsync<PriceCalculationException>(() => service.CalculateAsync(request with { ThicknessMillimeters = 61 }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<PriceCalculationException>(() => service.CalculateAsync(request with { ThicknessMillimeters = 0 }, TestContext.Current.CancellationToken));
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.CalculateAsync(request, cancellation.Token));
         Assert.Null(reader.Requested);
+    }
+
+    [Fact]
+    public async Task ServiceReadsTariffOutsideFormerRangeAndReportsItsAbsence()
+    {
+        var reader = new Reader();
+        var result = await new CuttingPriceService(reader).CalculateResultAsync(
+            new("HansLaser", 61, 10, 1, "2"), TestContext.Current.CancellationToken);
+        Assert.Equal(PriceTables.HansLaserId2, reader.Requested);
+        Assert.Equal(PriceCalculationFailure.PriceUnavailable, result.Failure);
+        Assert.Contains("61 мм", result.Error);
     }
 
     private sealed class Reader : IPriceReader
