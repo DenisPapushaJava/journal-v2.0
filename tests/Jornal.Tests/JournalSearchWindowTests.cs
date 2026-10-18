@@ -1,11 +1,14 @@
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
+using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Jornal.Core.Orders;
 using Jornal.Desktop.Controls;
 using Jornal.Desktop.ViewModels;
@@ -19,7 +22,7 @@ public sealed class JournalSearchWindowTests
     [AvaloniaTheory]
     [InlineData(false, 1)] [InlineData(true, 1)]
     [InlineData(false, 1.5)] [InlineData(true, 1.5)]
-    public async Task ExactCheckboxFitsInSearchRowAndAppliesCurrentInputImmediately(bool dark, double scale)
+    public async Task CompoundSearchKeepsControlsInOneFrameAndAppliesCurrentInputImmediately(bool dark, double scale)
     {
         var reader = new GlobalJournalSearchTests.Reader { Items = GlobalJournalSearchTests.NumberRows() };
         var model = new MainWindowViewModel(reader) { IsDarkTheme = dark };
@@ -29,27 +32,57 @@ public sealed class JournalSearchWindowTests
         {
             window.Show(); Pump();
             var field = window.FindControl<ComboBox>("SearchScopeSelector")!;
-            var exact = window.FindControl<CheckBox>("ExactSearchCheckBox")!;
+            var exact = window.FindControl<ToggleButton>("ExactSearchButton")!;
             var box = window.FindControl<JournalSearchBox>("SearchBox")!;
             var grid = window.FindControl<DataGrid>("OrdersGrid")!;
+            var group = window.FindControl<Border>("SearchField")!;
+            var glyph = window.FindControl<Avalonia.Svg.Svg>("ExactSearchGlyph")!;
+            var inputStart = box.TranslatePoint(default, window)!.Value.X;
+            var groupWidth = group.Bounds.Width;
             Assert.False(exact.IsEffectivelyVisible);
+            Assert.False(glyph.IsEffectivelyVisible);
+            if (scale == 1) Save(window, $"compound-search-all-{dark}");
             field.SelectedIndex = (int)OrderSearchField.DeliveryNumber; Pump();
             Assert.True(exact.IsEffectivelyVisible); Assert.False(model.SearchExactMatch);
+            Assert.InRange(Math.Abs(box.TranslatePoint(default, window)!.Value.X - inputStart), 0, 0.1);
+            Assert.Equal(groupWidth, group.Bounds.Width);
+            Assert.Equal("Полное совпадение", Avalonia.Automation.AutomationProperties.GetName(exact));
             Assert.True(box.Bounds.Width >= 160);
             var fieldPoint = field.TranslatePoint(default, window)!.Value;
             var exactPoint = exact.TranslatePoint(default, window)!.Value;
             var boxPoint = box.TranslatePoint(default, window)!.Value;
-            Assert.True(fieldPoint.X + field.Bounds.Width + 8 <= exactPoint.X);
-            Assert.True(exactPoint.X + exact.Bounds.Width + 8 <= boxPoint.X);
-            Assert.InRange(Math.Abs(exactPoint.Y - boxPoint.Y), 0, 1);
+            Assert.True(fieldPoint.X + field.Bounds.Width <= boxPoint.X);
+            Assert.True(boxPoint.X + box.Bounds.Width <= exactPoint.X);
+            Assert.InRange(Math.Abs(exactPoint.Y + exact.Bounds.Height / 2 - boxPoint.Y - box.Bounds.Height / 2), 0, 1);
             Assert.True(boxPoint.X + box.Bounds.Width <= window.ClientSize.Width - 24);
+            foreach (var control in new Control[] { field, box, exact })
+            {
+                Assert.Contains(group, control.GetVisualAncestors());
+                var point = control.TranslatePoint(default, group)!.Value;
+                Assert.True(point.X >= 1 && point.X + control.Bounds.Width <= group.Bounds.Width - 1);
+                Assert.True(point.Y >= 1 && point.Y + control.Bounds.Height <= group.Bounds.Height - 1);
+            }
+            var normalBorder = ((ISolidColorBrush)group.BorderBrush!).Color;
             box.Focus(); box.Text = "9285"; Pump(); Press(window, Key.Enter);
+            Assert.True(group.IsKeyboardFocusWithin);
+            Assert.NotEqual(normalBorder, ((ISolidColorBrush)group.BorderBrush!).Color);
+            var inputBorder = box.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "PART_BorderElement");
+            Assert.Equal(default, inputBorder.BorderThickness);
+            Assert.Equal(default, field.BorderThickness);
             Assert.Equal(4, model.Orders.Count);
             grid.SelectedItem = model.Orders[0]; Pump();
-            Click(window, exact);
+            box.Focus(); Press(window, Key.Tab);
+            Assert.Same(exact, window.FocusManager!.GetFocusedElement());
+            Press(window, Key.Space);
             Assert.True(exact.IsChecked); Assert.True(model.SearchExactMatch); Assert.Equal([1], Ids(model));
+            Assert.True(glyph.IsEffectivelyVisible); Assert.NotNull(glyph.Model);
             Assert.Empty(grid.SelectedItems);
-            if (scale == 1) Save(window, $"exact-search-{dark}");
+            if (scale == 1) Save(window, $"compound-search-exact-{dark}");
+            var focusedBorder = ((ISolidColorBrush)group.BorderBrush!).Color;
+            field.Focus(); Press(window, Key.F4); Assert.True(field.IsDropDownOpen);
+            Assert.Equal(focusedBorder, ((ISolidColorBrush)group.BorderBrush!).Color);
+            Press(window, Key.Escape); Assert.False(field.IsDropDownOpen);
+            Assert.Equal("9285", model.SearchText); Assert.True(model.SearchExactMatch);
             Press(window, Key.F5); Assert.True(model.SearchExactMatch); Assert.Equal(2, reader.Calls);
             box.Focus(); box.Text = "009285"; Pump(); Assert.True(box.IsPending);
             Click(window, exact);
@@ -119,6 +152,7 @@ public sealed class JournalSearchWindowTests
             var point = clear.TranslatePoint(new Point(clear.Bounds.Width / 2, clear.Bounds.Height / 2), window)!.Value;
             window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();
             Assert.Equal("", box.Text); Assert.Equal("", model.SearchText); Assert.Equal(6, model.Orders.Count);
+            Assert.True(box.IsKeyboardFocusWithin);
             Assert.False(model.IsSearchPending); Assert.False(model.HasAnyColumnFilter);
             await Task.Delay(350, TestContext.Current.CancellationToken); Pump();
             Assert.Equal(6, model.Orders.Count); Assert.Equal(1, reader.Calls);
@@ -171,7 +205,7 @@ public sealed class JournalSearchWindowTests
     private static void Press(Window window, Key key)
     {
         var physical = key switch { Key.Enter => PhysicalKey.Enter, Key.F5 => PhysicalKey.F5, Key.Escape => PhysicalKey.Escape,
-            Key.Space => PhysicalKey.Space, _ => PhysicalKey.None };
+            Key.Space => PhysicalKey.Space, Key.Tab => PhysicalKey.Tab, Key.F4 => PhysicalKey.F4, _ => PhysicalKey.None };
         window.KeyPress(key, RawInputModifiers.None, physical, null);
         window.KeyRelease(key, RawInputModifiers.None, physical, null);
         Pump();

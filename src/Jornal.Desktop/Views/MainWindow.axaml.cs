@@ -187,7 +187,8 @@ public partial class MainWindow : Window
     private void OnSelectionClearingRequested(object? sender, EventArgs e)
     { OrdersGrid.SelectedItems.Clear(); UpdateSelection(); }
     private void OnSearchClearRequested(object? sender, EventArgs e) => _viewModel?.ClearSearchCommand.Execute(null);
-    private void OnClearSearchClick(object? sender, RoutedEventArgs e) => SearchBox.ClearInput();
+    private void OnClearSearchClick(object? sender, RoutedEventArgs e)
+    { SearchBox.ClearInput(); SearchBox.Focus(); }
 
     private void UpdateTheme() => RequestedThemeVariant = _viewModel?.IsDarkTheme == true
         ? ThemeVariant.Dark : ThemeVariant.Light;

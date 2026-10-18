@@ -323,7 +323,7 @@
     <Setter Property="Background" Value="{DynamicResource JournalControlPressed}" />
     <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
   </Style>
-  <Style Selector="CheckBox.status-filter-option /template/ ContentPresenter#PART_ContentPresenter, CheckBox.search-exact /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="CheckBox.status-filter-option /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Margin" Value="8,0,0,0" />
   </Style>
   <Style Selector="RadioButton.filter">
@@ -387,6 +387,65 @@
   </Style>
   <Style Selector="TextBox">
     <Setter Property="PlaceholderForeground" Value="{DynamicResource JournalMuted}" />
+  </Style>
+  <Style Selector="Border.search-field">
+    <Setter Property="Background" Value="{DynamicResource JournalInput}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalControlBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="Border.search-field:pointerover, Border.search-field:focus-within, Border.search-field.popup-open">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="ComboBox.search-scope">
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="8,4,0,4" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+  <Style Selector="ComboBox.search-scope /template/ Border#Background, ComboBox.search-scope /template/ Border#HighlightBackground">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ComboBox.search-scope:pointerover /template/ Border#Background, ComboBox.search-scope:focus-visible /template/ Border#HighlightBackground">
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
+  </Style>
+  <Style Selector="TextBox.search-input">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+  </Style>
+  <Style Selector="TextBox.search-input /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode">
+    <Setter Property="Theme" Value="{StaticResource JournalFilterButton}" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Padding" Value="6,0" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode:checked">
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode:pointerover:not(:disabled), ToggleButton.search-mode:pressed">
+    <Setter Property="Background" Value="{DynamicResource JournalControlPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode:focus-visible">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="ToggleButton.search-mode:disabled">
+    <Setter Property="Opacity" Value="0.6" />
+  </Style>
+  <Style Selector="Button.command.search-clear:not(:pointerover):not(:pressed)">
+    <Setter Property="Background" Value="Transparent" />
   </Style>
   <Style Selector="CalendarDatePicker /template/ Button#PART_Button">
     <Setter Property="Theme" Value="{StaticResource JournalCalendarButton}" />
