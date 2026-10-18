@@ -65,7 +65,7 @@ public sealed class CuttingTimeWindowTests
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
             var grid = window.FindControl<DataGrid>("OrdersGrid")!;
-            Assert.Equal(headers.Reverse(), grid.Columns.Skip(1).Where(c => !Equals(c.Header, "Время резки"))
+            Assert.Equal(headers.Reverse(), grid.Columns.Skip(1).Where(c => headers.Contains(c.Header))
                 .OrderBy(c => c.DisplayIndex).Select(c => (string)c.Header!));
             Assert.False(grid.Columns.Single(c => Equals(c.Header, "Менеджер")).IsVisible);
             Assert.Equal(200, grid.Columns.Single(c => Equals(c.Header, "Дата")).Width.Value);

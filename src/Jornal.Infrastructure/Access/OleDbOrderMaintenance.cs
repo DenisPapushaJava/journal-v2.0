@@ -39,7 +39,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
     public Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
     {
         change.Validate();
-        return PrepareAndWrite(change.Values.CuttingTime is not null, (connection, transaction, token) =>
+        return PrepareAndWrite(change.Values.CuttingTime is not null, change.Values.Annotations is not null, (connection, transaction, token) =>
         {
             if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, change.Expected.Id)) != change.Expected) throw Conflict();
             var machine = OleDbMachineCatalog.Verify(connection, transaction, change.PriceRequest.CuttingType, change.Machine, token);
@@ -51,6 +51,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             command.CommandText += Where(command, change.Expected);
             if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw Conflict();
             DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, values.Id, change.Expected.CuttingTime, values.CuttingTime));
+            DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderAnnotations.Write(connection, transaction, values.Id, change.Expected.Annotations, values.Annotations));
             var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => Read(connection, transaction, values.Id));
             if (saved != values) throw new InvalidOperationException("MDB изменила сохраняемые поля.");
             return saved!;
@@ -71,6 +72,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             command.CommandText = "DELETE FROM [Orders]" + Where(command, expected);
             if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw Conflict();
             DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, expected.Id, expected.CuttingTime, null));
+            DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderAnnotations.Write(connection, transaction, expected.Id, expected.Annotations, null));
             return true;
         }, cancellationToken);
     }
@@ -78,7 +80,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
     public Task<OrderRecord> RestoreAsync(OrderRecord archived, CancellationToken cancellationToken = default)
     {
         archived.Validate();
-        return PrepareAndWrite(archived.CuttingTime is not null, (connection, transaction, token) =>
+        return PrepareAndWrite(archived.CuttingTime is not null, archived.Annotations is not null, (connection, transaction, token) =>
         {
             if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, archived.Id)) is not null)
                 throw new OrderWriteException(OrderWriteFailure.Conflict, "Исходный код уже занят. Существующая заявка не заменена; копия осталась в корзине.");
@@ -87,15 +89,17 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             AddValues(command, archived);
             if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw new InvalidOperationException("INSERT не подтвердил восстановление.");
             DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, archived.Id, null, archived.CuttingTime));
+            DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderAnnotations.Write(connection, transaction, archived.Id, null, archived.Annotations));
             var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => Read(connection, transaction, archived.Id));
             if (saved != archived) throw new InvalidOperationException("MDB изменила восстановленные поля.");
             return saved!;
         }, cancellationToken);
     }
 
-    private async Task<T> PrepareAndWrite<T>(bool needsTime, Func<OleDbConnection, OleDbTransaction, CancellationToken, T> action, CancellationToken token)
+    private async Task<T> PrepareAndWrite<T>(bool needsTime, bool needsAnnotations, Func<OleDbConnection, OleDbTransaction, CancellationToken, T> action, CancellationToken token)
     {
         if (needsTime) await DiagnosticStages.RunAsync(DiagnosticStage.PrepareCuttingTime, () => new OleDbOrderExtras(path).PrepareCuttingTimeAsync(token));
+        if (needsAnnotations) await new OleDbOrderAnnotations(path).PrepareAnnotationsAsync(token);
         return await Write(action, token);
     }
 
@@ -204,7 +208,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             (string?)Get("Кол_во_листов"), (decimal?)Get("Стоимость"), (double?)Get("Толщина"), (int?)Get("Ход"), (string?)Get("Вес"),
             (string?)Get("БЛЦБ"), (int?)Get("Color"), (string?)Get("Коэффициент"));
         reader.Close();
-        row = row with { CuttingTime = OleDbOrderExtras.ReadOne(connection, transaction, id) };
+        row = row with { CuttingTime = OleDbOrderExtras.ReadOne(connection, transaction, id), Annotations = OleDbOrderAnnotations.ReadOne(connection, transaction, id) };
         row.Validate(); return row;
     }
 }

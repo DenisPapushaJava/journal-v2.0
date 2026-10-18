@@ -190,6 +190,7 @@ public sealed class AccessHostTests
             var client = new AccessHostClient(path, host);
             var original = await client.ReadAsync(TestContext.Current.CancellationToken);
             await client.PrepareCuttingTimeAsync(TestContext.Current.CancellationToken);
+            await client.PrepareAnnotationsAsync(TestContext.Current.CancellationToken);
             var first = original.Single(row => row.Id == 42);
             Assert.Equal(1234.5678m, first.StoredCuttingPrice);
             Assert.Equal("БЛЦБ-000042", first.DeliveryNumber);
@@ -215,7 +216,7 @@ public sealed class AccessHostTests
             Assert.Equal(saved, (await client.ReadAsync(TestContext.Current.CancellationToken)).Single(row => row.Id == 42));
             var history = await client.ReadAsync(TestContext.Current.CancellationToken);
             var draft = Draft() with { InitialColor = -25089, PartCount = 14, PunchCount = 31,
-                SheetSize = "1500x3000, 1000x2000", CuttingDurationMinutes = 1786 };
+                SheetSize = "1500x3000, 1000x2000", CuttingDurationMinutes = 1786, HasBending = true, Comment = "Гнуть по чертежу №2" };
             var quote = await new CuttingPriceService(client).CalculateAsync(draft.PriceRequest, TestContext.Current.CancellationToken);
             var mismatch = await Assert.ThrowsAsync<OrderPriceChangedException>(() => client.CreateAsync(draft with {
                 ExpectedQuote = quote with { RublesPerMeter = 1, StoredPrice = 57m } }, TestContext.Current.CancellationToken));
@@ -226,6 +227,7 @@ public sealed class AccessHostTests
             Assert.Equal(created, (await client.ReadAsync(TestContext.Current.CancellationToken)).Single(row => row.Id == created.Id));
             Assert.Equal(history, (await client.ReadAsync(TestContext.Current.CancellationToken)).Where(row => row.Id != created.Id));
             Assert.Equal(1786L, created.CuttingDurationMinutes);
+            Assert.True(created.HasBending); Assert.Equal(draft.Comment, created.Comment);
             var timed = (await client.ReadRecordAsync(created.Id, TestContext.Current.CancellationToken))!;
             var timedValues = timed with { CuttingTime = OrderCuttingTime.For(timed.ToSummary(), 1787) };
             var timedSaved = await client.UpdateAsync(new(timed, timedValues), TestContext.Current.CancellationToken);
@@ -280,6 +282,17 @@ public sealed class AccessHostTests
             var waterjetOriginal = (await client.ReadRecordAsync(waterjetCreated.Id, TestContext.Current.CancellationToken))!;
             var waterjetSaved = await client.UpdateAsync(new(waterjetOriginal, waterjetOriginal with { CutLength = 3 }) { Machine = machine }, TestContext.Current.CancellationToken);
             Assert.Equal(1800m, waterjetSaved.Price);
+            var historyBeforeRename = await client.ReadAsync(TestContext.Current.CancellationToken);
+            var priceBeforeRename = await client.ReadPriceTableAsync(PriceTables.GasOxygen, TestContext.Current.CancellationToken);
+            var renamedPrice = priceBeforeRename with { Rates = priceBeforeRename.Rates.Select(rate => rate.ThicknessMillimeters == 2.5m
+                ? new PriceRate(2.8m, "2,8", 125) : rate).ToArray() };
+            var renaming = new PriceTableChange(priceBeforeRename, renamedPrice);
+            var usage = await client.ReadThicknessUsageAsync(renaming, TestContext.Current.CancellationToken);
+            Assert.Equal("2,5", Assert.Single(usage).ColumnName);
+            Assert.True(PriceTableChange.Matches(renamedPrice, await client.SaveAsync(renaming with { ConfirmedUsage = usage.ToArray() }, TestContext.Current.CancellationToken)));
+            Assert.True(PriceTableChange.Matches(renamedPrice, await client.ReadPriceTableAsync(priceBeforeRename.Name, TestContext.Current.CancellationToken)));
+            Assert.Equal(historyBeforeRename, await client.ReadAsync(TestContext.Current.CancellationToken));
+            Assert.Single(Directory.GetFiles(root, "*.before-price-edit-*.bak"));
         }
         finally { Directory.Delete(root, recursive: true); }
     }

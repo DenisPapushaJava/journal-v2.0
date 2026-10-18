@@ -23,7 +23,7 @@
   </Window.Styles>
   <Grid RowDefinitions="Auto,*,Auto">
     <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
-            BorderThickness="0,0,0,1" Padding="24,12">
+            BorderThickness="0,0,0,1" Padding="24,8">
       <Grid ColumnDefinitions="*,12,Auto">
         <StackPanel Spacing="4">
           <TextBlock Text="{Binding Heading}" FontSize="20" FontWeight="SemiBold" />
@@ -34,10 +34,10 @@
                           IsEnabled="{Binding CanAddFiles}" Click="OnBrowseSpecification" ToolTip.Tip="Добавить спецификации" />
       </Grid>
     </Border>
-    <Grid Grid.Row="1" Margin="24,12" ColumnDefinitions="*,24,260" IsVisible="{Binding !IsBatchMode}">
+    <Grid Grid.Row="1" Margin="24,8" ColumnDefinitions="*,24,260" IsVisible="{Binding !IsBatchMode}">
       <Border Classes="panel">
         <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel x:Name="FormFields" Margin="16" Spacing="5" IsEnabled="{Binding !IsBusy}">
+          <StackPanel x:Name="FormFields" Margin="16,6" Spacing="3" IsEnabled="{Binding !IsBusy}">
             <TextBlock Text="Заявка и заказчик" Classes="section" />
             <Grid ColumnDefinitions="*,24,*">
               <ui:OrderEntryControl DataContext="{Binding OrderDate}" />
@@ -71,6 +71,7 @@
               <ui:OrderEntryControl DataContext="{Binding MaterialId}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Gas}" />
             </Grid>
+            <ui:OrderAnnotationsControl DataContext="{Binding Annotations}" />
           </StackPanel>
         </ScrollViewer>
       </Border>
@@ -135,13 +136,13 @@
                 <TextBlock Text="{Binding Failure}" IsVisible="{Binding HasFailure}" TextWrapping="Wrap"
                            Foreground="{DynamicResource JournalDangerForeground}" />
                 <TextBlock Text="{Binding Warning}" IsVisible="{Binding HasWarning}" TextWrapping="Wrap" Classes="muted" />
+                <TextBlock Text="{Binding Form.PriceError}" IsVisible="{Binding Form.HasPriceError}" TextWrapping="Wrap"
+                           Foreground="{DynamicResource JournalDangerForeground}" />
                 <StackPanel IsVisible="{Binding HasParameters}" Spacing="10" IsEnabled="{Binding CanEdit}">
                   <ui:OrderParametersControl DataContext="{Binding Form}" />
                   <TextBlock Text="{Binding Form.PriceText}" FontWeight="SemiBold" />
                   <ui:WindowsSecurityHelp DataContext="{Binding Form.AccessHostHelp}" />
                   <TextBlock Text="{Binding Form.SaveError}" IsVisible="{Binding Form.HasSaveError}" TextWrapping="Wrap"
-                             Foreground="{DynamicResource JournalDangerForeground}" />
-                  <TextBlock Text="{Binding Form.PriceError}" IsVisible="{Binding Form.HasPriceError}" TextWrapping="Wrap"
                              Foreground="{DynamicResource JournalDangerForeground}" />
                 </StackPanel>
               </StackPanel>
@@ -151,7 +152,7 @@
       </ListBox>
     </Grid>
     <Border Grid.Row="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
-            BorderThickness="0,1,0,0" Padding="24,12">
+            BorderThickness="0,1,0,0" Padding="24,8">
       <Grid ColumnDefinitions="*,24,Auto" RowDefinitions="Auto,Auto">
         <StackPanel VerticalAlignment="Center" Spacing="4">
           <TextBlock x:Name="ValidationSummary" Text="Проверьте отмеченные поля."

@@ -51,7 +51,7 @@ public partial class MainWindowViewModel
         IsUpdatingOrders = true;
         var previousUpdate = UpdatedText;
         UpdatedText = "Сохранение изменений…";
-        ErrorMessage = null;
+        if (!HasSelectionNotice) ErrorMessage = null;
         var writeCompleted = false;
         try
         {
@@ -88,7 +88,7 @@ public partial class MainWindowViewModel
             AccessHostHelp.ShowFor(exception);
             return false;
         }
-        finally { IsUpdatingOrders = false; }
+        finally { IsUpdatingOrders = false; RefreshSelectionNotice(); }
     }
 
     private bool MatchesCurrentFilters(OrderSummary order)

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using Jornal.Core.Orders;
 using Jornal.Core.Pricing;
 using Jornal.Desktop.Import;
 using Jornal.Desktop.ViewModels;
@@ -46,6 +47,9 @@ public sealed class WaterjetPdfParserTests
     }
 
     [Theory]
+    [InlineData("00:01:22", "00:02")]
+    [InlineData("1.00:00:00", "24:00")]
+    [InlineData("1.23:59:59", "48:00")]
     [InlineData("6.00:19:41", "144:20")]
     [InlineData("3.11:37:29", "83:38")]
     [InlineData("168:00:01", "168:01")]
@@ -107,12 +111,80 @@ public sealed class WaterjetPdfParserTests
     }
 
     [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task MainWindowSingleDropLoadsMachineCatalogBeforeBindingTheSpecification(int machineCount)
+    {
+        var token = TestContext.Current.CancellationToken;
+        var store = new DemoOrderStore();
+        var machines = new List<CuttingMachine>();
+        for (var index = 0; index < machineCount; index++)
+        {
+            var machine = MachineCatalogTests.Machine("ГАР " + (index + 1));
+            await store.Prices.CreateMachineAsync(MachineCatalogTests.Creation(machine, [.. machines]), token);
+            machines.Add(machine);
+        }
+        var preview = SpecificationImportPreview.Create("specification.pdf", new WaterjetPdfSpecificationParser().Parse(Document(), token));
+        var main = new MainWindowViewModel(store, store);
+
+        var form = Assert.IsType<NewOrderViewModel>(await main.ReadSpecificationAsync(["specification.pdf"], new PreviewReader(preview), token));
+
+        Assert.Equal(machineCount == 1 ? machines[0].Name : "", form.CuttingType.Value);
+        Assert.Equal(CuttingMachine.LegacyNames.Concat(machines.Select(machine => machine.Name)), form.CuttingType.Choices);
+        Assert.Equal("10:41", form.CuttingTime.Value);
+        Assert.True(form.Material.NeedsReview);
+        Assert.False(main.IsImportingSpecification);
+        Assert.False(form.IsSaved);
+        Assert.Equal(3, (await store.ReadAsync(token)).Count);
+    }
+
+    [Fact]
+    public async Task MainWindowKeepsImportBusyAndCanCancelWhileMachineCatalogIsLoading()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var store = new DemoOrderStore();
+        var catalog = new BlockingCatalog();
+        var preview = SpecificationImportPreview.Create("specification.pdf", new WaterjetPdfSpecificationParser().Parse(Document(), token));
+        var reader = new PreviewReader(preview);
+        var main = new MainWindowViewModel(store, catalog);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+        var reading = main.ReadSpecificationAsync(["specification.pdf"], reader, cancellation.Token);
+
+        Assert.True(catalog.IsReading);
+        Assert.True(main.IsImportingSpecification);
+        Assert.False(main.CanCreateOrder);
+        Assert.Null(await main.ReadSpecificationAsync(["another.pdf"], reader, token));
+        cancellation.Cancel();
+        Assert.Null(await reading);
+        Assert.False(main.IsImportingSpecification);
+        Assert.Null(main.SpecificationImportError);
+        Assert.True(main.CanCreateOrder);
+        Assert.Equal(3, (await store.ReadAsync(token)).Count);
+    }
+
+    private sealed class BlockingCatalog : IManualOrderCreator, IMachineCatalogReader
+    {
+        public bool IsReading { get; private set; }
+        public async Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default)
+        {
+            IsReading = true;
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return [];
+        }
+        public Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Импорт не должен сохранять заявку.");
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task AddingSecondFilePreservesFirstMaterialReviewAndRequiresReviewOfTheNewPosition(bool confirmed)
     {
         var store = new DemoOrderStore(); var machine = MachineCatalogTests.Machine();
-        await store.Prices.CreateMachineAsync(MachineCatalogTests.Creation(machine), TestContext.Current.CancellationToken);
+        var creation = MachineCatalogTests.Creation(machine);
+        await store.Prices.CreateMachineAsync(creation with { Rates = [.. creation.Rates, new(5m, "5", 170)] }, TestContext.Current.CancellationToken);
         var preview = SpecificationImportPreview.Create("Первый.pdf", new WaterjetPdfSpecificationParser().Parse(Document(), TestContext.Current.CancellationToken));
         var form = new NewOrderViewModel(store) { ImportReader = new PreviewReader(preview) };
         await form.LoadMachinesAsync(TestContext.Current.CancellationToken); form.ApplyImport(preview);
@@ -122,6 +194,7 @@ public sealed class WaterjetPdfParserTests
         Assert.Equal(!confirmed, form.BatchItems[0].Form.Material.NeedsReview);
         Assert.True(form.BatchItems[1].Form.Material.NeedsReview); Assert.False(form.SaveCommand.CanExecute(null));
         foreach (var item in form.BatchItems) item.Form.Material.ConfirmReviewCommand.Execute(null);
+        await form.WaitForThicknessOptionsAsync(TestContext.Current.CancellationToken);
         Assert.True(form.BatchItems.All(item => item.IsReady)); Assert.True(form.SaveCommand.CanExecute(null));
         Assert.Equal(3, (await store.ReadAsync(TestContext.Current.CancellationToken)).Count);
     }

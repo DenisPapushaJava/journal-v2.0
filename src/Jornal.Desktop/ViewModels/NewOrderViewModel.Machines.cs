@@ -13,6 +13,7 @@ public partial class NewOrderViewModel
         CuttingType.Choices = [.. CuttingMachine.LegacyNames, .. _machines.Select(machine => machine.Name)];
         foreach (var item in BatchItems) item.Form.SetMachines(machines);
         OnPropertyChanged(nameof(HasPricing)); CalculatePriceCommand.NotifyCanExecuteChanged();
+        ThicknessOptions.SourceChanged();
     }
     public async Task LoadMachinesAsync(CancellationToken cancellationToken = default)
     {

@@ -27,6 +27,12 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
     public int Id => _order.Id;
     public DateOnly? OrderDate => _order.OrderDate;
     public int? Color => _order.Color;
+    public bool HasBending => _order.HasBending;
+    public string BendingText => _order.AnnotationsUnavailable || _order.AnnotationsNeedReview ? "?" : HasBending ? "✓" : "";
+    public string? AnnotationHint => _order.AnnotationsUnavailable ? OrderAnnotations.UnavailableMessage : _order.AnnotationsNeedReview ? OrderAnnotations.ReviewMessage : null;
+    public string BendingDescription => AnnotationHint ?? (HasBending ? "Гибка: да" : "Гибка: нет");
+    public string Comment => _order.Comment;
+    public string CommentText => AnnotationHint is not null ? "Проверить" : Jornal.Core.Results.OrderCommentFormatter.Line(Comment);
     public decimal? ThicknessMillimeters => _order.ThicknessMillimeters;
     public decimal? StoredCuttingPrice => _order.StoredCuttingPrice;
     public int? CutLengthMeters => _order.CutLengthMeters;

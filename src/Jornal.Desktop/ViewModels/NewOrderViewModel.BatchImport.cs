@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Jornal.Core.Orders;
+using Jornal.Core.Pricing;
 using Jornal.Desktop.Import;
 using Jornal.Infrastructure.Diagnostics;
 using Jornal.Parsing.Documents;
@@ -11,6 +12,7 @@ public partial class NewOrderViewModel
 {
     private bool HasCurrentParameters => Fields.Any(entry => entry != Manager && entry != Customer && entry.Value.Length > 0 && (entry != Coefficient || entry.Value != "1"));
     private readonly SemaphoreSlim _batchReads = new(2);
+    private bool _hasBatchPriceNotice;
     public ObservableCollection<BatchSpecificationItem> BatchItems { get; } = [];
     public IReadOnlyList<OrderSummary> ExistingOrders { get; set; } = [];
     [ObservableProperty, NotifyPropertyChangedFor(nameof(Heading)), NotifyPropertyChangedFor(nameof(WindowTitle)), NotifyPropertyChangedFor(nameof(SaveLabel))]
@@ -19,12 +21,15 @@ public partial class NewOrderViewModel
     public bool IsBatchReading => BatchItems.Any(item => item.IsReading);
     public int IncludedCount => BatchItems.Count(item => item.IsIncluded);
     public string BatchSummary => $"Готово: {BatchItems.Count(item => item.IsIncluded && item.IsReady)} из {IncludedCount}";
-    public bool CanEditBatch => !SaveCommand.IsRunning && !CalculatePriceCommand.IsRunning && !IsSaved && !RequiresReload;
+    public bool CanEditBatch => !SaveCommand.IsRunning && !CalculatePriceCommand.IsRunning && !IsSaved && !RequiresReload && !IsEditingPrices;
     public bool CanAddFiles => CanEditBatch && !IsImporting && !HasPendingImport;
-    private bool CanSaveBatch => _creator is IManualOrderBatchCreator && IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.IsReady && !item.Form.Material.NeedsReview);
+    private bool CanSaveBatch => _creator is IManualOrderBatchCreator && IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.HasValidParameters && !item.Form.HasPriceValidationError && item.Form.ThicknessOptions.CanSave);
+    private bool CanCalculateBatch => IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.HasValidParameters);
 
     internal void NotifyBatchState()
     {
+        if (_hasBatchPriceNotice && BatchItems.Where(item => item.IsIncluded).All(item => item.IsReady))
+        { _hasBatchPriceNotice = false; SaveError = null; }
         foreach (var name in new[] { nameof(IsBusy), nameof(IsBatchReading), nameof(IsReadingSpecifications), nameof(IncludedCount), nameof(BatchSummary), nameof(SaveLabel), nameof(CanAddFiles), nameof(CanEditBatch) })
             OnPropertyChanged(name);
         foreach (var item in BatchItems) item.NotifyOwnerState();
@@ -68,6 +73,7 @@ public partial class NewOrderViewModel
                 if (ImportPreview is { } previous) form.ApplyImport(previous, _importSourcePath);
                 for (var index = 0; index < Fields.Count; index++) form.Fields[index].Value = Fields[index].Value;
                 form.Material.NeedsReview = Material.NeedsReview;
+                form.Annotations.HasBending = Annotations.HasBending; form.Annotations.Comment = Annotations.Comment;
                 form._quote = _quote; form.PriceText = PriceText; form.PriceBreakdown = PriceBreakdown;
                 var current = new BatchSpecificationItem(this, form, ImportPreview?.FileName ?? "Текущая заявка", _importSourcePath) { HasParameters = true, IsReading = false };
                 BatchItems.Add(current);
@@ -84,13 +90,18 @@ public partial class NewOrderViewModel
             else pending.Add(item);
         }
         NotifyBatchState();
+        if (preserveCurrent) _ = BatchItems[0].Form.ThicknessOptions.RefreshAsync();
         await Task.WhenAll(pending.Select(item => ReadBatchItemAsync(item, cancellationToken)));
     }
 
     private NewOrderViewModel NewBatchForm()
     {
         var form = new NewOrderViewModel(_creator, IsLocalCopy, IsDatabase, InitialColor) { ImportReader = ImportReader, ExistingOrders = ExistingOrders };
+        form._thicknessSource.Stop(); form._thicknessSource = _thicknessSource; form.ThicknessOptions.UseSource(_thicknessSource);
+        form.ThicknessOptions.ReloadAll = () => RefreshThicknessOptionsAsync(true);
+        form.PriceEditorFactory = PriceEditorFactory;
         form.Manager.Suggestions = Manager.Suggestions; form.Customer.Suggestions = Customer.Suggestions;
+        form.Material.Suggestions = Material.Suggestions;
         form.SetMachines(_machines); return form;
     }
 
@@ -109,6 +120,7 @@ public partial class NewOrderViewModel
             linked.Token.ThrowIfCancellationRequested();
             if (!BatchItems.Contains(item)) return;
             item.Form.ApplyImport(preview, item.Path);
+            _ = item.Form.ThicknessOptions.RefreshAsync(item.ReadCancellation);
             item.Form.Manager.Value = Manager.Value; item.Form.Customer.Value = Customer.Value;
             item.HasParameters = true;
             UpdateDuplicateWarnings();
@@ -143,7 +155,7 @@ public partial class NewOrderViewModel
 
     private async Task CalculateBatchPricesAsync(CancellationToken cancellationToken)
     {
-        foreach (var item in BatchItems.Where(item => item.IsIncluded && item.IsReady).ToArray())
+        foreach (var item in BatchItems.Where(item => item.IsIncluded && item.HasValidParameters).ToArray())
         {
             cancellationToken.ThrowIfCancellationRequested();
             using var registration = cancellationToken.Register(item.Form.CalculatePriceCommand.Cancel);
@@ -153,7 +165,7 @@ public partial class NewOrderViewModel
 
     private async Task SaveBatchAsync()
     {
-        SaveError = null; AccessHostHelp.ShowFor(null);
+        _hasBatchPriceNotice = false; SaveError = null; AccessHostHelp.ShowFor(null);
         var items = BatchItems.Where(item => item.IsIncluded).ToArray();
         var drafts = new List<ManualOrderDraft>();
         foreach (var item in items)
@@ -170,6 +182,18 @@ public partial class NewOrderViewModel
         HasValidationErrors = false;
         try
         {
+            var priceIssues = new List<int>();
+            var reader = items.Select(item => item.Form.PriceReader).FirstOrDefault(value => value is not null);
+            var prices = reader is null ? null : new BatchPriceReader(reader);
+            for (var index = 0; index < items.Length; index++)
+                if (!await items[index].Form.CheckPriceAsync(drafts[index], prices)) priceIssues.Add(BatchItems.IndexOf(items[index]) + 1);
+            if (priceIssues.Count > 0)
+            {
+                _hasBatchPriceNotice = true;
+                SaveError = priceIssues.Count == 1 ? $"Пакет не добавлен. Проверьте цену в карточке {priceIssues[0]}." :
+                    $"Пакет не добавлен. Проверьте цены в карточках: {string.Join(", ", priceIssues.Take(5))}{(priceIssues.Count > 5 ? $" и ещё {priceIssues.Count - 5}" : "")}.";
+                return;
+            }
             CreatedOrders = await ((IManualOrderBatchCreator)_creator).CreateBatchAsync(drafts);
             if (CreatedOrders.Count != drafts.Count || CreatedOrders.Select(order => order.Id).Distinct().Count() != drafts.Count)
                 throw new OrderWriteException(OrderWriteFailure.OutcomeUnknown, "Сохранение пакета не подтверждено. Обновите список (F5).");
@@ -190,5 +214,21 @@ public partial class NewOrderViewModel
             return;
         }
         IsSaved = true; NotifyBatchState(); Saved?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Только на время одной проверки пакета: одинаковый прайс/каталог читается один раз.
+    // Запись по-прежнему проверяет актуальные тарифы в своей транзакции.
+    private sealed class BatchPriceReader(IPriceReader source) : IPriceReader, IMachineCatalogReader
+    {
+        private readonly Dictionary<string, Task<PriceTable>> _tables = [];
+        private Task<IReadOnlyList<CuttingMachine>>? _machines;
+        public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default)
+        {
+            if (!_tables.TryGetValue(tableName, out var read)) _tables[tableName] = read = source.ReadAsync(tableName, cancellationToken);
+            return read;
+        }
+        public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) =>
+            _machines ??= source is IMachineCatalogReader catalog ? catalog.ReadMachinesAsync(cancellationToken) :
+                Task.FromResult<IReadOnlyList<CuttingMachine>>([]);
     }
 }

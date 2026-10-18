@@ -13,6 +13,8 @@ public sealed partial class BatchSpecificationItem : ObservableObject
         _owner = owner; Form = form; FileName = fileName; Path = path;
         RemoveCommand = new RelayCommand(() => owner.RemoveBatchItem(this), () => owner.CanAddFiles);
         foreach (var field in form.Fields) field.PropertyChanged += FieldChanged;
+        form.PropertyChanged += FormChanged;
+        form.Annotations.PropertyChanged += AnnotationsChanged;
     }
     public string FileName { get; }
     public string DisplayName => (_owner.BatchItems.IndexOf(this) + 1) + ". " + FileName;
@@ -28,9 +30,10 @@ public sealed partial class BatchSpecificationItem : ObservableObject
     public double CardOpacity => IsIncluded ? 1 : 0.65;
     public bool HasFailure => Failure is not null;
     public bool HasWarning => Warning is not null;
-    public bool IsReady => !IsReading && HasParameters && !HasFailure && _validParameters && !Form.Material.NeedsReview;
-    public string Status => IsReading ? "Читаем…" : HasFailure ? "Не принят" : IsReady ? "Готово" : "Проверьте поля";
-    public string? Details => Failure ?? Warning ?? Form.ImportDiagnostics;
+    internal bool HasValidParameters => !IsReading && HasParameters && !HasFailure && _validParameters && !Form.Material.NeedsReview;
+    public bool IsReady => HasValidParameters && !Form.HasPriceError && Form.ThicknessOptions.CanSave;
+    public string Status => IsReading ? "Читаем…" : HasFailure ? "Не принят" : Form.ThicknessOptions.IsLoading ? "Загружаем толщины…" : Form.ThicknessOptions.HasUnavailableValue ? "Проверьте толщину" : Form.HasPriceError ? "Проверьте цену" : IsReady ? "Готово" : "Проверьте поля";
+    public string? Details => Failure ?? Form.Thickness.ChoiceError ?? Form.PriceError ?? Warning ?? Form.ImportDiagnostics;
     public bool CanEdit => _owner.CanEditBatch;
     public IRelayCommand RemoveCommand { get; }
     partial void OnIsIncludedChanged(bool value) { OnPropertyChanged(nameof(CardOpacity)); _owner.NotifyBatchState(); }
@@ -46,6 +49,16 @@ public sealed partial class BatchSpecificationItem : ObservableObject
             if (sender == Form.OrderDate || sender == Form.SpecificationNumber || sender == Form.CuttingType) _owner.UpdateDuplicateWarnings();
         }
     }
+    private void AnnotationsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (HasParameters && e.PropertyName is nameof(OrderAnnotationsEditor.HasBending) or nameof(OrderAnnotationsEditor.Comment)) Refresh();
+    }
+    private void FormChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not (nameof(NewOrderViewModel.PriceError) or nameof(NewOrderViewModel.HasPriceValidationError) or nameof(NewOrderViewModel.IsBusy))) return;
+        OnPropertyChanged(nameof(IsReady)); OnPropertyChanged(nameof(Status)); OnPropertyChanged(nameof(Details));
+        _owner.NotifyBatchState();
+    }
     internal void Refresh()
     {
         _validParameters = HasParameters && Form.ValidateBatchParameters();
@@ -57,6 +70,9 @@ public sealed partial class BatchSpecificationItem : ObservableObject
     internal void Detach()
     {
         CancelRead();
+        Form.ThicknessOptions.Stop();
         foreach (var field in Form.Fields) field.PropertyChanged -= FieldChanged;
+        Form.PropertyChanged -= FormChanged;
+        Form.Annotations.PropertyChanged -= AnnotationsChanged;
     }
 }

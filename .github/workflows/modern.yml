@@ -69,6 +69,29 @@ jobs:
         run: ./tests/Fixtures/New-AccessFixture.ps1 -Destination "$env:RUNNER_TEMP/journal-synthetic.mdb"
       - if: needs.scope.outputs.code == 'true'
         run: dotnet test tests/Jornal.Tests/Jornal.Tests.csproj -c Release --no-build --no-restore --logger "trx;LogFileName=tests.trx" --results-directory artifacts/test-results
+      - name: Set up x86 SDK for native Jet tests
+        if: ${{ !cancelled() && needs.scope.outputs.code == 'true' && runner.os == 'Windows' }}
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+          architecture: x86
+      - name: Prepare required native Jet fixture
+        if: ${{ !cancelled() && needs.scope.outputs.code == 'true' && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          & "$env:WINDIR/SysWOW64/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File ./tests/Fixtures/New-AccessFixture.ps1 -Destination "$env:RUNNER_TEMP/journal-synthetic-x86.mdb" -RequireProvider
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test native Access transactions
+        if: ${{ !cancelled() && needs.scope.outputs.code == 'true' && runner.os == 'Windows' }}
+        env:
+          JOURNAL_REQUIRE_NATIVE_TESTS: '1'
+        run: dotnet test tests/Jornal.Access.Tests/Jornal.Access.Tests.csproj -c Release --no-restore -p:PlatformTarget=x86 --logger "trx;LogFileName=native-tests.trx" --results-directory artifacts/test-results
+      - name: Restore x64 SDK for packaging
+        if: ${{ !cancelled() && needs.scope.outputs.packaging == 'true' && runner.os == 'Windows' }}
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+          architecture: x64
       - name: Package update artifacts
         if: needs.scope.outputs.packaging == 'true'
         shell: bash
@@ -93,23 +116,6 @@ jobs:
           retention-days: 7
           if-no-files-found: error
           compression-level: 0
-      - name: Set up x86 SDK for native Jet tests
-        if: needs.scope.outputs.code == 'true' && runner.os == 'Windows'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-          architecture: x86
-      - name: Prepare required native Jet fixture
-        if: needs.scope.outputs.code == 'true' && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          & "$env:WINDIR/SysWOW64/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File ./tests/Fixtures/New-AccessFixture.ps1 -Destination "$env:RUNNER_TEMP/journal-synthetic-x86.mdb" -RequireProvider
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Test native Access transactions
-        if: needs.scope.outputs.code == 'true' && runner.os == 'Windows'
-        env:
-          JOURNAL_REQUIRE_NATIVE_TESTS: '1'
-        run: dotnet test tests/Jornal.Access.Tests/Jornal.Access.Tests.csproj -c Release --no-restore -p:PlatformTarget=x86 --logger "trx;LogFileName=native-tests.trx" --results-directory artifacts/test-results
       - name: Test results
         if: always() && needs.scope.outputs.code == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

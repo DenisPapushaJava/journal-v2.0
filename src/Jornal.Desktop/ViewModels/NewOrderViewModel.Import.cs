@@ -42,14 +42,20 @@ public partial class NewOrderViewModel
         if (IsSaved || SaveCommand.IsRunning || RequiresReload) return;
         preview = SpecificationMachineBinding.Bind(preview, _machines, CuttingType.Value);
         _submitted = false;
-        foreach (var (name, field) in ImportFields)
+        _applyingThicknessImport = true;
+        try
         {
-            var value = preview.Fields[name]; field.ApplyImport(value.Value, value.Evidence);
+            foreach (var (name, field) in ImportFields)
+            {
+                var value = preview.Fields[name]; field.ApplyImport(value.Value, value.Evidence);
+            }
         }
+        finally { _applyingThicknessImport = false; }
         Material.NeedsReview = preview.Report.Issues.Any(issue => issue.Code == "MaterialNeedsReview") && Material.Value.Length > 0;
         HasValidationErrors = false; SaveError = null; ImportError = null;
         ImportPreview = preview; _importSourcePath = sourcePath;
         _quote = null; PriceText = "Не рассчитана"; PriceBreakdown = ""; PriceError = null;
+        ThicknessOptions.SourceChanged();
     }
 
     public async Task RequestImportAsync(string path, CancellationToken cancellationToken)
@@ -82,6 +88,7 @@ public partial class NewOrderViewModel
             var preview = await ImportReader.ReadAsync(path, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             ApplyImport(preview, path);
+            _ = ThicknessOptions.RefreshAsync();
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (DocumentRejectedException exception) { ImportError = exception.Message; }

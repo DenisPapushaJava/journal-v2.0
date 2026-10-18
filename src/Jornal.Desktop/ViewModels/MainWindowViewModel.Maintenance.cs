@@ -40,6 +40,7 @@ public partial class MainWindowViewModel
             pending.AcceptCurrentSnapshot(original);
             pending.Manager.Suggestions = _entrySuggestions.Managers;
             pending.Customer.Suggestions = _entrySuggestions.Customers;
+            pending.Material.Suggestions = _entrySuggestions.Materials;
             return pending;
         }
         var form = new EditOrderViewModel(original, backend, SourceDetails, async token =>
@@ -50,8 +51,10 @@ public partial class MainWindowViewModel
             return await backend.ReadRecordAsync(original.Id, token);
         });
         form.BusyChanged += (_, _) => IsUpdatingOrders = form.SaveCommand.IsRunning;
+        form.PriceEditorFactory = CreatePriceEditor;
         form.Manager.Suggestions = _entrySuggestions.Managers;
         form.Customer.Suggestions = _entrySuggestions.Customers;
+        form.Material.Suggestions = _entrySuggestions.Materials;
         form.ReloadRequired += (_, _) =>
         {
             _pendingEdit = form; RequiresReload = true;

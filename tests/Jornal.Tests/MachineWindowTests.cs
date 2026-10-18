@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -57,12 +58,15 @@ public sealed class MachineWindowTests
     }
 
     [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task MaterialReviewIsVisibleConfirmableAndRequiredAgainAfterReplacement(bool dark)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task MaterialReviewIsVisibleConfirmableAndRequiredAgainAfterReplacement(bool dark, bool suggestions)
     {
         var store = new DemoOrderStore(); var machine = MachineCatalogTests.Machine(); await store.Prices.CreateMachineAsync(MachineCatalogTests.Creation(machine));
         var form = new NewOrderViewModel(store); await form.LoadMachinesAsync();
+        if (suggestions) form.Material.Suggestions = ["Ст-20", "Aisi-304"];
         var window = new NewOrderWindow { DataContext = form, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
         try
         {
@@ -70,12 +74,32 @@ public sealed class MachineWindowTests
             var preview = SpecificationImportPreview.Create("Раскрой.pdf", new WaterjetPdfSpecificationParser().Parse(WaterjetPdfParserTests.Document()));
             form.ApplyImport(preview); Pump();
             Assert.True(form.Material.NeedsReview); Assert.False(form.SaveCommand.CanExecute(null));
+            var entry = window.GetVisualDescendants().OfType<OrderEntryControl>().Single(control => ReferenceEquals(control.DataContext, form.Material));
+            var combo = entry.FindControl<ComboBox>("EditableSuggestionsInput")!;
+            Assert.Equal(suggestions, combo.IsVisible);
+            var input = entry.GetVisualDescendants().OfType<TextBox>().Single(control => control.IsEffectivelyVisible);
+            var border = suggestions
+                ? combo.GetVisualDescendants().OfType<Border>().Single(control => control.Name == "Background")
+                : input.GetVisualDescendants().OfType<Border>().Single(control => control.Name == "PART_BorderElement");
+            Assert.Equal(new Thickness(2), border.BorderThickness);
+            Assert.Equal(((ISolidColorBrush)Application.Current!.FindResource(window.ActualThemeVariant, "WorkForeground")!).Color, ((ISolidColorBrush)border.BorderBrush!).Color);
+            if (suggestions)
+            {
+                combo.Focus(); combo.IsDropDownOpen = true; Pump();
+                Assert.Equal("Сталь 20/09Г2С", form.Material.Value); Assert.True(form.Material.NeedsReview);
+                var popup = TopLevel.GetTopLevel(combo.ContainerFromIndex(0)!)!;
+                popup.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                popup.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); Pump();
+                Assert.False(combo.IsDropDownOpen); Assert.True(window.IsVisible); Assert.True(form.Material.NeedsReview);
+            }
             var confirm = window.GetVisualDescendants().OfType<JournalButton>().Single(button => button.Label == "Подтвердить материал" && button.IsEffectivelyVisible);
-            InBounds(window, confirm); Save(window, $"waterjet-material-review-{dark}"); Click(window, confirm);
+            InBounds(window, confirm); Save(window, $"waterjet-material-review-{dark}-{suggestions}"); Click(window, confirm);
             Assert.False(form.Material.NeedsReview); Assert.Equal("Сталь 20/09Г2С", form.Material.Value);
             Assert.False(form.HasImportDiagnostics);
             form.ApplyImport(preview); Pump(); Assert.True(form.Material.NeedsReview);
-            form.Material.Value = "Ст-20"; Pump(); Assert.False(form.Material.NeedsReview);
+            if (suggestions) input.Text = "Ст-20";
+            else form.Material.Value = "Ст-20";
+            Pump(); Assert.False(form.Material.NeedsReview); Assert.Equal("Ст-20", form.Material.Value);
         }
         finally { window.Close(); }
     }

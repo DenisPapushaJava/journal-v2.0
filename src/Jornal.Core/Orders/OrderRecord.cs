@@ -11,9 +11,11 @@ public sealed record OrderRecord(int Id, DateTime? Date, string? Manager, string
     int? Color, string? Coefficient)
 {
     public OrderCuttingTime? CuttingTime { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public OrderAnnotations? Annotations { get; init; }
     public void Validate()
     {
         CuttingTime?.Validate();
+        Annotations?.Validate();
         if (Id <= 0 || Date is { Year: < 100 } || Thickness is { } thickness && !double.IsFinite(thickness) ||
             Price is { } price && (price < -922337203685477.5808m || price > 922337203685477.5807m || decimal.Round(price, 4) != price) ||
             TextValues.Any(text => text?.Length > 255))
@@ -32,7 +34,7 @@ public sealed record OrderRecord(int Id, DateTime? Date, string? Manager, string
         return new(Id, Date is { } date ? DateOnly.FromDateTime(date) : null, Specification ?? "", Manager ?? "",
             Customer ?? "", CuttingType ?? "", Material ?? "", Thickness is { } t ? Convert.ToDecimal(t) : null, Price, Color)
         {
-            CuttingTime = CuttingTime, SheetSize = SheetSize ?? "", SheetCount = SheetCount ?? "", CutLengthMeters = CutLength, WeightKilograms = Weight ?? "",
+            CuttingTime = CuttingTime, Annotations = Annotations, SheetSize = SheetSize ?? "", SheetCount = SheetCount ?? "", CutLengthMeters = CutLength, WeightKilograms = Weight ?? "",
             DeliveryNumber = DeliveryNumber, StoredOrderDateTime = Date, StoredCoefficient = Coefficient,
             Coefficient = coefficient, PartCount = Count(1), PunchCount = Count(2),
             MaterialId = parts.Length > 3 && parts[3] != "-1" ? parts[3] : "",
@@ -45,7 +47,7 @@ public sealed record OrderRecord(int Id, DateTime? Date, string? Manager, string
         row.ManagerName, row.SpecificationNumber, row.CustomerName, row.CuttingType, row.MaterialName, row.SheetSize,
         row.SheetCount, row.StoredCuttingPrice, row.ThicknessMillimeters is { } t ? (double)t : null, row.CutLengthMeters,
         row.WeightKilograms, row.DeliveryNumber, row.Color, row.StoredCoefficient ?? row.Coefficient?.ToString(CultureInfo.InvariantCulture))
-        { CuttingTime = row.CuttingTime };
+        { CuttingTime = row.CuttingTime, Annotations = row.Annotations };
 }
 
 public sealed record OrderEditChange(OrderRecord Expected, OrderRecord Values, CuttingPriceQuote? ExpectedQuote = null)

@@ -21,13 +21,18 @@
     <KeyBinding Gesture="F5" Command="{Binding RefreshCommand}" />
     <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
   </Window.KeyBindings>
-  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="208,*">
+  <Grid>
+  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="208,*" IsEnabled="{Binding !IsConfirmingThickness}">
     <Border Grid.ColumnSpan="2" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}"
             BorderThickness="0,0,0,1" Padding="24,18">
+      <Grid ColumnDefinitions="*,16,Auto">
       <StackPanel Spacing="5">
         <TextBlock Text="Прайсы" FontSize="20" FontWeight="SemiBold" />
         <TextBlock Text="{Binding Source}" ToolTip.Tip="{Binding SourceDetails}" Classes="muted" TextTrimming="CharacterEllipsis" />
       </StackPanel>
+      <ui:JournalButton Grid.Column="2" x:Name="ExportPricesButton" Label="Экспорт в Excel" Icon="file-spreadsheet" VerticalAlignment="Center"
+                        Click="OnExportPricesClick" IsEnabled="{Binding CanExport}" ToolTip.Tip="Экспортировать сохранённые прайсы" />
+      </Grid>
     </Border>
     <Border Grid.Row="1" Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}" BorderThickness="0,0,1,0" Padding="12,16">
       <ListBox x:Name="PriceGroups" ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup, Mode=TwoWay}"
@@ -60,7 +65,7 @@
         </Grid>
         <TextBlock Text="{Binding ReadOnlyReason}" IsVisible="{Binding IsReadOnly}" Classes="muted" />
         <TextBlock Text="{Binding EditScope}" IsVisible="{Binding IsEditing}" Classes="muted" TextWrapping="Wrap" />
-        <TextBlock Text="Перед сохранением новых толщин закройте журнал на остальных ПК. Будет создана резервная копия."
+        <TextBlock Text="Перед изменением толщин закройте журнал на остальных ПК. Будет создана резервная копия."
                    IsVisible="{Binding ShowExpansionNotice}" Classes="muted" TextWrapping="Wrap" />
         <StackPanel IsVisible="{Binding ShowAddRate}" Spacing="6" Margin="0,8,0,0">
           <Grid ColumnDefinitions="*,12,*,12,Auto,8,Auto">
@@ -83,21 +88,30 @@
                 CanUserSortColumns="False" CanUserReorderColumns="False" SelectionMode="Single" HeadersVisibility="Column"
                 RowHeight="40" IsEnabled="{Binding CanBrowse}" ScrollViewer.VerticalScrollBarVisibility="Auto">
         <DataGrid.Columns>
-          <DataGridTemplateColumn Header="Толщина, мм" Width="125">
+          <DataGridTemplateColumn Header="Толщина, мм" Width="100">
             <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate x:DataType="vm:PriceRowViewModel"><TextBlock Text="{Binding Thickness}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,16,0" /></DataTemplate>
+              <DataTemplate x:DataType="vm:PriceRowViewModel"><TextBlock Text="{Binding CurrentThickness}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,16,0" /></DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Цена, ₽/м" Width="*" MinWidth="140">
+          <DataGridTemplateColumn Header="Новая толщина, мм" Width="138" IsVisible="{Binding IsEditing}">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate x:DataType="vm:PriceRowViewModel">
+                <TextBox Text="{Binding ThicknessValue, Mode=TwoWay}" Classes="tariff-thickness" TextAlignment="Right" MinHeight="30" Height="32"
+                         Margin="6,3,8,3" Padding="8,4" Classes.price-changed="{Binding IsThicknessChanged}" Classes.price-invalid="{Binding HasThicknessError}"
+                         ToolTip.Tip="{Binding ThicknessError}" AutomationProperties.Name="{Binding Thickness, StringFormat='Толщина вместо {0} мм'}" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Цена, ₽/м" Width="*" MinWidth="90">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate x:DataType="vm:PriceRowViewModel"><TextBlock Text="{Binding CurrentPrice}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,16,0" /></DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Новая цена, ₽/м" Width="200" IsVisible="{Binding IsEditing}">
+          <DataGridTemplateColumn Header="Новая цена, ₽/м" Width="150" IsVisible="{Binding IsEditing}">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate x:DataType="vm:PriceRowViewModel">
-                <TextBox Text="{Binding Value, Mode=TwoWay}" TextAlignment="Right" MinHeight="30" Height="32" Margin="6,3,12,3" Padding="8,4"
-                         Classes.price-changed="{Binding IsChanged}" Classes.price-invalid="{Binding HasError}" ToolTip.Tip="Целые рубли. Пустое поле — тариф не задан." AutomationProperties.Name="{Binding Thickness, StringFormat='Тариф для толщины {0} мм'}" />
+                <TextBox Text="{Binding Value, Mode=TwoWay}" Classes="tariff-price" TextAlignment="Right" MinHeight="30" Height="32" Margin="6,3,12,3" Padding="8,4"
+                         Classes.price-changed="{Binding IsPriceChanged}" Classes.price-invalid="{Binding HasPriceError}" ToolTip.Tip="Целые рубли. Пустое поле — тариф не задан." AutomationProperties.Name="{Binding Thickness, StringFormat='Тариф для толщины {0} мм'}" />
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
@@ -112,6 +126,8 @@
         </DataGrid.Columns>
       </DataGrid>
       <StackPanel Grid.Row="3" Margin="0,12,0,0" Spacing="6">
+        <TextBlock Text="{Binding ThicknessValidationError}" IsVisible="{Binding HasInvalidThickness}"
+                   Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
         <TextBlock Text="Укажите целую цену от 0 до 2 147 483 647 ₽." IsVisible="{Binding HasInvalidPrices}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
         <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
         <ui:WindowsSecurityHelp DataContext="{Binding AccessHostHelp}" />
@@ -138,5 +154,35 @@
         </Grid>
       </StackPanel>
     </Border>
+  </Grid>
+  <Border IsVisible="{Binding IsConfirmingThickness}" Background="#66000000" Padding="24">
+    <Border Background="{DynamicResource JournalSurface}" BorderBrush="{DynamicResource JournalBorder}" BorderThickness="1" CornerRadius="12"
+            MaxWidth="560" MaxHeight="480" Padding="24" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+      <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+        <TextBlock Text="Изменение толщин" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12" />
+        <TextBlock Grid.Row="1" Text="{Binding Usage}" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12" />
+        <ScrollViewer Grid.Row="2" MaxHeight="240">
+          <ItemsControl ItemsSource="{Binding ThicknessChanges}" Margin="0,0,12,0">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PriceThicknessChangePreview">
+                <Border BorderBrush="{DynamicResource JournalBorder}" BorderThickness="0,0,0,1" Padding="0,8">
+                  <StackPanel Spacing="5">
+                    <Grid ColumnDefinitions="*,Auto"><TextBlock Text="{Binding Thickness}" FontWeight="SemiBold" /><TextBlock Grid.Column="1" Text="{Binding Price}" Margin="16,0,0,0" /></Grid>
+                    <TextBlock Text="{Binding Orders}" Classes="muted" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+        <TextBlock Grid.Row="3" Text="Заявки сохранят прежнюю толщину и цену. Для их пересчёта потребуется прежний тариф." IsVisible="{Binding HasAffectedOrders}" TextWrapping="Wrap" Margin="0,12,0,0" />
+        <ui:JournalButton Grid.Row="4" x:Name="KeepOriginalThicknessesButton" Label="Добавить новые, сохранив прежние" Command="{Binding KeepOriginalThicknessesCommand}" HorizontalAlignment="Left" Margin="0,12,0,0" />
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+          <ui:JournalButton x:Name="BackFromThicknessConfirmationButton" Label="Вернуться" Click="OnBackFromThicknessConfirmationClick" />
+          <ui:JournalButton x:Name="ConfirmThicknessChangesButton" Label="Сохранить изменения" Classes="primary" Command="{Binding ConfirmThicknessChangesCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Border>
   </Grid>
 </Window>

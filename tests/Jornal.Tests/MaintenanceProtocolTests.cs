@@ -53,11 +53,41 @@ public sealed class MaintenanceProtocolTests
         Assert.Equal(OrderWriteFailure.OutcomeUnknown, failure.Failure);
     }
 
-    private static AccessHostClient Client(AccessHostResponse response)
+    [Fact]
+    public async Task OldHostCannotClaimThatItsMissingAnnotationsAreEmptyOrAcceptAnAnnotatedWrite()
     {
-        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response)));
+        var token = TestContext.Current.CancellationToken;
+        var record = OrderMaintenanceTests.Record();
+        var rows = await Client(new(1, [record.ToSummary()]), annotationsSupported: false).ReadAsync(token);
+        Assert.True(Assert.Single(rows).AnnotationsUnavailable);
+        await Assert.ThrowsAsync<OrderReadException>(() => Client(new(1, Record: record, MaintenanceCompleted: true), annotationsSupported: false).ReadRecordAsync(record.Id, token));
+        var calls = 0;
+        var client = Client(new(1, Error: "Unknown operation"), annotationsSupported: false, onStart: () => calls++);
+        var error = await Assert.ThrowsAsync<OrderWriteException>(() => client.CreateAsync(LocalJournalFixture.Draft with { HasBending = true }, token));
+        Assert.Equal(OrderWriteFailure.NotSaved, error.Failure); Assert.Equal(1, calls);
+        Assert.Equal(15, (int)AccessHostOperation.PrepareAnnotations);
+        Assert.Equal(5, (int)AccessHostOperation.CreateOrder);
+    }
+
+    [Fact]
+    public async Task PreparationRequiresExplicitCapabilityAndAnUnmixedAcknowledgement()
+    {
+        var token = TestContext.Current.CancellationToken;
+        await Client(new(1, AnnotationsPrepared: true)).PrepareAnnotationsAsync(token);
+        foreach (var response in new AccessHostResponse[] { new(1), new(1, [], AnnotationsPrepared: true), new(1, AnnotationsPrepared: false) })
+            Assert.Equal(OrderWriteFailure.NotSaved, (await Assert.ThrowsAsync<OrderWriteException>(() => Client(response).PrepareAnnotationsAsync(token))).Failure);
+        await Assert.ThrowsAsync<OrderReadException>(() => Client(new(1, [], AnnotationsPrepared: true)).ReadAsync(token));
+        var value = OrderAnnotations.For(LocalJournalFixture.Draft.ToOrder(42, 500), true, "Пометка");
+        var encoded = JsonSerializer.Serialize(new AccessHostResponse(1, [LocalJournalFixture.Draft.ToOrder(42, 500) with { Annotations = value }], AnnotationsSupported: true));
+        Assert.Equal(value, JsonSerializer.Deserialize<AccessHostResponse>(encoded)!.Orders![0].Annotations);
+    }
+
+    private static AccessHostClient Client(AccessHostResponse response, bool annotationsSupported = true, Action? onStart = null)
+    {
+        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response with { AnnotationsSupported = annotationsSupported })));
         return new("unused.mdb", "synthetic-host", process =>
         {
+            onStart?.Invoke();
             if (OperatingSystem.IsWindows())
             {
                 process.StartInfo.FileName = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");

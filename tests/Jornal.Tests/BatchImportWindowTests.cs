@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Jornal.Desktop.Controls;
 using Jornal.Desktop.Import;
 using Jornal.Desktop.ViewModels;
@@ -14,6 +15,45 @@ using Xunit;
 namespace Jornal.Tests;
 public sealed partial class SpecificationDropWindowTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BatchControlBindingsTreatMissingSelectionAndNullTextAsEmptyWithoutExceptions(bool dark)
+    {
+        var store = new DemoOrderStore();
+        var form = new NewOrderViewModel(store) { ImportReader = new BatchImportTests.Reader(await BatchImportTests.Preview()) };
+        form.Manager.Value = "Иван"; form.Customer.Value = "Клиент";
+        await form.ImportFilesAsync(["one.html", "two.html"], TestContext.Current.CancellationToken);
+        var first = form.BatchItems[0].Form; var second = form.BatchItems[1].Form;
+        var machine = first.CuttingType.Value;
+        first.Annotations.HasBending = true; first.Annotations.Comment = "Первая карточка";
+        second.Annotations.Comment = "Вторая карточка";
+        var window = new NewOrderWindow { DataContext = form, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            Assert.Equal(machine, first.CuttingType.Value); Assert.Equal(machine, second.CuttingType.Value);
+            await form.LoadMachinesAsync(); Dispatcher.UIThread.RunJobs();
+            Assert.Equal(machine, first.CuttingType.Value); Assert.Equal(machine, second.CuttingType.Value);
+            var choice = window.GetVisualDescendants().OfType<ComboBox>().Single(control => control.IsEffectivelyVisible && ReferenceEquals(control.DataContext, first.CuttingType));
+            choice.SelectedItem = null; Dispatcher.UIThread.RunJobs();
+            Assert.Equal("", first.CuttingType.Value); Assert.True(first.CuttingType.HasError);
+            Assert.False(DataValidationErrors.GetHasErrors(choice));
+            Assert.False(form.SaveCommand.CanExecute(null)); Assert.Equal(machine, second.CuttingType.Value);
+            choice.SelectedItem = machine; Dispatcher.UIThread.RunJobs();
+            Assert.True(form.SaveCommand.CanExecute(null));
+            var comment = window.GetVisualDescendants().OfType<TextBox>().Single(control => control.Name == "OrderCommentInput" && ReferenceEquals(control.DataContext, first.Annotations));
+            comment.Text = null; Dispatcher.UIThread.RunJobs();
+            Assert.Equal("", first.Annotations.Comment); Assert.True(first.Annotations.HasBending);
+            Assert.False(DataValidationErrors.GetHasErrors(comment)); Assert.Equal("Вторая карточка", second.Annotations.Comment);
+            await form.SaveCommand.ExecuteAsync(null);
+            Assert.True(form.IsSaved); Assert.Equal(2, form.CreatedOrders.Count);
+            Assert.True(form.CreatedOrders[0].HasBending); Assert.Equal("", form.CreatedOrders[0].Comment);
+            Assert.Equal("Вторая карточка", form.CreatedOrders[1].Comment);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

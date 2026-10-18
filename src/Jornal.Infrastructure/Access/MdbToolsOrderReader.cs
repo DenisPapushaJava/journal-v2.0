@@ -8,9 +8,23 @@ public sealed class MdbToolsOrderReader(string? executable = null)
     {
         var export = new MdbToolsTableExport(executable);
         var rows = await export.ReadAsync(path, "Orders", ReadExport, cancellationToken);
-        if (!(await export.ListTablesAsync(path, cancellationToken)).Contains(OrderExtrasData.TableName, StringComparer.OrdinalIgnoreCase)) return rows;
-        var times = await export.ReadAsync(path, OrderExtrasData.TableName, OrderExtrasData.ReadExport, cancellationToken);
-        return rows.Select(row => row with { CuttingTime = times.GetValueOrDefault(row.Id) }).ToArray();
+        var tables = await export.ListTablesAsync(path, cancellationToken);
+        if (tables.Contains(OrderExtrasData.TableName, StringComparer.OrdinalIgnoreCase))
+        {
+            var times = await export.ReadAsync(path, OrderExtrasData.TableName, OrderExtrasData.ReadExport, cancellationToken);
+            rows = rows.Select(row => row with { CuttingTime = times.GetValueOrDefault(row.Id) }).ToArray();
+        }
+        if (!tables.Contains(OrderAnnotationsData.TableName, StringComparer.OrdinalIgnoreCase)) return rows;
+        try
+        {
+            var annotations = await export.ReadAsync(path, OrderAnnotationsData.TableName, OrderAnnotationsData.ReadExport, cancellationToken);
+            return rows.Select(row => row with { Annotations = annotations.GetValueOrDefault(row.Id) }).ToArray();
+        }
+        catch (Exception exception) when (exception is OrderReadException or IOException or UnauthorizedAccessException)
+        {
+            Jornal.Infrastructure.Diagnostics.AppDiagnostics.Capture(Jornal.Infrastructure.Diagnostics.DiagnosticOperation.OrderRead, exception);
+            return rows.Select(row => row with { AnnotationsUnavailable = true }).ToArray();
+        }
     }
 
     public static IReadOnlyList<OrderSummary> ReadExport(TextReader reader, CancellationToken cancellationToken = default)

@@ -81,6 +81,7 @@ public partial class EditOrderViewModel
         _timeEdited = true; _quote = null; PriceText = "Не рассчитана"; Error = null; ImportError = null;
         OnPropertyChanged(nameof(IsHansLaser)); OnPropertyChanged(nameof(HasMetadata)); OnPropertyChanged(nameof(MetadataText));
         OnPropertyChanged(nameof(HasCuttingTimeNotice)); RefreshChanges();
+        ThicknessOptions.SourceChanged();
     }
 
     private void ValidateImportedParameters()

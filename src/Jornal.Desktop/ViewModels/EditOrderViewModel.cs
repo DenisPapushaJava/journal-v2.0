@@ -46,6 +46,12 @@ public partial class EditOrderViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(expected.CuttingType) && !CuttingMachine.LegacyNames.Contains(expected.CuttingType))
             CuttingType.Choices = [.. CuttingMachine.LegacyNames, expected.CuttingType];
         Populate(expected);
+        Annotations.PropertyChanged += (_, _) =>
+        {
+            if (_populating) return;
+            RefreshChanges();
+            NotifyBusy();
+        };
         foreach (var field in Fields) field.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(OrderEntryField.NeedsReview)) { OnPropertyChanged(nameof(ImportDiagnostics)); OnPropertyChanged(nameof(HasImportDiagnostics)); NotifyBusy(); return; }
@@ -57,11 +63,16 @@ public partial class EditOrderViewModel : ObservableObject
             if (field == CuttingType || field == Thickness || field == CutLength || field == Coefficient || field == MaterialId)
             { _quote = null; PriceText = "Не рассчитана"; }
             if (field == CuttingType) OnPropertyChanged(nameof(IsHansLaser));
+            if (field == OrderDate || field == SpecificationNumber)
+            { DateOnly.TryParseExact(OrderDate.Value.Trim(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var identityDate); Annotations.SetIdentity(identityDate, SpecificationNumber.Value.Trim()); }
             RefreshChanges();
         };
         SaveCommand.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) NotifyBusy(); };
         CalculateCommand.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) NotifyBusy(); };
         RefreshCommand.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) NotifyBusy(); };
+        InitializeThicknessOptions();
+        foreach (var field in new[] { CuttingType, MaterialId }) field.PropertyChanged += (_, e) =>
+        { if (!_populating && e.PropertyName == nameof(OrderEntryField.Value)) ThicknessOptions.SourceChanged(); };
     }
 
     public OrderEntryField OrderDate { get; } = new("Дата");
@@ -69,12 +80,13 @@ public partial class EditOrderViewModel : ObservableObject
     public OrderEntryField Manager { get; } = new("Менеджер");
     public OrderEntryField Customer { get; } = new("Заказчик");
     public OrderEntryField CuttingType { get; } = new("Вид резки / станок", choices: ["Лазер", "Плазма", "Газо-кислородная", "HansLaser"]);
-    public OrderEntryField Material { get; } = new("Материал");
+    public OrderEntryField Material { get; } = new("Материал") { UseEditableSuggestions = true };
     public OrderEntryField Thickness { get; } = new("Толщина, мм");
     public OrderEntryField SheetSize { get; } = new("Размер листа, мм");
     public OrderEntryField SheetCount { get; } = new("Количество листов");
     public OrderEntryField Weight { get; } = new("Вес, кг");
     public OrderEntryField CutLength { get; } = new("Длина реза, м");
+    public OrderAnnotationsEditor Annotations { get; } = new();
     public OrderEntryField CuttingTime { get; } = new("Время резки, ч:мин");
     public bool HasCuttingTimeNotice => !_timeEdited && (_expected.ToSummary().CuttingTimeNeedsReview ||
         _expected.CuttingTime is not null && new[] { OrderDate, SpecificationNumber, CuttingType, Material, Thickness,
@@ -94,8 +106,8 @@ public partial class EditOrderViewModel : ObservableObject
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasChanges))] private IReadOnlyList<OrderFieldChange> _changes = [];
     public bool HasChanges => Changes.Count > 0;
     public bool HasError => Error is not null;
-    public bool IsBusy => SaveCommand.IsRunning || CalculateCommand.IsRunning || RefreshCommand.IsRunning || IsImporting;
-    public bool CanSave => !Material.NeedsReview && !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null;
+    public bool IsBusy => SaveCommand.IsRunning || CalculateCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || IsEditingPrices;
+    public bool CanSave => !Material.NeedsReview && !Annotations.NeedsReview && !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null && ThicknessOptions.CanSave;
     public bool CanRefresh => RequiresReload && !IsBusy && !HasPendingImport;
     partial void OnRequiresReloadChanged(bool value) => NotifyBusy();
     private void NotifyBusy()
@@ -110,10 +122,12 @@ public partial class EditOrderViewModel : ObservableObject
         _populating = true;
         var values = FieldValues(row);
         for (var i = 0; i < Fields.Count; i++) { Fields[i].Value = values[i]; _initial[Fields[i]] = values[i]; }
+        Annotations.Load(row.Annotations, row.ToSummary());
         _timeEdited = false; _populating = false;
         _quote = null; PriceText = "Не рассчитана";
         OnPropertyChanged(nameof(HasCuttingTimeNotice)); OnPropertyChanged(nameof(HasMetadata)); OnPropertyChanged(nameof(MetadataText));
         RefreshChanges();
+        ThicknessOptions?.SourceChanged();
     }
 
     private void RefreshChanges()
@@ -121,6 +135,8 @@ public partial class EditOrderViewModel : ObservableObject
         if (_populating || _initial.Count != Fields.Count) return;
         var changes = Fields.Where(field => field.Value != _initial[field])
             .Select(field => new OrderFieldChange(field.Label, Display(_initial[field]), Display(field.Value))).ToList();
+        if (Annotations.HasBending != (_expected.Annotations?.HasBending ?? false)) changes.Add(new("Гибка", _expected.Annotations?.HasBending == true ? "Да" : "Нет", Annotations.HasBending ? "Да" : "Нет"));
+        if (Annotations.Comment != (_expected.Annotations?.Comment ?? "")) changes.Add(new("Комментарий", Display(_expected.Annotations?.Comment), Display(Annotations.Comment)));
         AddImportedCountChanges(changes); Changes = changes;
     }
 
@@ -192,6 +208,7 @@ public partial class EditOrderViewModel : ObservableObject
         if (!CuttingDuration.TryParse(CuttingTime.Value, out var minutes))
         { CuttingTime.Error = CuttingDuration.ValidationMessage; throw new ArgumentException(CuttingTime.Error); }
         if (_timeEdited) values = values with { CuttingTime = minutes is { } time ? OrderCuttingTime.For(values.ToSummary(), time) : null };
+        values = values with { Annotations = Annotations.Build(values.ToSummary()) };
         var change = new OrderEditChange(_expected, values, _quote) { Machine = SelectedMachine }; change.Validate(); return change;
     }
 
@@ -201,7 +218,14 @@ public partial class EditOrderViewModel : ObservableObject
         AppDiagnostics.Current?.Mark(DiagnosticOperation.PriceRead);
         if (RequiresReload || SavedRecord is not null || SaveCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || HasPendingImport) return;
         Error = null; AccessHostHelp.ShowFor(null); _quote = null;
-        try { ShowQuote(await new CuttingPriceService(_store).CalculateAsync(BuildChange().PriceRequest, cancellationToken)); }
+        try
+        {
+            await ThicknessOptions.WaitForLoadAsync(cancellationToken);
+            if (ThicknessOptions.IsActive) await RefreshThicknessOptionsAsync(true, cancellationToken);
+            var result = await new CuttingPriceService(_store).CalculateResultAsync(BuildChange().PriceRequest, cancellationToken);
+            if (result.Quote is { } quote) ShowQuote(quote);
+            else { PriceText = "Не рассчитана"; Error = result.Error; }
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception) { Error = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось рассчитать цену."); AccessHostHelp.ShowFor(exception); }
     }
@@ -216,11 +240,16 @@ public partial class EditOrderViewModel : ObservableObject
         Error = null; AccessHostHelp.ShowFor(null);
         try
         {
+            await ThicknessOptions.WaitForLoadAsync();
+            if (!ThicknessOptions.CanSave || IsEditingPrices) return;
             var change = BuildChange();
+            var result = await new CuttingPriceService(_store).CalculateResultAsync(change.PriceRequest);
+            if (result.Quote is not { } quote)
+            { _quote = null; PriceText = "Не рассчитана"; Error = result.Error; return; }
             if (_quote is null)
             {
-                ShowQuote(await new CuttingPriceService(_store).CalculateAsync(change.PriceRequest));
-                Error = "Проверьте новую цену и подтвердите сохранение."; return;
+                ShowQuote(quote);
+                change = BuildChange();
             }
             SavedRecord = await _store.UpdateAsync(change);
             Saved?.Invoke(this, EventArgs.Empty);
@@ -246,6 +275,11 @@ public partial class EditOrderViewModel : ObservableObject
         if (current.Price != _expected.Price) differences.Add($"Стоимость: {StoredPriceText} → {current.Price?.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) ?? "—"} ₽");
         if (current.DeliveryNumber != _expected.DeliveryNumber) differences.Add($"БЛЦБ: {Display(_expected.DeliveryNumber)} → {Display(current.DeliveryNumber)}");
         if (current.Color != _expected.Color) differences.Add("Цвет изменён");
+        if (current.Annotations != _expected.Annotations)
+        {
+            if (current.Annotations?.HasBending != _expected.Annotations?.HasBending) differences.Add($"Гибка: {(_expected.Annotations?.HasBending == true ? "Да" : "Нет")} → {(current.Annotations?.HasBending == true ? "Да" : "Нет")}");
+            if (current.Annotations?.Comment != _expected.Annotations?.Comment) differences.Add($"Комментарий: {Display(_expected.Annotations?.Comment)} → {Display(current.Annotations?.Comment)}");
+        }
         Comparison = differences.Count > 0 ? string.Join("\n\n", differences) : "Обновлены другие данные заявки";
         Error = "Заявка изменена другим пользователем. Проверьте различия.";
     }
@@ -263,7 +297,11 @@ public partial class EditOrderViewModel : ObservableObject
     {
         if (_current is null || IsBusy || HasPendingImport) return;
         var edits = Fields.Where(field => field.Value != _initial[field] || ImportPreview is not null && ImportFields.Values.Contains(field)).ToDictionary(field => field, field => field.Value);
+        var bendingEdited = Annotations.HasBending != (_expected.Annotations?.HasBending ?? false); var bending = Annotations.HasBending;
+        var commentEdited = Annotations.Comment != (_expected.Annotations?.Comment ?? ""); var comment = Annotations.Comment;
         _expected = _current; Populate(_current);
+        if (bendingEdited) Annotations.HasBending = bending;
+        if (commentEdited) Annotations.Comment = comment;
         foreach (var (field, value) in edits) field.Value = value;
         if (ImportPreview is not null) _timeEdited = true;
         OnPropertyChanged(nameof(HasCuttingTimeNotice));

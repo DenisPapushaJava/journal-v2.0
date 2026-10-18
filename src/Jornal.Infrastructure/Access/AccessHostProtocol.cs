@@ -3,7 +3,7 @@ using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Access;
 
-public enum AccessHostOperation { Probe, Read, SetColor, SetDeliveryNumber, ReadPriceTable, CreateOrder, ReadOrder, UpdateOrder, DeleteOrder, RestoreOrder, PrepareCuttingTime, CreateOrders, UpdatePriceTable, ReadMachines, CreateMachine }
+public enum AccessHostOperation { Probe, Read, SetColor, SetDeliveryNumber, ReadPriceTable, CreateOrder, ReadOrder, UpdateOrder, DeleteOrder, RestoreOrder, PrepareCuttingTime, CreateOrders, UpdatePriceTable, ReadMachines, CreateMachine, PrepareAnnotations, ReadPriceUsage }
 
 // Один запрос на процесс. Рабочие пути и данные передаются только по перенаправленному stdin.
 public sealed record AccessHostRequest(int Protocol, AccessHostOperation Operation, string Path,
@@ -15,7 +15,8 @@ public sealed record AccessHostRequest(int Protocol, AccessHostOperation Operati
 public sealed record AccessHostResponse(int Protocol, OrderSummary[]? Orders = null,
     string? Error = null, OrderWriteFailure? Failure = null, string? Provider = null, PriceTable? PriceTable = null,
     CuttingPriceQuote? ChangedQuote = null, OrderRecord? Record = null, bool? MaintenanceCompleted = null, bool? CuttingTimePrepared = null,
-    Diagnostics.DiagnosticReport? Diagnostic = null, int? ChangedDraftIndex = null, CuttingMachine[]? Machines = null, CuttingMachine? Machine = null);
+    Diagnostics.DiagnosticReport? Diagnostic = null, int? ChangedDraftIndex = null, CuttingMachine[]? Machines = null, CuttingMachine? Machine = null, bool? AnnotationsPrepared = null, bool AnnotationsSupported = false,
+    PriceThicknessUsage[]? PriceUsage = null);
 
 public static class AccessHostDiagnostics
 {

@@ -53,7 +53,6 @@ public sealed class EditSpecificationImportTests
         Assert.Equal(new DateTime(2026, 5, 14), change.Values.Date); Assert.Equal("0514-0078", change.Values.Specification);
         Assert.Equal(200 * 60 + 1, change.Values.ToSummary().CuttingDurationMinutes);
         Assert.Contains(form.Changes, row => row.Label == "Пробивки" && row.Before == "340" && row.After == "31");
-        await form.SaveCommand.ExecuteAsync(null); Assert.Equal(0, store.Updates); Assert.Null(form.SavedRecord);
         await form.SaveCommand.ExecuteAsync(null); Assert.Equal(1, store.Updates); Assert.Equal(change.Values with { Price = form.SavedRecord!.Price }, store.Current);
     }
     [Theory]
@@ -161,7 +160,6 @@ public sealed class EditSpecificationImportTests
             await new SpecificationImportService().ReadAsync(html.Path, Token);
         form.ImportReader = new BatchImportTests.Reader(preview);
         await form.RequestImportAsync([hans ? "new.pdf" : "new.html"], Token); form.ReplaceImportCommand.Execute(null);
-        await form.SaveCommand.ExecuteAsync(null); Assert.Null(form.SavedRecord);
         Assert.Equal(before, await File.ReadAllBytesAsync(fixture.Path, Token));
         await form.SaveCommand.ExecuteAsync(null); Assert.NotNull(form.SavedRecord);
         var reopened = new LocalJournalStore(fixture.Path); var rows = await reopened.ReadAsync(Token);

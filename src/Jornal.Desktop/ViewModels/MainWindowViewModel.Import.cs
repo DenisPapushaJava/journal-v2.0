@@ -55,17 +55,24 @@ public partial class MainWindowViewModel
             _ = batch.AddBatchFilesAsync(paths, cancellationToken);
             return batch;
         }
+        if (CreateOrderForm(forImport: true) is not { } form) return null;
         SpecificationOverlayDescription = Path.GetFileName(paths[0]);
         IsImportingSpecification = true;
-        SpecificationImportPreview? preview = null;
-        try { preview = await reader.ReadAsync(paths[0], cancellationToken); cancellationToken.ThrowIfCancellationRequested(); }
+        try
+        {
+            var preview = await reader.ReadAsync(paths[0], cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            // AWJC связывается с каталогом текущей базы до заполнения формы.
+            await form.LoadMachinesAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            form.ApplyImport(preview, paths[0]);
+            return form;
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (DocumentRejectedException exception) { SpecificationImportError = exception.Message; }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         { SpecificationImportError = AppDiagnostics.Describe(DiagnosticOperation.SpecificationImport, exception, "Не удалось прочитать спецификацию."); }
         finally { IsImportingSpecification = false; }
-        if (preview is null || cancellationToken.IsCancellationRequested || CreateOrderForm(forImport: true) is not { } form) return null;
-        form.ApplyImport(preview, paths[0]);
-        return form;
+        return null;
     }
 }

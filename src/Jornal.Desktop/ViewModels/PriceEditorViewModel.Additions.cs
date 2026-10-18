@@ -16,7 +16,7 @@ public sealed partial class PriceEditorViewModel
     private bool HasUnstagedRate => ShowAddRate && (!string.IsNullOrWhiteSpace(NewThickness) || !string.IsNullOrWhiteSpace(NewRate));
     public bool CanBeginAddRate => IsEditing && !IsBusy && !RequiresReload && !ShowAddRate && Rows.Count < 255;
     public bool CanStageRate => IsEditing && ShowAddRate && !IsBusy && !RequiresReload;
-    public bool ShowExpansionNotice => IsEditing && storage == PriceStorageKind.SharedDatabase && (ShowAddRate || Rows.Any(row => row.IsNew));
+    public bool ShowExpansionNotice => IsEditing && storage == PriceStorageKind.SharedDatabase && (ShowAddRate || Rows.Any(row => row.IsNew || row.IsThicknessChanged));
 
     partial void OnShowAddRateChanged(bool value) => NotifyAvailability();
     partial void OnNewThicknessChanged(string value) { AdditionError = null; ConfirmDiscard = false; NotifyAvailability(); }
@@ -33,11 +33,11 @@ public sealed partial class PriceEditorViewModel
     private void StageRate()
     {
         if (!CanStageRate) return;
-        if (!decimal.TryParse(NewThickness.Trim().Replace(',', '.'), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var thickness) || thickness <= 0)
+        if (!decimal.TryParse(NewThickness?.Trim().Replace(',', '.'), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var thickness) || thickness <= 0)
         { AdditionError = "Укажите положительную толщину."; return; }
-        if (Rows.Any(row => row.Original.ThicknessMillimeters == thickness))
+        if (Rows.Any(row => row.TryGetThickness(out var value) && value == thickness || !row.IsNew && row.Original.ThicknessMillimeters == thickness))
         { AdditionError = "Такая толщина уже есть в прайсе."; return; }
-        if (!int.TryParse(NewRate.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var amount))
+        if (!int.TryParse(NewRate?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var amount))
         { AdditionError = "Укажите целую цену от 0 до 2 147 483 647 ₽."; return; }
         var added = new PriceRowViewModel(new(thickness, PriceTableChange.ColumnName(thickness), amount), isNew: true);
         var sorted = Rows.Append(added).OrderBy(row => row.Original.ThicknessMillimeters).ToArray();

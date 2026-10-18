@@ -66,7 +66,12 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
     public AccessHostHelpViewModel AccessHostHelp { get; } = new();
-    partial void OnErrorMessageChanged(string? value) => AccessHostHelp.ShowFor(null);
+    partial void OnErrorMessageChanged(string? value)
+    {
+        if (_selectionNotice is { } notice && notice.Message != value)
+        { _selectionNotice = null; OnPropertyChanged(nameof(HasSelectionNotice)); }
+        AccessHostHelp.ShowFor(null);
+    }
     public bool ShowEmptyState => HasNoOrders && !IsLoadingOrders && !HasError;
     public string ThemeActionLabel => IsDarkTheme ? "Включить светлую тему" : "Включить тёмную тему";
     public bool FilterAll => StatusFilter == OrderStatusFilter.All;
@@ -84,15 +89,14 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             _pendingCreationForm = null;
             pending.ExistingOrders = _allOrders;
             pending.ResumeAfterReload();
-            pending.Manager.Suggestions = _entrySuggestions.Managers;
-            pending.Customer.Suggestions = _entrySuggestions.Customers;
+            pending.SetEntrySuggestions(_entrySuggestions);
             return pending;
         }
         var form = new NewOrderViewModel(orderCreator!, _source?.IsLocalCopy == true,
             isDatabase: _source?.Path is not null && _source.IsLocalCopy == false, initialColor: EffectiveNewOrderColor);
         form.ExistingOrders = _allOrders;
-        form.Manager.Suggestions = _entrySuggestions.Managers;
-        form.Customer.Suggestions = _entrySuggestions.Customers;
+        form.PriceEditorFactory = CreatePriceEditor;
+        form.SetEntrySuggestions(_entrySuggestions);
         form.SaveCommand.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) IsUpdatingOrders = form.SaveCommand.IsRunning;
@@ -143,6 +147,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     {
         var visibleIds = Orders.Select(row => row.Id).ToHashSet();
         _selectedOrderIds = selected.Select(row => row.Id).Where(visibleIds.Contains).ToHashSet();
+        RefreshSelectionNotice();
         var count = _selectedOrderIds.Count;
         _selectedCount = count;
         _activeOrderId = count == 1 ? _selectedOrderIds.Single()

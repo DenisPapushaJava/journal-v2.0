@@ -33,13 +33,13 @@ public sealed class PriceEditorWindowTests
             window.Show(); Pump();
             Assert.Equal(5, window.FindControl<ListBox>("PriceGroups")!.ItemCount);
             Assert.True(model.CanEdit); Assert.Equal(16, model.Rows.Count);
-            Assert.False(window.FindControl<DataGrid>("PriceGrid")!.Columns[2].IsVisible);
+            Assert.False(window.FindControl<DataGrid>("PriceGrid")!.Columns[3].IsVisible);
             Save(window, $"prices-view-{width}-{dark}");
             Click(window, "EditPricesButton");
             Assert.True(model.IsEditing); Assert.False(window.FindControl<ListBox>("PriceGroups")!.IsEffectivelyEnabled);
             var grid = window.FindControl<DataGrid>("PriceGrid")!;
-            Assert.True(grid.Columns[2].IsVisible);
-            var input = grid.GetVisualDescendants().OfType<TextBox>().First();
+            Assert.True(grid.Columns[3].IsVisible);
+            var input = grid.GetVisualDescendants().OfType<TextBox>().First(box => box.Classes.Contains("tariff-price"));
             input.Text = "2+1"; Pump(); Assert.True(model.HasInvalidPrices);
             Assert.False(window.FindControl<JournalButton>("SavePricesButton")!.IsEffectivelyEnabled);
             input.Text = "32"; Pump(); Assert.Equal("32", model.Rows[0].Value); Assert.True(model.CanSave);
@@ -160,6 +160,45 @@ public sealed class PriceEditorWindowTests
             Assert.DoesNotContain(store.ReadAsync(PriceTables.Laser).Result.Rates, rate => rate.ThicknessMillimeters == 2.8m);
         }
         finally { if (prices.IsEditing) prices.CancelEditCommand.Execute(null); window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, 960, 700)]
+    [InlineData(true, 960, 700)]
+    [InlineData(false, 840, 560)]
+    [InlineData(true, 840, 560)]
+    public async Task ThicknessInputsAndScrollableConfirmationFitWithoutWritingUntilConfirmed(bool dark, int width, int height)
+    {
+        var store = new DemoOrderStore(); var prices = new PriceEditorViewModel(store.Prices, store.Prices, "Демо", "", PriceStorageKind.Session);
+        var window = new PriceEditorWindow { DataContext = prices, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light, Width = width, Height = height };
+        try
+        {
+            window.Show(); Pump(); Click(window, "EditPricesButton");
+            var grid = window.FindControl<DataGrid>("PriceGrid")!;
+            var input = grid.GetVisualDescendants().OfType<TextBox>().First(box => box.Classes.Contains("tariff-thickness"));
+            input.Text = "0,6"; Pump(); Assert.Equal("0,6", prices.Rows[0].ThicknessValue);
+            prices.Rows.Single(row => row.Thickness == "2,5").ThicknessValue = "2,8";
+            Click(window, "SavePricesButton"); Assert.Equal(2, prices.ThicknessChanges.Count);
+            Save(window, $"prices-thickness-confirm-short-{width}-{dark}");
+            Click(window, "BackFromThicknessConfirmationButton"); Assert.True(prices.IsEditing);
+            foreach (var row in prices.Rows.Skip(1))
+                row.ThicknessValue = (row.Original.ThicknessMillimeters + 0.03m).ToString(System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+            Pump(); Assert.Equal(16, prices.ChangedCount);
+            Save(window, $"prices-thickness-edit-{width}-{dark}");
+            Click(window, "SavePricesButton"); Pump();
+            Assert.True(prices.IsConfirmingThickness); Assert.Equal(16, prices.ThicknessChanges.Count);
+            Assert.True(prices.HasAffectedOrders); Assert.False(grid.IsEffectivelyEnabled);
+            Assert.True(window.FindControl<JournalButton>("BackFromThicknessConfirmationButton")!.IsFocused);
+            foreach (var button in window.GetVisualDescendants().OfType<JournalButton>().Where(button => button.IsEffectivelyVisible)) InBounds(window, button);
+            Save(window, $"prices-thickness-confirm-{width}-{dark}");
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); Pump();
+            Assert.False(prices.IsConfirmingThickness); Assert.True(window.IsVisible); Assert.Equal("0,6", prices.Rows[0].ThicknessValue);
+            Assert.Equal(0.5m, (await store.ReadAsync(PriceTables.Laser)).Rates[0].ThicknessMillimeters);
+            Click(window, "SavePricesButton"); Click(window, "ConfirmThicknessChangesButton");
+            Assert.False(prices.IsEditing); Assert.False(prices.HasError, prices.Error);
+            Assert.Equal(0.6m, (await store.ReadAsync(PriceTables.Laser)).Rates[0].ThicknessMillimeters);
+        }
+        finally { if (prices.IsConfirmingThickness) prices.DismissThicknessConfirmation(); if (prices.IsEditing) prices.CancelEditCommand.Execute(null); window.Close(); }
     }
 
     private sealed class PendingEditor(IPriceEditor inner) : IPriceEditor

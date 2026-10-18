@@ -16,22 +16,40 @@ public sealed class JournalClipboardTests
 {
     internal static OrderSummary Order(int id = 100) => new(id, new(2026, 10, 17), "1017-1234", "Иван", "Пример", "Лазер", "Ст3", 2.5m, 1000m, null) { DeliveryNumber = "РП-00012345" };
     [Fact]
-    public void RowAndTelegramPreserveLegacyFormatAndSeparateHeadersBeforeMachines()
+    public void RowKeepsLegacyFormatAndTelegramUsesPlainTextWithSeparateHeaders()
     {
         var order = Order();
         Assert.Equal("(2,5 мм)  1017-1234,  Иван,  (Пример),  РП-00012345", OrderCommentFormatter.Row(order));
-        Assert.Equal("12345  Иван (Пример)\n**2,5 мм Ст3**   на Лазер\n\n", OrderCommentFormatter.Telegram([order]));
+        Assert.Equal("12345  Иван (Пример)\n2,5 мм Ст3   на Лазер\n\n", OrderCommentFormatter.Telegram([order]));
         var gas = order with { Id = 101, CuttingType = "Газо-кислородная", ThicknessMillimeters = 20 };
         var hydro = order with { Id = 102, CuttingType = "Гидроабразивная" };
-        var another = order with { Id = 103, DeliveryNumber = "РП-00000042", CustomerName = "Другой заказчик" };
+        var another = order with { Id = 103, CustomerName = "Другой заказчик" };
         var text = OrderCommentFormatter.Telegram([gas, hydro, order, another]);
         Assert.True(text.IndexOf("на Лазер", StringComparison.Ordinal) < text.IndexOf("на Кристалл", StringComparison.Ordinal));
-        Assert.Contains("на Кристалл резка газом\n\n**2,5 мм Ст3**   на Гидроабразивная", text);
-        Assert.Contains("42  Иван (Другой заказчик)", text);
-        var collision = OrderCommentFormatter.Telegram([order, order with { Id = 104, DeliveryNumber = "ДРУГОЙ-12345" }]);
-        Assert.Contains("РП-00012345  Иван", collision); Assert.Contains("ДРУГОЙ-12345  Иван", collision);
+        Assert.Contains("на Кристалл резка газом\n\n2,5 мм Ст3   на Гидроабразивная", text);
+        Assert.Contains("12345  Иван (Другой заказчик)", text);
         Assert.Throws<ArgumentException>(() => OrderCommentFormatter.Telegram([order, order with { DeliveryNumber = "" }]));
-        Assert.Equal("0  Иван (Пример)\n**2,5 мм Ст3**   на Лазер\n\n", OrderCommentFormatter.Telegram([order with { DeliveryNumber = "00000" }]));
+        Assert.Equal("0  Иван (Пример)\n2,5 мм Ст3   на Лазер\n\n", OrderCommentFormatter.Telegram([order with { DeliveryNumber = "00000" }]));
+    }
+    [Fact]
+    public void TelegramSortsNumericallyWithinEveryMachineRegardlessOfSelectionOrder()
+    {
+        string[] machines = ["Лазер", "HansLaser", "Плазма", "Газо-кислородная", "Гидроабразивная"];
+        var orders = machines.SelectMany((machine, index) => new[]
+        {
+            Order(index * 10 + 1) with { CuttingType = machine, ThicknessMillimeters = 10 },
+            Order(index * 10 + 2) with { CuttingType = machine, ThicknessMillimeters = 3, MaterialName = "Рифлен." },
+            Order(index * 10 + 3) with { CuttingType = machine, ThicknessMillimeters = 0.8m },
+            Order(index * 10 + 4) with { CuttingType = machine, ThicknessMillimeters = 2.5m },
+            Order(index * 10 + 5) with { CuttingType = machine, ThicknessMillimeters = null },
+            Order(index * 10 + 6) with { CuttingType = machine, ThicknessMillimeters = 2.5m, MaterialName = "Aisi-430" }
+        }).ToArray();
+        var text = OrderCommentFormatter.Telegram(orders);
+        Assert.Equal(text, OrderCommentFormatter.Telegram(orders.Reverse().ToArray()));
+        Assert.DoesNotContain("**", text);
+        const string sorted = "0,8 мм Ст3  \n2,5 мм Aisi-430  \n2,5 мм Ст3  \n3 мм Рифлен.  \n10 мм Ст3  \n мм Ст3   на ";
+        foreach (var caption in new[] { "Лазер", "HansLaser", "Плазму", "Кристалл резка газом", "Гидроабразивная" })
+            Assert.Contains(sorted + caption, text);
     }
     [Theory]
     [InlineData("CON")][InlineData("nul.txt")][InlineData("COM¹")][InlineData("lpt9.")][InlineData("AUX ")][InlineData("CONOUT$")]

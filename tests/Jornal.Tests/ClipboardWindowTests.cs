@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -17,6 +19,51 @@ namespace Jornal.Tests;
 
 public sealed class ClipboardWindowTests
 {
+    [AvaloniaTheory]
+    [InlineData(false, false)] [InlineData(true, false)]
+    [InlineData(false, true)] [InlineData(true, true)]
+    public async Task SelectionNoticeFitsAndSurvivesSortingAndStatusUntilDeliveryIsFixed(bool dark, bool differentDelivery)
+    {
+        var (model, _) = differentDelivery ? await ClipboardSelectionNoticeTests.MixedModel() : await ClipboardSelectionNoticeTests.Model();
+        var window = new MainWindow(new MemoryUiPreferencesStore()) { DataContext = model, Width = 1280, Height = 720,
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        try
+        {
+            window.Show(); await window.LoadInitialOrdersAsync(); Dispatcher.UIThread.RunJobs();
+            var grid = window.FindControl<DataGrid>("OrdersGrid")!;
+            var rows = model.Orders.Where(row => row.Id > 3).OrderBy(row => row.Id).ToArray();
+            foreach (var row in rows) grid.SelectedItems.Add(row);
+            var clipboard = new RecordingJournalClipboard { Text = "Прежний буфер" };
+            await model.CopyCommentAsync(clipboard, true); Dispatcher.UIThread.RunJobs();
+            Assert.True(model.HasSelectionNotice);
+            var text = window.FindControl<TextBlock>("JournalErrorText")!;
+            Assert.Contains(rows[0].SpecificationNumber, text.Text);
+            Assert.Contains(rows[differentDelivery ? rows.Length - 1 : 1].SpecificationNumber, text.Text);
+            Assert.True(window.FindControl<Border>("LoadErrorPanel")!.Bounds.Height < 100);
+            if (Environment.GetEnvironmentVariable("JOURNAL_SCREENSHOT_DIR") is { } directory)
+            {
+                Directory.CreateDirectory(directory); using var image = new RenderTargetBitmap(PixelSize.FromSize(window.ClientSize, 1)); image.Render(window);
+                image.Save(Path.Combine(directory, $"clipboard-notice-{dark}-{differentDelivery}.png"), new PngBitmapEncoderOptions());
+            }
+            grid.Columns.Single(c => Equals(c.Header, "Спецификация")).Sort(System.ComponentModel.ListSortDirection.Ascending);
+            Dispatcher.UIThread.RunJobs(); Assert.True(model.HasSelectionNotice); Assert.Equal(rows.Length, grid.SelectedItems.Count);
+            await model.SetOrderColorCommand.ExecuteAsync(Jornal.Core.Orders.OrderColors.Ready);
+            Dispatcher.UIThread.RunJobs(); Assert.True(model.HasSelectionNotice); Assert.Equal(rows.Length, grid.SelectedItems.Count);
+            var dismiss = window.FindControl<JournalButton>("DismissSelectionNoticeButton")!;
+            Assert.True(dismiss.IsEffectivelyVisible);
+            var point = dismiss.TranslatePoint(new Point(dismiss.Bounds.Width / 2, dismiss.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Dispatcher.UIThread.RunJobs();
+            Assert.False(model.HasError); Assert.False(dismiss.IsVisible);
+            await model.CopyCommentAsync(clipboard, true); Assert.True(model.HasSelectionNotice);
+            var delivery = model.CreateDeliveryNumberForm()!; delivery.Number = "9285";
+            await delivery.SaveCommand.ExecuteAsync(null); Dispatcher.UIThread.RunJobs();
+            Assert.True(delivery.IsSaved); Assert.False(model.HasError); Assert.False(dismiss.IsVisible);
+            Assert.Equal("Прежний буфер", clipboard.Text);
+            await model.CopyCommentAsync(clipboard, true); Assert.Contains("9285", clipboard.Text);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(false)] [InlineData(true)]
     public async Task FolderPreviewIsCompactAndBusyCopyProtectsBothWindows(bool dark)

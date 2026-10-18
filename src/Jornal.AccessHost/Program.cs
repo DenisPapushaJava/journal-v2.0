@@ -47,6 +47,11 @@ try
         var machine = await new OleDbMachineCatalog(request.Path).CreateMachineAsync(creation);
         response = new(1, Machine: machine, PriceTable: new(machine.TableName, true, creation.Rates));
     }
+    else if (request.Operation == AccessHostOperation.PrepareAnnotations)
+    {
+        await new OleDbOrderAnnotations(request.Path).PrepareAnnotationsAsync();
+        response = new(1, AnnotationsPrepared: true);
+    }
     else if (request.Operation == AccessHostOperation.PrepareCuttingTime)
     {
         diagnosticStage = DiagnosticStage.PrepareCuttingTime;
@@ -58,6 +63,9 @@ try
     else if (request.Operation == AccessHostOperation.UpdatePriceTable)
         response = new(1, PriceTable: await new OleDbPriceEditor(request.Path).SaveAsync(
             request.PriceChange ?? throw new InvalidDataException("Не переданы изменения прайса.")));
+    else if (request.Operation == AccessHostOperation.ReadPriceUsage)
+        response = new(1, PriceUsage: (await new OleDbPriceEditor(request.Path).ReadThicknessUsageAsync(
+            request.PriceChange ?? throw new InvalidDataException("Не переданы изменения толщин."))).ToArray());
     else if (request.Operation is AccessHostOperation.ReadOrder or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder)
     {
         var maintenance = new OleDbOrderMaintenance(request.Path);
@@ -100,7 +108,7 @@ catch (Exception exception)
         ? exception.Message : "Модуль Access не смог выполнить запрос.",
         Failure: failure, Diagnostic: CaptureHost(exception, failure));
 }
-await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response));
+await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response with { AnnotationsSupported = true }));
 return 0;
 
 DiagnosticReport? CaptureHost(Exception exception, OrderWriteFailure? failure)

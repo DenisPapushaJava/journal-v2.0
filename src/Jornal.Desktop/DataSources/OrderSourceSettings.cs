@@ -102,7 +102,8 @@ public sealed class OrderSourceManager(IOrderSourceSettingsStore settingsStore, 
         }
         IOrderReader reader = readerFactory?.Invoke(path) ?? new AccessOrderReader(path);
         if (readerFactory is null && OperatingSystem.IsWindows())
-            reader = new OrderDurationPreparingReader(reader, AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderExtras(path));
+            reader = new OrderDurationPreparingReader(reader, AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderExtras(path),
+                AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbOrderAnnotations(path));
         return new(System.IO.Path.GetFullPath(path), reader,
             Creator: creatorFactory is not null ? creatorFactory(path) : readerFactory is null && OperatingSystem.IsWindows()
                 ? AccessHostClient.IsBundled ? new AccessHostClient(path) : new OleDbManualOrderCreator(path) : null,

@@ -16,6 +16,7 @@ public sealed record OrderFolderPlan(IReadOnlyList<OrderFolderItem> Items)
     {
         if (nameLimit is < 40 or > MaximumNameLength) throw new ArgumentException("Слишком длинный путь к временным файлам.");
         if (orders.Count is < 1 or > MaximumFolders) throw new ArgumentException($"Выберите от 1 до {MaximumFolders} заявок.");
+        OrderCommentFormatter.RequireSameDeliveryNumber(orders);
         var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase); var result = new List<OrderFolderItem>();
         foreach (var order in orders)
         {

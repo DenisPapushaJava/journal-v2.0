@@ -6,17 +6,16 @@ namespace Jornal.Desktop.Views;
 
 public partial class MainWindow
 {
-    private async void OnSetCustomColorClick(object? sender, RoutedEventArgs e) => await ShowRowColorAsync(false);
-    private async void OnGetColorCodeClick(object? sender, RoutedEventArgs e) => await ShowRowColorAsync(true);
-    private async Task ShowRowColorAsync(bool copyOnly)
+    private async void OnSetCustomColorClick(object? sender, RoutedEventArgs e) => await ShowRowColorAsync();
+    private async Task ShowRowColorAsync()
     {
         if (_viewModel is not { } model || OwnedWindows.Count > 0) return;
         try
         {
-            if (model.CreateRowColorForm(SelectionClipboard(), copyOnly) is { } form)
+            if (model.CreateRowColorForm() is { } form)
                 await new RowColorWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant }.ShowDialog(this);
         }
-        catch (Exception exception) { model.ErrorMessage = AppDiagnostics.Describe(copyOnly ? DiagnosticOperation.Clipboard : DiagnosticOperation.OrderBatch, exception, "Не удалось открыть выбор цвета."); }
+        catch (Exception exception) { model.ErrorMessage = AppDiagnostics.Describe(DiagnosticOperation.OrderBatch, exception, "Не удалось открыть выбор цвета."); }
     }
     public string? SaveEntrySuggestions(EntrySuggestions value)
     {

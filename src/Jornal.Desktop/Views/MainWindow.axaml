@@ -148,7 +148,7 @@
                                   Click="OnDeliveryNumberClick" ToolTip.Tip="Изменить номер БЛЦБ у выбранных заявок" />
                 <ui:JournalButton x:Name="CreateFoldersButton" Label="Создать папки" Icon="folder-plus" IsEnabled="{Binding CanPrepareFolders}" Click="OnCreateFoldersClick" ToolTip.Tip="Подготовить папки для вставки" />
                 <ui:JournalButton x:Name="CopyRowCommentButton" Label="Комментарий строки" Icon="message-square" IsEnabled="{Binding CanCopyRowComment}" Click="OnCopyRowCommentClick" ToolTip.Tip="{Binding RowCommentHint}" />
-                <ui:JournalButton x:Name="CopyTelegramCommentButton" Label="Telegram комментарий" Icon="clipboard-copy" IsEnabled="{Binding CanCopyTelegramComment}" Click="OnCopyTelegramCommentClick" ToolTip.Tip="Скопировать комментарий для Telegram" />
+                <ui:JournalButton x:Name="CopyTelegramCommentButton" Label="Задание на резку" Icon="clipboard-copy" IsEnabled="{Binding CanCopyTelegramComment}" Click="OnCopyTelegramCommentClick" ToolTip.Tip="Скопировать задание на резку" />
               </ui:AdaptiveCommandPanel>
             </Grid>
           </Border>
@@ -170,7 +170,6 @@
                 <ui:JournalButton x:Name="SetCustomColorButton" Label="Цвет…" Icon="palette" Classes="outline" IsEnabled="{Binding CanUpdateSelectedOrders}" Click="OnSetCustomColorClick" ToolTip.Tip="Цвет выбранных заявок" />
                 <ui:JournalButton x:Name="ClearColorButton" Label="Снять цвет" Command="{Binding SetOrderColorCommand}"
                                   CommandParameter="{x:Static orders:OrderColors.None}" />
-                <ui:JournalButton x:Name="GetColorCodeButton" Label="Код цвета" Icon="hash" IsEnabled="{Binding CanGetColorCode}" Click="OnGetColorCodeClick" ToolTip.Tip="Выбрать цвет и скопировать код ARGB" />
               </ui:AdaptiveCommandPanel>
             </Grid>
           </Border>
@@ -229,10 +228,14 @@
           </Grid>
         </Grid>
         <Border x:Name="LoadErrorPanel" Grid.Row="2" IsVisible="{Binding HasError}" Background="{DynamicResource JournalDangerBackground}" CornerRadius="6" Padding="12" Margin="0,0,0,12">
-          <StackPanel Spacing="8">
-            <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-            <ui:WindowsSecurityHelp DataContext="{Binding AccessHostHelp}" />
-          </StackPanel>
+          <Grid ColumnDefinitions="*,8,Auto">
+            <StackPanel Spacing="8">
+              <TextBlock x:Name="JournalErrorText" Text="{Binding ErrorMessage}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+              <ui:WindowsSecurityHelp DataContext="{Binding AccessHostHelp}" />
+            </StackPanel>
+            <ui:JournalButton x:Name="DismissSelectionNoticeButton" Grid.Column="2" Label="Закрыть сообщение" Icon="x" IconOnly="True" Width="28" Height="28" Padding="0"
+                              VerticalAlignment="Top" IsVisible="{Binding HasSelectionNotice}" Command="{Binding DismissSelectionNoticeCommand}" ToolTip.Tip="Закрыть сообщение" />
+          </Grid>
         </Border>
         <Border x:Name="TablePanel" Grid.Row="3" Classes="panel" ClipToBounds="True">
           <Grid>
@@ -305,6 +308,22 @@
                     <DataTemplate x:DataType="vm:OrderRowViewModel">
                       <TextBlock Text="{Binding CuttingTimeText}" ui:TableCellPresentation.Hint="{Binding CuttingTimeHint}"
                                  VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Гибка" SortMemberPath="HasBending" Width="68" MinWidth="60" IsReadOnly="True">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:OrderRowViewModel">
+                      <TextBlock Text="{Binding BendingText}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"
+                                 ui:TableCellPresentation.Hint="{Binding AnnotationHint}" AutomationProperties.Name="{Binding BendingDescription}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Комментарий" SortMemberPath="Comment" Width="200" MinWidth="120" IsReadOnly="True">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:OrderRowViewModel">
+                      <TextBlock Text="{Binding CommentText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                 ui:TableCellPresentation.Hint="{Binding AnnotationHint}" />
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

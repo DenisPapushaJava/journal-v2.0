@@ -31,5 +31,6 @@
               <ui:OrderEntryControl DataContext="{Binding MaterialId}" />
               <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Gas}" />
             </Grid>
+   <ui:OrderAnnotationsControl DataContext="{Binding Annotations}" />
  </StackPanel>
 </UserControl>
