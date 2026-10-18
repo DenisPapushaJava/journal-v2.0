@@ -202,6 +202,12 @@ public sealed class DatabaseWindowTests
         var control = window.FindDescendant<Control>(name)!;
         control.BringIntoView(); Pump();
         var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
+        // После закрытия модального окна сначала переводим указатель в главное,
+        // как при обычном действии пользователя, затем нажимаем кнопку.
+        window.MouseMove(point); Pump();
+        var hit = window.InputHitTest(point) as Visual;
+        Assert.True(ReferenceEquals(hit, control) || hit?.GetVisualAncestors().Contains(control) == true,
+            $"Клик {name} попал в {hit?.GetType().Name}: {point}, bounds={control.Bounds}");
         window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();
     }
     private static void Pump() { Dispatcher.UIThread.RunJobs(); }
