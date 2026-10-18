@@ -50,6 +50,7 @@ public partial class MainWindow : Window
         }, () => _viewModel?.FilterDate is null ? ListSortDirection.Descending : ListSortDirection.Ascending);
         ConfigureContextMenus();
         _journalRefreshTimer.Tick += OnJournalRefreshTick;
+        ConfigureJournalPointerTracking();
         DataContextChanged += (_, _) => ConnectViewModel();
         foreach (var column in OrdersGrid.Columns.Skip(1))
         {
@@ -108,6 +109,7 @@ public partial class MainWindow : Window
     {
         SearchBox.CancelPendingInput();
         _journalRefreshTimer.Stop();
+        _journalPressedPointers.Clear();
         _journalAutoRefresh?.Dispose();
         _updateChecksLifetime.Cancel();
         _updateChecksLifetime.Dispose();

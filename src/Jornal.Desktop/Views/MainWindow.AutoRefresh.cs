@@ -1,5 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Jornal.Desktop.Controls;
@@ -11,6 +13,40 @@ public partial class MainWindow
 {
     private JournalAutoRefresh? _journalAutoRefresh;
     private readonly DispatcherTimer _journalRefreshTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private readonly HashSet<IPointer> _journalPressedPointers = [];
+
+    private void ConfigureJournalPointerTracking()
+    {
+        AddHandler(PointerPressedEvent, OnJournalPointerPressed, RoutingStrategies.Tunnel, true);
+        AddHandler(PointerReleasedEvent, OnJournalPointerReleased, RoutingStrategies.Tunnel, true);
+        AddHandler(PointerMovedEvent, OnJournalPointerMoved, RoutingStrategies.Tunnel, true);
+        Deactivated += (_, _) => _journalPressedPointers.Clear();
+    }
+
+    private void OnJournalPointerPressed(object? sender, PointerPressedEventArgs e) => _journalPressedPointers.Add(e.Pointer);
+    private void OnJournalPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.Pointer.Type == PointerType.Touch || !HasPressedButtons(e.GetCurrentPoint(this).Properties))
+            _journalPressedPointers.Remove(e.Pointer);
+    }
+    private void OnJournalPointerMoved(object? sender, PointerEventArgs e)
+    {
+        // Движение без кнопок также завершает отменённый захват/отпускание вне окна.
+        if (e.Pointer.Type == PointerType.Touch) return;
+        if (HasPressedButtons(e.GetCurrentPoint(this).Properties)) _journalPressedPointers.Add(e.Pointer);
+        else _journalPressedPointers.Remove(e.Pointer);
+    }
+    private static bool HasPressedButtons(PointerPointProperties properties) => properties.IsLeftButtonPressed ||
+        properties.IsRightButtonPressed || properties.IsMiddleButtonPressed || properties.IsXButton1Pressed || properties.IsXButton2Pressed;
+    private bool HasJournalPointerGesture
+    {
+        get
+        {
+            // Отмена жеста/касания снимает захват без PointerReleased.
+            _journalPressedPointers.RemoveWhere(static pointer => pointer.Captured is null);
+            return _journalPressedPointers.Count > 0;
+        }
+    }
 
     private void InitializeAutoRefresh()
     {
@@ -39,7 +75,7 @@ public partial class MainWindow
         // Окна редактора, пакетного импорта, прайса и корзины используют тот же источник.
         // Пока они открыты, фон не читает MDB и не меняет экран под пользователем.
         await refresh.TickAsync(IsVisible && WindowState != WindowState.Minimized,
-            OwnedWindows.Count == 0 && model.CanAutomaticallyRefresh &&
+            !HasJournalPointerGesture && OwnedWindows.Count == 0 && model.CanAutomaticallyRefresh &&
             !(IsActive && ResultTextBox.IsKeyboardFocusWithin && !string.IsNullOrWhiteSpace(model.ResultText)) && !HasOpenJournalPopup);
     }
 }
