@@ -17,6 +17,68 @@ namespace Jornal.Tests;
 public sealed class JournalSearchWindowTests
 {
     [AvaloniaTheory]
+    [InlineData(false, 1)] [InlineData(true, 1)]
+    [InlineData(false, 1.5)] [InlineData(true, 1.5)]
+    public async Task ExactCheckboxFitsInSearchRowAndAppliesCurrentInputImmediately(bool dark, double scale)
+    {
+        var reader = new GlobalJournalSearchTests.Reader { Items = GlobalJournalSearchTests.NumberRows() };
+        var model = new MainWindowViewModel(reader) { IsDarkTheme = dark };
+        var window = new MainWindow { DataContext = model, Width = 1280, Height = 680 };
+        window.SetRenderScaling(scale);
+        try
+        {
+            window.Show(); Pump();
+            var field = window.FindControl<ComboBox>("SearchScopeSelector")!;
+            var exact = window.FindControl<CheckBox>("ExactSearchCheckBox")!;
+            var box = window.FindControl<JournalSearchBox>("SearchBox")!;
+            var grid = window.FindControl<DataGrid>("OrdersGrid")!;
+            Assert.False(exact.IsEffectivelyVisible);
+            field.SelectedIndex = (int)OrderSearchField.DeliveryNumber; Pump();
+            Assert.True(exact.IsEffectivelyVisible); Assert.False(model.SearchExactMatch);
+            Assert.True(box.Bounds.Width >= 160);
+            var fieldPoint = field.TranslatePoint(default, window)!.Value;
+            var exactPoint = exact.TranslatePoint(default, window)!.Value;
+            var boxPoint = box.TranslatePoint(default, window)!.Value;
+            Assert.True(fieldPoint.X + field.Bounds.Width + 8 <= exactPoint.X);
+            Assert.True(exactPoint.X + exact.Bounds.Width + 8 <= boxPoint.X);
+            Assert.InRange(Math.Abs(exactPoint.Y - boxPoint.Y), 0, 1);
+            Assert.True(boxPoint.X + box.Bounds.Width <= window.ClientSize.Width - 24);
+            box.Focus(); box.Text = "9285"; Pump(); Press(window, Key.Enter);
+            Assert.Equal(4, model.Orders.Count);
+            grid.SelectedItem = model.Orders[0]; Pump();
+            Click(window, exact);
+            Assert.True(exact.IsChecked); Assert.True(model.SearchExactMatch); Assert.Equal([1], Ids(model));
+            Assert.Empty(grid.SelectedItems);
+            if (scale == 1) Save(window, $"exact-search-{dark}");
+            Press(window, Key.F5); Assert.True(model.SearchExactMatch); Assert.Equal(2, reader.Calls);
+            box.Focus(); box.Text = "009285"; Pump(); Assert.True(box.IsPending);
+            Click(window, exact);
+            Assert.False(model.SearchExactMatch); Assert.False(box.IsPending);
+            Assert.Equal("009285", model.SearchText); Assert.Equal([3], Ids(model));
+            box.Focus(); box.Text = "9285"; Pump(); Click(window, exact);
+            Assert.True(model.SearchExactMatch); Assert.False(box.IsPending); Assert.Equal([1], Ids(model));
+            exact.Focus(); Press(window, Key.Space);
+            Assert.False(model.SearchExactMatch); Assert.Equal(4, model.Orders.Count);
+            Click(window, exact); box.Focus(); Press(window, Key.Escape);
+            Assert.True(model.SearchExactMatch); Assert.Equal("", box.Text); Assert.Equal(4, model.Orders.Count);
+            field.SelectedIndex = 0; Pump(); Assert.False(exact.IsEffectivelyVisible); Assert.False(model.SearchExactMatch);
+            field.SelectedIndex = (int)OrderSearchField.Specification; Pump(); Click(window, exact);
+            box.Focus(); box.Text = "не применять"; Pump(); Assert.True(box.IsPending);
+            model.ResetFiltersCommand.Execute(null); Pump();
+            Assert.False(model.SearchExactMatch); Assert.False(exact.IsEffectivelyVisible); Assert.False(box.IsPending);
+            await Task.Delay(350, TestContext.Current.CancellationToken); Pump();
+            Assert.Equal("", model.SearchText); Assert.Equal(4, model.Orders.Count); Assert.Equal(2, reader.Calls);
+        }
+        finally { window.Close(); }
+    }
+
+    private static void Click(Window window, Control control)
+    {
+        var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left); Pump();
+    }
+
+    [AvaloniaTheory]
     [InlineData(false)] [InlineData(true)]
     public async Task NewSearchDebouncesAndFindsAcrossEmptyFiltersThenCanBeNarrowedAndCleared(bool dark)
     {
@@ -108,7 +170,8 @@ public sealed class JournalSearchWindowTests
     private static void Pump() => Dispatcher.UIThread.RunJobs();
     private static void Press(Window window, Key key)
     {
-        var physical = key switch { Key.Enter => PhysicalKey.Enter, Key.F5 => PhysicalKey.F5, Key.Escape => PhysicalKey.Escape, _ => PhysicalKey.None };
+        var physical = key switch { Key.Enter => PhysicalKey.Enter, Key.F5 => PhysicalKey.F5, Key.Escape => PhysicalKey.Escape,
+            Key.Space => PhysicalKey.Space, _ => PhysicalKey.None };
         window.KeyPress(key, RawInputModifiers.None, physical, null);
         window.KeyRelease(key, RawInputModifiers.None, physical, null);
         Pump();

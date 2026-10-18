@@ -323,7 +323,7 @@
     <Setter Property="Background" Value="{DynamicResource JournalControlPressed}" />
     <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
   </Style>
-  <Style Selector="CheckBox.status-filter-option /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="CheckBox.status-filter-option /template/ ContentPresenter#PART_ContentPresenter, CheckBox.search-exact /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Margin" Value="8,0,0,0" />
   </Style>
   <Style Selector="RadioButton.filter">

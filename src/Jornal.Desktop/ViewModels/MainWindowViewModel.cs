@@ -15,7 +15,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     private IReadOnlyList<OrderSummary> _allOrders = [];
 
     [ObservableProperty] private string _searchText = string.Empty;
-    [ObservableProperty] private int _searchScopeIndex;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSpecificSearchField))] private int _searchScopeIndex;
     [ObservableProperty] private string _countText = "Заявок: 0";
     [ObservableProperty] private string _selectionText = "Выбрано: 0";
     [ObservableProperty] private string _activeOrderText = "Активная: —";

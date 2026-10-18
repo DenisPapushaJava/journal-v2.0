@@ -20,6 +20,47 @@ public sealed class GlobalJournalSearchTests
     }
     private static int[] Ids(MainWindowViewModel model) => model.Orders.Select(row => row.Id).Order().ToArray();
 
+    internal static OrderSummary[] NumberRows()
+    {
+        var seed = Rows()[0];
+        return new[] { "9285", "19285", "009285", "92850" }.Select((number, index) => seed with
+        { Id = index + 1, SpecificationNumber = $"1018-{index + 1}", DeliveryNumber = number,
+            ManagerName = index == 1 ? "Борис" : seed.ManagerName }).ToArray();
+    }
+
+    [Fact]
+    public async Task ExactModeStartsGlobalSearchAndSurvivesClearAndReloadButNotAllFieldsOrReset()
+    {
+        var reader = new Reader { Items = NumberRows() };
+        var model = new MainWindowViewModel(reader);
+        await model.ReloadCommand.ExecuteAsync(null);
+        model.SearchExactMatch = true; Assert.False(model.SearchExactMatch);
+        model.SearchScopeIndex = (int)OrderSearchField.DeliveryNumber;
+        Assert.True(model.HasSpecificSearchField); Assert.False(model.SearchExactMatch);
+        model.SearchText = "9285"; Assert.Equal(4, model.Orders.Count);
+        model.ResultText = "Письмо";
+        model.UpdateSelection([model.Orders[0]], model.Orders[0]);
+        model.FilterDate = new(2000, 1, 1); model.StatusFilter = OrderStatusFilter.Ready;
+        Assert.Empty(model.Orders);
+        model.SearchExactMatch = true;
+        Assert.Equal([1], Ids(model)); Assert.Null(model.FilterDate); Assert.False(model.HasAnyColumnFilter);
+        Assert.Equal("Выбрано: 0", model.SelectionText); Assert.Equal("Письмо", model.ResultText);
+        model.SearchText = "009285"; Assert.Equal([3], Ids(model));
+        LinkedColumnFilterTests.Select(model.ManagerFilter, "Анна");
+        reader.Items = reader.Items.Append(reader.Items[2] with { Id = 5 }).ToArray();
+        await model.ReloadCommand.ExecuteAsync(null);
+        Assert.Equal([3, 5], Ids(model)); Assert.True(model.SearchExactMatch); Assert.True(model.ManagerFilter.HasFilter);
+        model.ClearSearchCommand.Execute(null);
+        Assert.Equal(5, model.Orders.Count); Assert.True(model.SearchExactMatch);
+        Assert.Equal((int)OrderSearchField.DeliveryNumber, model.SearchScopeIndex);
+        model.SearchScopeIndex = 0; Assert.False(model.HasSpecificSearchField); Assert.False(model.SearchExactMatch);
+        model.SearchScopeIndex = (int)OrderSearchField.DeliveryNumber; Assert.False(model.SearchExactMatch);
+        model.SearchExactMatch = true; model.SearchText = "9285";
+        model.ResetFiltersCommand.Execute(null);
+        Assert.False(model.SearchExactMatch); Assert.Equal(0, model.SearchScopeIndex); Assert.Equal(5, model.Orders.Count);
+        Assert.Equal(2, reader.Calls);
+    }
+
     [Fact]
     public async Task NewQueryFindsOrdersOutsideEmptyFiltersThenFacetsNarrowTheMatches()
     {

@@ -213,10 +213,13 @@
             <ui:JournalDatePicker x:Name="DateFilter" SelectedDate="{Binding FilterDate}" PlaceholderText="Дата: любая" Width="160" MinHeight="32"
                                 AutomationProperties.Name="Дата заявки" />
           </StackPanel>
-          <Grid x:Name="SearchControls" Grid.Column="2" ColumnDefinitions="132,8,*,8,Auto" VerticalAlignment="Center">
-            <ComboBox ItemsSource="{Binding SearchScopes}" SelectedIndex="{Binding SearchScopeIndex}" HorizontalAlignment="Stretch"
+          <Grid x:Name="SearchControls" Grid.Column="2" ColumnDefinitions="132,Auto,8,*,8,Auto" VerticalAlignment="Center">
+            <ComboBox x:Name="SearchScopeSelector" ItemsSource="{Binding SearchScopes}" SelectedIndex="{Binding SearchScopeIndex}" HorizontalAlignment="Stretch"
                       AutomationProperties.Name="Поле поиска" MinHeight="36" />
-            <Grid Grid.Column="2" ColumnDefinitions="*,32">
+            <CheckBox x:Name="ExactSearchCheckBox" Grid.Column="1" Content="Полное совпадение" Classes="search-exact"
+                      IsChecked="{Binding SearchExactMatch}" IsVisible="{Binding HasSpecificSearchField}"
+                      Margin="12,0,0,0" MinHeight="36" VerticalAlignment="Center" />
+            <Grid Grid.Column="3" ColumnDefinitions="*,32">
               <ui:JournalSearchBox x:Name="SearchBox" Grid.ColumnSpan="2" Query="{Binding SearchText, Mode=TwoWay}" MinHeight="36" MinWidth="160" Padding="10,6,34,6"
                                    PendingChanged="OnSearchPendingChanged" ClearRequested="OnSearchClearRequested"
                                    PlaceholderText="Поиск по журналу" AutomationProperties.Name="Поиск по журналу" />
@@ -224,7 +227,7 @@
                                 VerticalAlignment="Center" HorizontalAlignment="Center" Click="OnClearSearchClick" ToolTip.Tip="Очистить поиск · Esc"
                                 IsVisible="{ReflectionBinding HasInput, ElementName=SearchBox}" />
             </Grid>
-            <ui:JournalButton Grid.Column="4" Label="Сбросить" Icon="x" Command="{Binding ResetFiltersCommand}" />
+            <ui:JournalButton Grid.Column="5" Label="Сбросить" Icon="x" Command="{Binding ResetFiltersCommand}" />
           </Grid>
           <Grid x:Name="ActiveColumnFilters" Grid.Row="1" Grid.ColumnSpan="3" ColumnDefinitions="Auto,*" Margin="0,4,0,0" IsVisible="{Binding HasAnyColumnFilter}" IsEnabled="{Binding CanUseJournal}">
             <ui:JournalButton x:Name="ActiveStatusFilterButton" Label="{Binding StatusFilterSummary}" Icon="x" Margin="0,4,8,0" VerticalAlignment="Top"

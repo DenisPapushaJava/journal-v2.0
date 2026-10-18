@@ -167,7 +167,8 @@ public partial class MainWindow : Window
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainWindowViewModel.SearchText)) SearchBox.CancelPendingInput();
-        if (e.PropertyName == nameof(MainWindowViewModel.SearchScopeIndex) && SearchBox.IsPending) SearchBox.SubmitInput();
+        if (e.PropertyName is nameof(MainWindowViewModel.SearchScopeIndex) or nameof(MainWindowViewModel.SearchExactMatch)
+            && SearchBox.IsPending) SearchBox.SubmitInput();
         if (e.PropertyName is nameof(MainWindowViewModel.IsImportingSpecification) or nameof(MainWindowViewModel.HasSpecificationImportError)) UpdateSpecificationFocus();
         if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme))
         { UpdateTheme(); _customization.AppearanceChanged(); }

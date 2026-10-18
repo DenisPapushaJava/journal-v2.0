@@ -13,13 +13,24 @@ public partial class MainWindowViewModel
     private readonly Dictionary<int, OrderRowViewModel> _rowCache = new();
     private IReadOnlyList<OrderSummary>? _cachedSource;
     [ObservableProperty] private bool _isSearchPending;
+    [ObservableProperty] private bool _searchExactMatch;
     public event EventHandler? SelectionClearingRequested;
 
     public IReadOnlyList<string> SearchScopes { get; } =
         ["Все поля", "Спецификация", "БЛЦБ", "Заказчик", "Менеджер", "Материал", "Комментарий"];
+    public bool HasSpecificSearchField => SearchScopeIndex > 0 && SearchScopeIndex < SearchScopes.Count;
 
     partial void OnSearchTextChanged(string value) => ChangeSearch();
-    partial void OnSearchScopeIndexChanged(int value) => ChangeSearch();
+    partial void OnSearchScopeIndexChanged(int value)
+    {
+        if (!HasSpecificSearchField && SearchExactMatch) { SearchExactMatch = false; return; }
+        ChangeSearch();
+    }
+    partial void OnSearchExactMatchChanged(bool value)
+    {
+        if (value && !HasSpecificSearchField) { SearchExactMatch = false; return; }
+        ChangeSearch();
+    }
     partial void OnIsSearchPendingChanged(bool value)
     {
         if (value) UpdateSelection([], null);
@@ -28,8 +39,9 @@ public partial class MainWindowViewModel
 
     private void ChangeSearch()
     {
-        var query = new OrderSearchQuery(SearchText, (OrderSearchField)SearchScopeIndex);
-        var unchanged = query.Field == _searchQuery.Field && string.Equals(query.Text, _searchQuery.Text, StringComparison.OrdinalIgnoreCase);
+        var query = new OrderSearchQuery(SearchText, (OrderSearchField)SearchScopeIndex, SearchExactMatch);
+        var unchanged = query.Field == _searchQuery.Field && query.IsExactMatch == _searchQuery.IsExactMatch
+            && string.Equals(query.Text, _searchQuery.Text, StringComparison.OrdinalIgnoreCase);
         _searchQuery = query;
         if (_resettingSearch || unchanged) return;
         ResetTableFilters();
