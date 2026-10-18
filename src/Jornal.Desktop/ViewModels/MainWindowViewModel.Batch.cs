@@ -93,13 +93,7 @@ public partial class MainWindowViewModel
 
     private bool MatchesCurrentFilters(OrderSummary order)
     {
-        var matchesStatus = StatusFilter switch
-        {
-            OrderStatusFilter.Work => order.Color == OrderColors.Work,
-            OrderStatusFilter.Ready => order.Color == OrderColors.Ready,
-            OrderStatusFilter.Shipped => order.Color == OrderColors.Shipped, _ => true
-        };
-        return matchesStatus && (!FilterDate.HasValue || order.OrderDate == DateOnly.FromDateTime(FilterDate.Value)) &&
+        return MatchesStatusFilter(order) && (!FilterDate.HasValue || order.OrderDate == DateOnly.FromDateTime(FilterDate.Value)) &&
             MatchesSearch(order, SearchText.Trim());
     }
 }

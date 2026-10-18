@@ -308,6 +308,24 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
   </Style>
+  <Style Selector="Button.command.status-filter-trigger:not(:pointerover):not(:pressed)">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalMuted}" />
+  </Style>
+  <Style Selector="Button.command.status-filter-trigger.active, Button.command.status-filter-chip">
+    <Setter Property="Background" Value="{DynamicResource JournalAccentSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="Button.command.status-filter-trigger.active">
+    <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
+  </Style>
+  <Style Selector="Button.command.status-filter-trigger:pointerover:not(:disabled), Button.command.status-filter-chip:pointerover:not(:disabled), Button.command.status-filter-trigger:pressed, Button.command.status-filter-chip:pressed">
+    <Setter Property="Background" Value="{DynamicResource JournalControlPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
+  </Style>
+  <Style Selector="CheckBox.status-filter-option /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
   <Style Selector="RadioButton.filter">
     <Setter Property="Theme" Value="{StaticResource JournalFilterButton}" />
     <Setter Property="MinHeight" Value="32" />

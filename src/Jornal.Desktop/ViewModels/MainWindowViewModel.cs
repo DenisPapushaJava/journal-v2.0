@@ -9,8 +9,6 @@ using Jornal.Desktop.DataSources;
 
 namespace Jornal.Desktop.ViewModels;
 
-public enum OrderStatusFilter { All, Work, Ready, Shipped }
-
 public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderCreator? orderCreator = null,
     IOrderBatchEditor? orderEditor = null, OrderSourceManager? sourceManager = null, AppUpdatesViewModel? appUpdates = null,
     Jornal.Infrastructure.Trash.ITrashStore? trashStore = null) : ObservableObject
@@ -55,13 +53,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public bool CanInteractWithTable => !IsUpdatingOrders && !IsLoadingOrders && !IsImportingSpecification;
     public bool CanClearSelection => _selectedCount > 0 && CanUseJournal;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(FilterAll))]
-    [NotifyPropertyChangedFor(nameof(FilterWork))]
-    [NotifyPropertyChangedFor(nameof(FilterReady))]
-    [NotifyPropertyChangedFor(nameof(FilterShipped))]
-    private OrderStatusFilter _statusFilter;
-
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError)), NotifyPropertyChangedFor(nameof(ShowEmptyState))] private string? _errorMessage;
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
@@ -74,10 +65,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     }
     public bool ShowEmptyState => HasNoOrders && !IsLoadingOrders && !HasError;
     public string ThemeActionLabel => IsDarkTheme ? "Включить светлую тему" : "Включить тёмную тему";
-    public bool FilterAll => StatusFilter == OrderStatusFilter.All;
-    public bool FilterWork => StatusFilter == OrderStatusFilter.Work;
-    public bool FilterReady => StatusFilter == OrderStatusFilter.Ready;
-    public bool FilterShipped => StatusFilter == OrderStatusFilter.Shipped;
     public ObservableCollection<OrderRowViewModel> Orders { get; } = [];
     private NewOrderViewModel? _pendingCreationForm;
     public bool CanCreateOrder => orderCreator is not null && CanUseJournal && !RequiresReload;
@@ -140,7 +127,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
 
     partial void OnSearchTextChanged(string value) => ApplySearch();
     partial void OnSearchScopeIndexChanged(int value) => ApplySearch();
-    partial void OnStatusFilterChanged(OrderStatusFilter value) => ApplySearch();
     partial void OnFilterDateChanged(DateTime? value) => ApplySearch();
 
     public void UpdateSelection(IEnumerable<OrderRowViewModel> selected, OrderRowViewModel? active)

@@ -202,29 +202,22 @@
       </Grid>
       <Grid x:Name="Workspace" Grid.Row="2" RowDefinitions="Auto,12,Auto,*,36">
         <Grid x:Name="FiltersPanel" Grid.Row="0" IsEnabled="{Binding CanUseJournal}" ColumnDefinitions="Auto,12,*">
-          <StackPanel x:Name="StatusFilters" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-            <TextBlock Text="Показать" Classes="muted" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <RadioButton Classes="filter" GroupName="Status" Content="Все" IsChecked="{Binding FilterAll, Mode=OneWay}"
-                         Command="{Binding SetStatusFilterCommand}" CommandParameter="{x:Static vm:OrderStatusFilter.All}" />
-            <RadioButton Classes="filter" GroupName="Status" Content="В работе" IsChecked="{Binding FilterWork, Mode=OneWay}"
-                         Command="{Binding SetStatusFilterCommand}" CommandParameter="{x:Static vm:OrderStatusFilter.Work}" />
-            <RadioButton Classes="filter" GroupName="Status" Content="Готово" IsChecked="{Binding FilterReady, Mode=OneWay}"
-                         Command="{Binding SetStatusFilterCommand}" CommandParameter="{x:Static vm:OrderStatusFilter.Ready}" />
-            <RadioButton Classes="filter" GroupName="Status" Content="Отгружено" IsChecked="{Binding FilterShipped, Mode=OneWay}"
-                         Command="{Binding SetStatusFilterCommand}" CommandParameter="{x:Static vm:OrderStatusFilter.Shipped}" />
-            <Border Width="1" Height="24" Background="{DynamicResource JournalBorder}" Margin="4,0" />
+          <StackPanel x:Name="DateFilters" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <ui:JournalButton Label="Сегодня" Command="{Binding TodayCommand}" />
             <ui:JournalDatePicker x:Name="DateFilter" SelectedDate="{Binding FilterDate}" PlaceholderText="Дата: любая" Width="160" MinHeight="32"
                                 AutomationProperties.Name="Дата заявки" />
           </StackPanel>
-          <Grid x:Name="SearchControls" Grid.Column="2" ColumnDefinitions="132,8,*,8,Auto" VerticalAlignment="Center">
+          <Grid x:Name="SearchControls" Grid.Column="2" ColumnDefinitions="132,8,*,8,Auto,8,Auto" VerticalAlignment="Center">
             <ComboBox ItemsSource="{Binding SearchScopes}" SelectedIndex="{Binding SearchScopeIndex}" HorizontalAlignment="Stretch"
                       AutomationProperties.Name="Поле поиска" MinHeight="36" />
             <TextBox x:Name="SearchBox" Grid.Column="2" Text="{Binding SearchText}" MinHeight="36" MinWidth="160"
                      PlaceholderText="Поиск заявок" AutomationProperties.Name="Поиск заявок">
               <TextBox.KeyBindings><KeyBinding Gesture="Escape" Command="{Binding ClearSearchCommand}" /></TextBox.KeyBindings>
             </TextBox>
-            <ui:JournalButton Grid.Column="4" Label="Сбросить" Icon="x" Command="{Binding ResetFiltersCommand}" />
+            <ui:JournalButton x:Name="ActiveStatusFilterButton" Grid.Column="4" Label="{Binding StatusFilterSummary}" Icon="x"
+                              Classes="status-filter-chip" IsVisible="{Binding HasStatusFilter}" Command="{Binding ClearStatusFilterCommand}"
+                              ToolTip.Tip="{Binding StatusFilterDescription}" AutomationProperties.HelpText="Снять фильтр статуса" />
+            <ui:JournalButton Grid.Column="6" Label="Сбросить" Icon="x" Command="{Binding ResetFiltersCommand}" />
           </Grid>
         </Grid>
         <Border x:Name="LoadErrorPanel" Grid.Row="2" IsVisible="{Binding HasError}" Background="{DynamicResource JournalDangerBackground}" CornerRadius="6" Padding="12" Margin="0,0,0,12">
@@ -329,6 +322,11 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="БЛЦБ" Binding="{ReflectionBinding DeliveryNumber}" Width="144" MinWidth="128" />
                 <DataGridTemplateColumn Header="Статус" Width="128" MinWidth="128" SortMemberPath="StatusText">
+                  <DataGridTemplateColumn.HeaderTemplate>
+                    <DataTemplate>
+                      <ui:StatusFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.HeaderTemplate>
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:OrderRowViewModel">
                       <ui:StatusBadge IsVisible="{Binding HasStandardStatus}" Status="{Binding StatusKey}" Text="{Binding StatusText}"
