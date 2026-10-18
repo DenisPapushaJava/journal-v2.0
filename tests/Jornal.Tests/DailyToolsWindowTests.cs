@@ -151,6 +151,8 @@ public sealed class DailyToolsWindowTests
             var border = combo.GetVisualDescendants().OfType<Border>().Single(control => control.Name == "Background");
             Assert.Equal(new Thickness(2), border.BorderThickness);
             Assert.Equal(((ISolidColorBrush)Application.Current!.FindResource(window.ActualThemeVariant, "JournalAccent")!).Color, ((ISolidColorBrush)border.BorderBrush!).Color);
+            window.MouseMove(text.TranslatePoint(new Point(20, text.Bounds.Height / 2), window)!.Value); Pump();
+            Save(window, "material-focused-" + initial + "-" + dark);
             Assert.Equal(new[] { "Ст3", "09Г2С", "Амг3" }, combo.Items.Cast<string>());
             Click(combo.GetVisualDescendants().OfType<PathIcon>().Single(icon => icon.Name == "DropDownGlyph")); Pump();
             Assert.True(combo.IsDropDownOpen); Assert.Equal("Ст", field.Value);

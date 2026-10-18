@@ -36,11 +36,11 @@
   <Style Selector="TextBox:not(.result-editor):pointerover:not(:disabled), TextBox:not(.result-editor):focus:not(:disabled)">
     <Setter Property="Foreground" Value="{DynamicResource JournalText}" />
   </Style>
-  <Style Selector="TextBox:not(.result-editor):not(#PART_TextBox):pointerover:not(:disabled) /template/ Border#PART_BorderElement">
+  <Style Selector="TextBox:not(.result-editor):not(#PART_TextBox):not(#PART_EditableTextBox):pointerover:not(:disabled) /template/ Border#PART_BorderElement">
     <Setter Property="Background" Value="{DynamicResource JournalInput}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
   </Style>
-  <Style Selector="TextBox:not(.result-editor):not(#PART_TextBox):focus:not(:disabled) /template/ Border#PART_BorderElement">
+  <Style Selector="TextBox:not(.result-editor):not(#PART_TextBox):not(#PART_EditableTextBox):focus:not(:disabled) /template/ Border#PART_BorderElement">
     <Setter Property="Background" Value="{DynamicResource JournalInput}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
   </Style>
@@ -72,6 +72,12 @@
   </Style>
   <Style Selector="ComboBox.editable-entry /template/ TextBox#PART_EditableTextBox">
     <Setter Property="FontSize" Value="14" />
+  </Style>
+  <!-- Рамку и фон рисует ComboBox: внутренняя заливка TextBox перекрывает левый край. -->
+  <Style Selector="ComboBox.editable-entry /template/ TextBox#PART_EditableTextBox /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
   </Style>
   <Style Selector="ComboBox.editable-entry:focus-within:not(.invalid):not(.needs-review) /template/ Border#Background">
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />
