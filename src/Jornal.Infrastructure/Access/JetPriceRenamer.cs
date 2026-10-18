@@ -136,7 +136,9 @@ internal sealed class JetPriceRenamer(string path)
         public static void Create(string path)
         {
             using var catalog = ComScope.Create("ADOX.Catalog");
-            catalog.Value.Create(ConnectionString(path));
+            // ADOX.Create принимает параметры создания, а не Mode/OLE DB Services существующей сессии.
+            catalog.Value.Create(new System.Data.OleDb.OleDbConnectionStringBuilder
+                { Provider = "Microsoft.Jet.OLEDB.4.0", DataSource = Path.GetFullPath(path), ["Jet OLEDB:Engine Type"] = 5 }.ConnectionString);
             using var connection = new ComScope(catalog.Value.ActiveConnection); connection.Value.Close();
         }
         public void Begin() { _connection.Value.IsolationLevel = 4096; if ((int)_connection.Value.BeginTrans() != 1) throw new InvalidOperationException("Вложенная транзакция Jet."); }

@@ -58,9 +58,13 @@ class ScopeTests(unittest.TestCase):
         jet = build.split('- name: Test native Access transactions', 1)[1].split('- name:', 1)[0]
         self.assertIn("if: ${{ !cancelled() && needs.scope.outputs.code == 'true' && runner.os == 'Windows' }}", jet)
         self.assertNotIn("outputs.packaging", jet)
+        self.assertLess(build.index('- name: Test native Access transactions'), build.index('- name: Package update artifacts'))
+        restore = build.split('- name: Restore x64 SDK for packaging', 1)[1].split('- name:', 1)[0]
+        self.assertIn('architecture: x64', restore)
         self.assertIn("JOURNAL_REQUIRE_NATIVE_TESTS: '1'", jet)
         release = (ROOT / '.github/workflows/release.yml').read_text(encoding='utf-8')
         self.assertNotIn('needs.scope', release)
+        self.assertLess(release.index('- name: Test native Access transactions'), release.index('- name: Package\n'))
         native_release = release.split('- name: Test native Access transactions', 1)[1].split('- name:', 1)[0]
         self.assertIn("if: ${{ !cancelled() && runner.os == 'Windows' }}", native_release)
         for step in ['Test Windows offline installer and Access host', 'Test native Access transactions',
