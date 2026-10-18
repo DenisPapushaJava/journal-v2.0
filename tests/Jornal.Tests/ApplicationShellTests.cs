@@ -75,7 +75,7 @@ public sealed class ApplicationShellTests
             Assert.True(Bounds(clock).Right + 12 <= Bounds(window.FindControl<JournalButton>("PricesButton")!).Left);
             Assert.Contains(source.TextLayout.TextLines, line => line.HasCollapsed);
             Assert.False(clock.Focusable);
-            Assert.False(string.IsNullOrWhiteSpace(clock.Text));
+            Assert.False(string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(clock)));
             Assert.False(window.FindControl<JournalButton>("AddResultButton")!.IsEnabled);
             Assert.All(window.GetVisualDescendants().OfType<Avalonia.Svg.Svg>().Where(icon => icon.IsEffectivelyVisible), icon => Assert.NotNull(icon.Model));
             Assert.Contains(window.GetVisualDescendants().OfType<Avalonia.Svg.Svg>(), icon => icon.Path?.EndsWith("/calendar-days.svg", StringComparison.Ordinal) == true);

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Jornal.Desktop.Controls;
@@ -21,11 +22,11 @@ public sealed class HeaderClockTests
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
             window.Show(); Dispatcher.UIThread.RunJobs();
-            Assert.Equal("14:38, Вс, 18 октября", clock.Text);
+            Assert.Equal("14:38   Вс 18 октября", Text());
             source.Utc = new(2026, 12, 31, 20, 59, 59, 950, TimeSpan.Zero);
-            await UntilText("23:59, Чт, 31 декабря");
+            await UntilText("23:59   Чт 31 декабря");
             source.Utc = new(2026, 12, 31, 21, 0, 59, 950, TimeSpan.Zero);
-            await UntilText("00:00, Пт, 1 января");
+            await UntilText("00:00   Пт 1 января");
 
             window.Content = null; Dispatcher.UIThread.RunJobs();
             var reads = source.Reads;
@@ -33,19 +34,21 @@ public sealed class HeaderClockTests
             Assert.Equal(reads, source.Reads);
             source.Utc = new(2027, 3, 8, 11, 38, 0, TimeSpan.Zero);
             window.Content = clock; Dispatcher.UIThread.RunJobs();
-            Assert.Equal("14:38, Пн, 8 марта", clock.Text);
+            Assert.Equal("14:38   Пн 8 марта", Text());
         }
         finally { window.Close(); CultureInfo.CurrentCulture = previous; }
+
+        string Text() => string.Concat(clock.Inlines!.OfType<Run>().Select(run => run.Text));
 
         async Task UntilText(string expected)
         {
             var timer = Stopwatch.StartNew();
-            while (clock.Text != expected && timer.Elapsed < TimeSpan.FromSeconds(3))
+            while (Text() != expected && timer.Elapsed < TimeSpan.FromSeconds(3))
             {
                 await Task.Delay(10, TestContext.Current.CancellationToken);
                 Dispatcher.UIThread.RunJobs();
             }
-            Assert.Equal(expected, clock.Text);
+            Assert.Equal(expected, Text());
         }
     }
 
