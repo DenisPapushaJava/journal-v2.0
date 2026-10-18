@@ -65,6 +65,17 @@ public sealed class ApplicationShellTests
             Assert.Equal(0, Grid.GetRow(search));
             Assert.Equal(2, Grid.GetColumn(search));
             Assert.True(window.FindControl<TextBox>("SearchBox")!.Bounds.Width >= 160);
+            var clock = window.FindControl<HeaderClock>("CurrentDateTime")!;
+            var source = window.FindControl<TextBlock>("SourceDescriptionText")!;
+            source.SetCurrentValue(TextBlock.TextProperty, "Источник: " + new string('Ш', 200));
+            Dispatcher.UIThread.RunJobs();
+            Rect Bounds(Control control) => new Rect(control.Bounds.Size).TransformToAABB(control.TransformToVisual(window)!.Value);
+            Assert.InRange(Math.Abs(Bounds(clock).Center.X - window.ClientSize.Width / 2), 0, 0.5);
+            Assert.True(Bounds(source).Right + 12 <= Bounds(clock).Left);
+            Assert.True(Bounds(clock).Right + 12 <= Bounds(window.FindControl<JournalButton>("PricesButton")!).Left);
+            Assert.Contains(source.TextLayout.TextLines, line => line.HasCollapsed);
+            Assert.False(clock.Focusable);
+            Assert.False(string.IsNullOrWhiteSpace(clock.Text));
             Assert.False(window.FindControl<JournalButton>("AddResultButton")!.IsEnabled);
             Assert.All(window.GetVisualDescendants().OfType<Avalonia.Svg.Svg>().Where(icon => icon.IsEffectivelyVisible), icon => Assert.NotNull(icon.Model));
             Assert.Contains(window.GetVisualDescendants().OfType<Avalonia.Svg.Svg>(), icon => icon.Path?.EndsWith("/calendar-days.svg", StringComparison.Ordinal) == true);
