@@ -58,6 +58,10 @@
     <Setter Property="BorderBrush" Value="{DynamicResource WorkForeground}" />
     <Setter Property="BorderThickness" Value="2" />
   </Style>
+  <Style Selector="AutoCompleteBox.needs-review /template/ TextBox#PART_TextBox /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource WorkForeground}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
   <Style Selector="ComboBox:pointerover:not(:disabled) /template/ Border#Background, CalendarDatePicker:pointerover:not(:disabled) /template/ Border#Background">
     <Setter Property="Background" Value="{DynamicResource JournalInput}" />
     <Setter Property="BorderBrush" Value="{DynamicResource JournalAccent}" />

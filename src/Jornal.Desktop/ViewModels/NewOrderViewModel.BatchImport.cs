@@ -101,6 +101,7 @@ public partial class NewOrderViewModel
         form.ThicknessOptions.ReloadAll = () => RefreshThicknessOptionsAsync(true);
         form.PriceEditorFactory = PriceEditorFactory;
         form.Manager.Suggestions = Manager.Suggestions; form.Customer.Suggestions = Customer.Suggestions;
+        form.Material.Suggestions = Material.Suggestions;
         form.SetMachines(_machines); return form;
     }
 

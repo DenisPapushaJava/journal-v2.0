@@ -42,13 +42,22 @@ public sealed class DailyToolsWindowTests
             owner.FindControl<JournalButton>("SettingsButton")!.RaiseEvent(new(Avalonia.Controls.Button.ClickEvent)); Pump();
             var settings = Assert.Single(owner.OwnedWindows.OfType<SettingsWindow>());
             settings.FindControl<JournalButton>("EntrySuggestionsButton")!.RaiseEvent(new(Avalonia.Controls.Button.ClickEvent)); Pump();
-            var lists = Assert.Single(settings.OwnedWindows.OfType<EntrySuggestionsWindow>()); lists.Width = 640; lists.Height = 440; Pump();
+            var lists = Assert.Single(settings.OwnedWindows.OfType<EntrySuggestionsWindow>()); lists.Width = 760; lists.Height = 440; Pump();
             Assert.False(settings.CanRestart); var listForm = (EntrySuggestionsViewModel)lists.DataContext!;
-            listForm.ManagersText = "Иван\nПётр"; listForm.CustomersText = "ООО, Пример"; Pump(); CheckButtons(lists); Save(lists, "lists-" + dark);
+            listForm.ManagersText = "Иван\nПётр"; listForm.CustomersText = "ООО, Пример"; listForm.MaterialsText = "Ст3\n09Г2С\nAisi-304\n5083H111\nАмг3";
+            Pump(); CheckButtons(lists); Save(lists, "lists-" + dark);
+            var materialsInput = lists.FindControl<TextBox>("MaterialsInput")!;
+            Assert.True(materialsInput.IsEffectivelyVisible); Assert.True(materialsInput.Bounds.Width >= 220);
             listForm.SaveCommand.Execute(null); Pump(); Assert.False(lists.IsVisible); Assert.Equal(new[] { "Иван", "Пётр" }, store.Value!.EntrySuggestions.Managers);
+            Assert.Equal(new[] { "Ст3", "09Г2С", "Aisi-304", "5083H111", "Амг3" }, store.Value.EntrySuggestions.Materials);
             settings.Close(); owner.Close();
             var restored = new MainWindowViewModel(backend, backend, backend); var reopened = new MainWindow(store) { DataContext = restored };
-            try { reopened.Show(); await reopened.LoadInitialOrdersAsync(); Pump(); Assert.Equal("ООО, Пример", Assert.Single(restored.CreateOrderForm()!.Customer.Suggestions!)); }
+            try
+            {
+                reopened.Show(); await reopened.LoadInitialOrdersAsync(); Pump(); var newForm = restored.CreateOrderForm()!;
+                Assert.Equal("ООО, Пример", Assert.Single(newForm.Customer.Suggestions!));
+                Assert.Equal(store.Value.EntrySuggestions.Materials, newForm.Material.Suggestions);
+            }
             finally { reopened.Close(); }
         }
         finally { foreach (var settings in owner.OwnedWindows.ToArray()) { foreach (var child in settings.OwnedWindows.ToArray()) child.Close(); settings.Close(); } owner.Close(); }
@@ -79,9 +88,10 @@ public sealed class DailyToolsWindowTests
         try
         {
             owner.Show(); Pump(); store.Fail = true;
-            var form = new EntrySuggestionsViewModel(model.CaptureEntrySuggestions(), owner.SaveEntrySuggestions) { ManagersText = "Новый менеджер" };
+            var form = new EntrySuggestionsViewModel(model.CaptureEntrySuggestions(), owner.SaveEntrySuggestions) { ManagersText = "Новый менеджер", MaterialsText = "Ст3" };
             form.SaveCommand.Execute(null);
             Assert.True(form.HasError); Assert.Equal("Новый менеджер", form.ManagersText); Assert.Empty(model.CaptureEntrySuggestions().Managers); Assert.Null(store.Saved);
+            Assert.Equal("Ст3", form.MaterialsText); Assert.Empty(model.CaptureEntrySuggestions().Materials);
         }
         finally { store.Fail = false; owner.Close(); }
     }
@@ -98,6 +108,7 @@ public sealed class DailyToolsWindowTests
             Assert.True(autocomplete.IsVisible); Assert.False(entry.FindControl<TextBox>("Input")!.IsVisible);
             Assert.False(autocomplete.IsTextCompletionEnabled); Assert.Equal(AutoCompleteFilterMode.Contains, autocomplete.FilterMode);
             var text = Assert.Single(autocomplete.GetVisualDescendants().OfType<TextBox>());
+            entry.FocusInput(); Pump(); Assert.True(autocomplete.IsKeyboardFocusWithin);
             Assert.Equal(14, text.FontSize);
             Assert.Equal(((ISolidColorBrush)Application.Current!.FindResource(window.ActualThemeVariant, "JournalInput")!).Color, ((ISolidColorBrush)text.Background!).Color);
             text.Focus(); text.Text = "ва"; Pump(); await Task.Delay(30, TestContext.Current.CancellationToken); Pump();

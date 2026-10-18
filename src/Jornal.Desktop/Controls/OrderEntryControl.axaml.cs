@@ -17,6 +17,7 @@ public partial class OrderEntryControl : UserControl
     {
         this.BringIntoView();
         if (DataContext is OrderEntryField { HasChoices: true }) Choice.Focus();
+        else if (DataContext is OrderEntryField { HasSuggestions: true }) SuggestionsInput.Focus();
         else Input.Focus();
     }
 }

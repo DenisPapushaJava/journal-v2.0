@@ -17,7 +17,7 @@ public partial class MainWindowViewModel
         }, () => ErrorMessage, () => CanUpdateSelectedOrders);
     }
     private EntrySuggestions _entrySuggestions = new();
-    public string EntrySuggestionsSummary => $"Менеджеры: {_entrySuggestions.Managers.Length} · заказчики: {_entrySuggestions.Customers.Length}";
+    public string EntrySuggestionsSummary => $"Менеджеры: {_entrySuggestions.Managers.Length} · заказчики: {_entrySuggestions.Customers.Length} · материалы: {_entrySuggestions.Materials.Length}";
     public EntrySuggestions CaptureEntrySuggestions() => _entrySuggestions.Normalize();
     public void ApplyEntrySuggestions(EntrySuggestions value)
     {
