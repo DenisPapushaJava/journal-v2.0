@@ -74,6 +74,11 @@ jobs:
         if: runner.os == 'Windows' && needs.scope.outputs.packaging == 'true'
         shell: pwsh
         run: python scripts/windows_installer.py --download-only
+      - name: Verify legacy signature checks from pwsh
+        if: runner.os == 'Windows' && needs.scope.outputs.packaging == 'true'
+        shell: pwsh
+        run: |
+          python -c "import sys; sys.path.insert(0, 'scripts'); import windows_installer; windows_installer.shutil.which=lambda _: None; windows_installer.prepare_dependencies()"
       - name: Cache NuGet dependencies
         id: nuget
         if: needs.scope.outputs.code == 'true' || github.event_name == 'push'

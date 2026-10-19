@@ -117,6 +117,9 @@ class ScopeTests(unittest.TestCase):
         self.assertIn('shell: pwsh', smoke)
         self.assertLess(text.index('- name: Verify installer downloads from PowerShell'), text.index('run: dotnet build'))
         self.assertIn("needs.scope.outputs.packaging == 'true'", smoke)
+        legacy = text.split('- name: Verify legacy signature checks from pwsh', 1)[1].split('- name:', 1)[0]
+        self.assertIn('shell: pwsh', legacy)
+        self.assertIn('shutil.which=lambda _: None', legacy)
         self.assertIn("lookup-only: ${{ needs.scope.outputs.packaging != 'true' }}", text)
         build = text.split('run: dotnet build', 1)[0].rsplit('      - if:', 1)[1]
         self.assertIn("needs.scope.outputs.code == 'true'", build)

@@ -40,7 +40,7 @@ def verify_signature(path, publisher):
     # Перед запуском скачанного компилятора/включением Runtime проверяем и подпись издателя.
     environment = dict(os.environ, JOURNAL_VERIFY_FILE=str(path), JOURNAL_VERIFY_PUBLISHER=publisher)
     # Не смешиваем модули разных версий PowerShell при вложенном запуске из pwsh.
-    environment.pop("PSModulePath", None)
+    environment = {key: value for key, value in environment.items() if key.casefold() != "psmodulepath"}
     powershell = shutil.which("pwsh.exe") or "powershell.exe"
     subprocess.run([powershell, "-NoProfile", "-NonInteractive", "-Command",
         "$ErrorActionPreference='Stop'; $s=Get-AuthenticodeSignature -LiteralPath $env:JOURNAL_VERIFY_FILE; "
