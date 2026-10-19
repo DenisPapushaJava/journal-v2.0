@@ -77,9 +77,28 @@ class ScopeTests(unittest.TestCase):
         self.assertNotIn('needs.scope', release)
         self.assertIn('uses: ./.github/workflows/native-access.yml', release)
         self.assertIn('needs: [package, native]', release.split('\n  draft:', 1)[1])
-        for step in ['Test Windows offline installer and Access host',
-                     'Test Linux update and restart', 'Test Windows install and restart']:
+        for step in ['Test Windows offline installer and Access host', 'Test Windows install and restart']:
             self.assertIn(step, release)
+
+    def test_only_windows_is_packaged_but_linux_tests_and_release_gates_remain(self):
+        for name, step in [('modern.yml', 'Package update artifacts'), ('release.yml', 'Package')]:
+            text = (ROOT / '.github/workflows' / name).read_text(encoding='utf-8')
+            self.assertIn('os: ubuntu-latest', text)
+            self.assertIn('os: windows-latest', text)
+            self.assertIn('dotnet test tests/Jornal.Tests/Jornal.Tests.csproj', text)
+            packaging = text.split('- name: ' + step + '\n', 1)[1].split('      - name:', 1)[0]
+            self.assertIn("runner.os == 'Windows'", packaging)
+            self.assertIn('--runtime win-x64 --updates', packaging)
+            self.assertNotIn('test-update-install-linux.py', text)
+        text = (ROOT / '.github/workflows/release.yml').read_text(encoding='utf-8')
+        draft = text.split('\n  draft:', 1)[1]
+        self.assertIn('needs: [package, native]', draft)
+        self.assertIn('name: package-win-x64', draft)
+        self.assertNotIn('pattern: package-*', draft)
+        probe = (ROOT / 'scripts/test-update-install.ps1').read_text(encoding='utf-8')
+        self.assertIn('--noPortable', probe)
+        self.assertIn("$_.Name -ne 'releases.win-x64.json'", probe)
+        self.assertIn("$_.Name -notlike '*-full.nupkg'", probe)
 
     def test_job_gate_rejects_missing_failed_cancelled_or_unexpectedly_skipped_native_checks(self):
         for state in ['failure', 'cancelled', 'skipped', '', None]:

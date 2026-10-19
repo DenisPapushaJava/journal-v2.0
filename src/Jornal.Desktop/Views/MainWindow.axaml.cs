@@ -120,6 +120,7 @@ public partial class MainWindow : Window
         SearchBox.CancelPendingInput();
         _journalRefreshTimer.Stop();
         _journalPressedPointers.Clear();
+        _journalFilterHeaders.Clear();
         _journalAutoRefresh?.Dispose();
         _updateChecksLifetime.Cancel();
         _updateChecksLifetime.Dispose();

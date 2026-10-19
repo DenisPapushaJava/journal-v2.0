@@ -44,8 +44,8 @@ def parse_version(value):
     return ReleaseVersion(f"{year}.{release}.{patch}{suffix}", f"{year}.{release}.{patch}.0", bool(suffix))
 
 
-def create_archive(publish_dir, output_dir, version, runtime, commit):
-    publish_dir, output_dir = Path(publish_dir), Path(output_dir)
+def validate_publish(publish_dir, runtime):
+    publish_dir = Path(publish_dir)
     files = sorted(p for p in publish_dir.rglob("*") if p.is_file())
     forbidden = [p.name for p in files if p.suffix.lower() in PRIVATE_EXTENSIONS]
     if forbidden:
@@ -53,6 +53,13 @@ def create_archive(publish_dir, output_dir, version, runtime, commit):
     launcher = "Jornal.Desktop.exe" if runtime == "win-x64" else "Jornal.Desktop"
     if not (publish_dir / launcher).is_file():
         raise ValueError(f"Missing launcher: {launcher}")
+    return files
+
+
+def create_archive(publish_dir, output_dir, version, runtime, commit):
+    publish_dir, output_dir = Path(publish_dir), Path(output_dir)
+    files = validate_publish(publish_dir, runtime)
+    launcher = "Jornal.Desktop.exe" if runtime == "win-x64" else "Jornal.Desktop"
     output_dir.mkdir(parents=True, exist_ok=True)
     archive = output_dir / f"Journal-{version.version}-{runtime}.zip"
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
@@ -85,6 +92,40 @@ def create_archive(publish_dir, output_dir, version, runtime, commit):
     return archive, checksum
 
 
+def collect_windows_release(updates_dir, offline_setup, output_dir, version):
+    updates_dir, offline_setup, output_dir = Path(updates_dir), Path(offline_setup), Path(output_dir)
+    package_name = f"DenisPapusha.Journal-{version.version}-win-x64-full.nupkg"
+    package = updates_dir / package_name
+    feed = updates_dir / "releases.win-x64.json"
+    if offline_setup.name != f"Journal-{version.version}-win-x64-OfflineSetup.exe":
+        raise ValueError("Offline installer version does not match the release")
+    files = [offline_setup, package, feed]
+    if any(not path.is_file() or path.stat().st_size == 0 for path in files):
+        raise ValueError("Missing Windows installer, full update package or feed")
+    hashes = {}
+    for path in files:
+        with path.open("rb") as source:
+            hashes[path.name] = hashlib.file_digest(source, "sha256").hexdigest()
+    metadata = json.loads(feed.read_text(encoding="utf-8"))
+    assets = metadata.get("Assets") if isinstance(metadata, dict) else None
+    if not isinstance(assets, list) or len(assets) != 1 or not isinstance(assets[0], dict):
+        raise ValueError("Expected one full Windows update in the release feed")
+    asset = assets[0]
+    if (asset.get("FileName") != package_name or asset.get("Version") != version.version or
+            asset.get("PackageId") != "DenisPapusha.Journal" or asset.get("Type") != "Full" or
+            asset.get("Size") != package.stat().st_size or
+            str(asset.get("SHA256", "")).lower() != hashes[package_name]):
+        raise ValueError("Windows update feed does not match the release package")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if any(output_dir.iterdir()):
+        raise ValueError("Release output must be empty; use a clean artifacts/release directory")
+    for path in files:
+        shutil.copy2(path, output_dir / path.name)
+    checksum = output_dir / "SHA256SUMS"
+    checksum.write_text("".join(f"{hashes[name]}  {name}\n" for name in sorted(hashes)), encoding="utf-8", newline="\n")
+    return [output_dir / path.name for path in files] + [checksum]
+
+
 def update_channel(version, runtime):
     # Канал в feed разделён по ОС/архитектуре; stable/preview фильтруется признаком GitHub prerelease.
     return runtime
@@ -101,13 +142,14 @@ def package_updates(dotnet, staging, output_dir, version, runtime):
         "--runtime", runtime, "--channel", update_channel(version, runtime),
         "--outputDir", str(output_dir), "--releaseNotes", str(ROOT / "docs/release-notes.md")]
     if runtime.startswith("win"):
-        command += ["--framework", "net10.0-x64-runtime,net10.0-x86-runtime", "--icon", str(ROOT / "docs/design/assets/journal-icon.ico")]
+        command += ["--noPortable", "--framework", "net10.0-x64-runtime,net10.0-x86-runtime", "--icon", str(ROOT / "docs/design/assets/journal-icon.ico")]
     else:
         command += ["--icon", str(ROOT / "docs/design/assets/journal-icon.png"), "--categories", "Office"]
     subprocess.run(command, cwd=ROOT, check=True)
-    for path in output_dir.iterdir():
-        if path.is_file() and path.suffix != ".sha256":
-            path.with_name(path.name + ".sha256").write_text(hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n", encoding="utf-8")
+    if runtime != "win-x64":
+        for path in output_dir.iterdir():
+            if path.is_file() and path.suffix != ".sha256":
+                path.with_name(path.name + ".sha256").write_text(hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n", encoding="utf-8")
 
 
 def package(version, runtime, with_updates=False):
@@ -121,31 +163,40 @@ def package(version, runtime, with_updates=False):
     work_dir = ROOT / "artifacts"
     work_dir.mkdir(exist_ok=True)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    with tempfile.TemporaryDirectory(prefix="journal-package-", dir=work_dir) as staging:
+    with tempfile.TemporaryDirectory(prefix="journal-package-", dir=work_dir) as workspace:
+        staging = Path(workspace) / "publish"
         subprocess.run([
             dotnet, "publish", "src/Jornal.Desktop/Jornal.Desktop.csproj",
             "--configuration", "Release", "--runtime", runtime, "--self-contained", "false",
             f"-p:Version={version.version}", f"-p:AssemblyVersion={version.assembly_version}",
             f"-p:FileVersion={version.assembly_version}", f"-p:SourceRevisionId={commit}",
             "-p:ContinuousIntegrationBuild=true", "-p:RestoreLockedMode=true",
-            "-p:DebugType=None", "-p:DebugSymbols=false", "--output", staging,
+            "-p:DebugType=None", "-p:DebugSymbols=false", "--output", str(staging),
         ], cwd=ROOT, check=True)
         if runtime == "win-x64":
             subprocess.run([dotnet, "publish", "src/Jornal.AccessHost/Jornal.AccessHost.csproj", "-c", "Release",
                 "-r", "win-x86", "--self-contained", "false", f"-p:Version={version.version}",
                 f"-p:SourceRevisionId={commit}", "-p:ContinuousIntegrationBuild=true", "-p:RestoreLockedMode=true",
                 "-p:DebugType=None", "-p:DebugSymbols=false", "-o", str(Path(staging) / "AccessHost")], cwd=ROOT, check=True)
-        for path in create_archive(staging, work_dir / "release", version, runtime, commit):
-            print(path.relative_to(ROOT))
+        if with_updates and runtime == "win-x64":
+            validate_publish(staging, runtime)
+        else:
+            for path in create_archive(staging, work_dir / "release", version, runtime, commit):
+                print(path.relative_to(ROOT))
         if with_updates:
-            updates_dir = work_dir / "updates" / runtime
+            updates_dir = Path(workspace) / "updates"
             package_updates(dotnet, staging, updates_dir, version, runtime)
             if runtime == "win-x64":
                 from windows_installer import build_offline_installer
                 app_setup, = updates_dir.glob("*Setup.exe")
-                print(build_offline_installer(app_setup, Path(staging) / "AccessHost", work_dir / "release", version.version).relative_to(ROOT))
-            for asset in updates_dir.iterdir():
-                if asset.is_file(): shutil.copy2(asset, work_dir / "release" / asset.name)
+                installer_dir = Path(workspace) / "installer"
+                installer_dir.mkdir()
+                offline_setup = build_offline_installer(app_setup, staging / "AccessHost", installer_dir, version.version)
+                for path in collect_windows_release(updates_dir, offline_setup, work_dir / "release", version):
+                    print(path.relative_to(ROOT))
+            else:
+                for asset in updates_dir.iterdir():
+                    if asset.is_file(): shutil.copy2(asset, work_dir / "release" / asset.name)
 
 
 def main():

@@ -8,8 +8,9 @@
                       IsEnabled="{Binding CanBrowseJournal}" ToolTip.Tip="{Binding StatusFilterDescription}" AutomationProperties.HelpText="{Binding StatusFilterDescription}">
       <Button.Flyout>
         <Flyout Placement="BottomEdgeAlignedRight" Opened="OnFilterOpened" Closed="OnFilterClosed">
-          <Grid x:Name="PopupRoot" IsEnabled="{Binding CanBrowseJournal}">
-            <StackPanel x:Name="PopupPanel" x:DataType="vm:StatusFilterEditorViewModel" Width="260" Spacing="10">
+          <!-- До подключения модели popup не наследует контекст заголовка. -->
+          <Grid x:Name="PopupRoot" DataContext="{x:Null}" IsEnabled="{Binding CanBrowseJournal}">
+            <StackPanel x:Name="PopupPanel" DataContext="{Binding StatusFilterEditor}" Width="260" Spacing="10">
               <CheckBox x:Name="AllStatusesCheckBox" Content="Все" FontWeight="Normal" Classes="status-filter-option" IsThreeState="True" MinHeight="32"
                         IsChecked="{Binding AllChecked, Mode=OneWay}" Command="{Binding ToggleAllCommand}" />
               <Border Height="1" Background="{DynamicResource JournalBorder}" />

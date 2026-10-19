@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Jornal.Desktop.Controls;
@@ -122,6 +123,54 @@ public sealed class WorkspaceTreeWindowTests
             // Клавиатурная настройка границ также доступна без входа в конструктор.
             Find<GridSplitter>(window, "WorkspaceFirstSplitter").Focus();
             Press(window, Key.Left); Assert.True(Bounds(window, "ResultSlot").Width < width - 4);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)] [InlineData(true, false)]
+    [InlineData(false, true)] [InlineData(true, true)]
+    public void SplitterHighlightFollowsPointerAndKeyboardInsteadOfRetainedMouseFocus(bool dark, bool rows)
+    {
+        var preferences = new MemoryUiPreferencesStore();
+        preferences.Save(new() { DarkTheme = dark, Layout = ScreenLayout.CreateDefault() with { Workspace = new() { Height = 400,
+            Root = WorkspaceNode.Split(WorkspaceAxis.Columns, [WorkspaceNode.Panel("result"),
+                WorkspaceNode.Split(WorkspaceAxis.Rows, [WorkspaceNode.Panel("orders"), WorkspaceNode.Panel("clipboard")], 1, 1)], 2, 1) } } });
+        var (window, model) = Open(preferences, width: 1600, height: 1000);
+        try
+        {
+            var name = rows ? "WorkspaceSecondSplitter" : "WorkspaceFirstSplitter";
+            var splitter = Find<GridSplitter>(window, name);
+            var line = splitter.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "WorkspaceSplitterLine");
+            Color LineColor() => Assert.IsAssignableFrom<ISolidColorBrush>(line.Background).Color;
+            window.MouseMove(new Point(1, 1)); Pump();
+            var idle = LineColor();
+            var delta = rows ? new Vector(0, 24) : new Vector(24, 0);
+            var before = Bounds(window, "OrdersCommands");
+            window.MouseMove(Center(window, name)); Pump();
+            Assert.NotEqual(idle, LineColor());
+            Drag(window, name, Center(window, name) + delta);
+            Assert.NotEqual(before, Bounds(window, "OrdersCommands"));
+            window.MouseMove(new Point(1, 1)); Pump();
+            Assert.True(splitter.IsFocused);
+            Assert.False(splitter.IsPointerOver);
+            Assert.Equal(idle, LineColor());
+
+            Find<JournalButton>(window, "ReloadButton").Focus(NavigationMethod.Tab);
+            splitter.Focus(NavigationMethod.Tab); Pump();
+            Assert.NotEqual(idle, LineColor());
+            before = Bounds(window, "OrdersCommands");
+            Press(window, rows ? Key.Up : Key.Right);
+            Assert.NotEqual(before, Bounds(window, "OrdersCommands"));
+            Assert.NotEqual(idle, LineColor());
+
+            // Возврат к мыши после клавиатуры тоже снимает подсветку по окончании жеста.
+            Drag(window, name, Center(window, name) + delta);
+            window.MouseMove(new Point(1, 1)); Pump();
+            Assert.Equal(idle, LineColor());
+            Click(window, "PersonalizeButton");
+            Assert.True(model.IsCustomizing);
+            Assert.NotEqual(idle, LineColor());
         }
         finally { window.Close(); }
     }

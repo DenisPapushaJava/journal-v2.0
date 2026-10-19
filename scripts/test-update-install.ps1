@@ -17,7 +17,7 @@ foreach ($version in @('2026.1.0', '2026.2.0')) {
     $publish = Join-Path $root "publish-$version"
     & dotnet publish tests/Fixtures/UpdateProbe/Jornal.UpdateProbe.csproj -c Release -r win-x64 --self-contained false "-p:Version=$version" -p:RestoreLockedMode=true -p:DebugType=None -p:DebugSymbols=false -o $publish
     if ($LASTEXITCODE -ne 0) { throw 'Probe publish failed.' }
-    & dotnet tool run vpk pack --packId Journal.UpdateProbe --packVersion $version --packDir $publish --mainExe Jornal.UpdateProbe.exe --runtime win-x64 --channel win-x64 --outputDir $releases --framework net10.0-x64-runtime
+    & dotnet tool run vpk pack --packId Journal.UpdateProbe --packVersion $version --packDir $publish --mainExe Jornal.UpdateProbe.exe --runtime win-x64 --channel win-x64 --outputDir $releases --noPortable --framework net10.0-x64-runtime
     if ($LASTEXITCODE -ne 0) { throw 'Probe packaging failed.' }
     if ($version -eq '2026.1.0') {
         $setup = Get-ChildItem $releases -Filter '*Setup.exe' | Select-Object -First 1
@@ -25,6 +25,8 @@ foreach ($version in @('2026.1.0', '2026.2.0')) {
         Copy-Item $setup.FullName (Join-Path $root 'v1-setup.exe')
     }
 }
+# Проверяем обновление с тем же минимальным набором, который публикуется в GitHub.
+Get-ChildItem $releases -File | Where-Object { $_.Name -ne 'releases.win-x64.json' -and $_.Name -notlike '*-full.nupkg' } | Remove-Item
 $setupProcess = Start-Process (Join-Path $root 'v1-setup.exe') -ArgumentList @('--silent', '--installto', ('"' + $installed + '"')) -Wait -PassThru
 if ($setupProcess.ExitCode -ne 0) { throw "Installer failed: $($setupProcess.ExitCode). Test files: $root" }
 Start-Sleep -Seconds 2

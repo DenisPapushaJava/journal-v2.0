@@ -1,9 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using Jornal.Desktop.Controls;
 using Jornal.Desktop.DataSources;
 
@@ -17,6 +16,8 @@ public partial class MainWindow
     private readonly bool _runJournalRefreshTimer;
     private readonly DispatcherTimer _journalRefreshTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly HashSet<IPointer> _journalPressedPointers = [];
+    // XAML-события поддерживают только прикреплённые заголовки, в том числе после смены шаблона.
+    private readonly HashSet<Control> _journalFilterHeaders = [];
 
     private void ConfigureJournalPointerTracking()
     {
@@ -67,11 +68,25 @@ public partial class MainWindow
     private void OnExplicitReadCompleted(object? sender, ViewModels.JournalReadCompletion result) =>
         _journalAutoRefresh?.ManualReadCompleted(result.Id, result.Succeeded);
 
-    private bool HasOpenJournalPopup => _ordersMenu.Menu.IsOpen || _resultMenu.IsOpen || ColumnsButton.Flyout?.IsOpen == true ||
-        SearchScopeSelector.IsDropDownOpen || DateFilter.IsDropDownOpen ||
-        OrdersGrid.GetVisualDescendants().OfType<DataGridColumnHeadersPresenter>().FirstOrDefault()?.GetVisualDescendants()
-            .Any(control => control is ColumnFilterHeader { IsFilterOpen: true } or StatusFilterHeader { IsFilterOpen: true }) == true ||
-        ResultPanel.GetVisualDescendants().Any(control => control is ComboBox { IsDropDownOpen: true } || control is Button { Flyout.IsOpen: true });
+    private void OnJournalFilterAttached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is Control header) _journalFilterHeaders.Add(header);
+    }
+    private void OnJournalFilterDetached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is Control header) _journalFilterHeaders.Remove(header);
+    }
+    private bool HasOpenJournalPopup
+    {
+        get
+        {
+            if (_ordersMenu.Menu.IsOpen || _resultMenu.IsOpen || ColumnsButton.Flyout?.IsOpen == true ||
+                SearchScopeSelector.IsDropDownOpen || DateFilter.IsDropDownOpen || ResultFormatting.HasOpenPopup) return true;
+            foreach (var header in _journalFilterHeaders)
+                if (header is ColumnFilterHeader { IsFilterOpen: true } or StatusFilterHeader { IsFilterOpen: true }) return true;
+            return false;
+        }
+    }
 
     private async void OnJournalRefreshTick(object? sender, EventArgs e) => await TickJournalRefreshAsync();
 

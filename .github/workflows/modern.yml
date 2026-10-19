@@ -107,12 +107,9 @@ jobs:
       - if: needs.scope.outputs.code == 'true'
         run: dotnet test tests/Jornal.Tests/Jornal.Tests.csproj -c Release --no-build --no-restore --logger "trx;LogFileName=tests.trx" --results-directory artifacts/test-results
       - name: Package update artifacts
-        if: needs.scope.outputs.packaging == 'true'
+        if: needs.scope.outputs.packaging == 'true' && runner.os == 'Windows'
         shell: bash
-        run: ${{ matrix.python }} scripts/release.py package --version 2026.1.0-alpha.1 --runtime ${{ runner.os == 'Windows' && 'win-x64' || 'linux-x64' }} --updates
-      - name: Test Linux update and restart
-        if: needs.scope.outputs.packaging == 'true' && runner.os == 'Linux'
-        run: python3 scripts/test-update-install-linux.py
+        run: python scripts/release.py package --version 2026.1.0-alpha.1 --runtime win-x64 --updates
       - name: Test Windows install and restart
         if: needs.scope.outputs.packaging == 'true' && runner.os == 'Windows'
         shell: pwsh
@@ -122,7 +119,7 @@ jobs:
         shell: pwsh
         run: ./scripts/test-offline-install.ps1
       - name: Update packages
-        if: needs.scope.outputs.packaging == 'true'
+        if: needs.scope.outputs.packaging == 'true' && runner.os == 'Windows'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: update-packages-${{ matrix.os }}

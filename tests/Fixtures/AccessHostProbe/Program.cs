@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Text;
 
 var scenario = args[0];
+if (scenario == "child-wait") { await Task.Delay(Timeout.InfiniteTimeSpan); return 0; }
 var payloadPath = args[1];
 var markerPath = args[2];
 var output = Console.OpenStandardOutput();
@@ -31,7 +33,23 @@ if (scenario != "silent")
     while ((read = await payload.ReadAsync(buffer)) > 0) await output.WriteAsync(buffer.AsMemory(0, read));
     await output.FlushAsync();
 }
-if (scenario is "no-eof" or "silent")
+if (scenario == "no-eof-with-child")
+{
+    // Только тест границ остановки: настоящий AccessHost не создаёт дочерних процессов.
+    using var child = new Process
+    {
+        StartInfo = new(Environment.ProcessPath!)
+        {
+            UseShellExecute = false, RedirectStandardInput = true,
+            RedirectStandardOutput = true, RedirectStandardError = true
+        }
+    };
+    foreach (var argument in new[] { "exec", "--runtimeconfig", args[4], typeof(Jornal.AccessHostProbe.ProbeMarker).Assembly.Location, "child-wait" })
+        child.StartInfo.ArgumentList.Add(argument);
+    child.Start();
+    File.WriteAllText(markerPath + ".child", child.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+}
+if (scenario is "no-eof" or "silent" or "no-eof-with-child")
 {
     File.WriteAllText(markerPath, "waiting");
     await Task.Delay(Timeout.InfiniteTimeSpan);

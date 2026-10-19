@@ -7,6 +7,8 @@ namespace Jornal.Desktop.Controls;
 
 public partial class ResultFormattingBar : UserControl
 {
+    internal bool HasOpenPopup => ResultFontSize.IsDropDownOpen || ResultColorButton.Flyout?.IsOpen == true;
+
     public ResultFormattingBar() => InitializeComponent();
 
     private void OnChooseColor(object? sender, RoutedEventArgs e)

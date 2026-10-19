@@ -9,8 +9,9 @@
       <ToolTip.Tip><TextBlock Text="{Binding Description}" MaxWidth="360" TextWrapping="Wrap" MaxLines="8" TextTrimming="CharacterEllipsis" /></ToolTip.Tip>
       <Button.Flyout>
         <Flyout Placement="BottomEdgeAlignedRight" Opened="OnFilterOpened" Closed="OnFilterClosed">
-          <Grid x:Name="PopupRoot" IsEnabled="{Binding CanUseJournal}">
-            <StackPanel x:Name="PopupPanel" x:DataType="vm:ColumnFilterEditorViewModel" Width="300" Spacing="10">
+          <!-- До подключения модели popup не наследует контекст заголовка. -->
+          <Grid x:Name="PopupRoot" DataContext="{x:Null}" IsEnabled="{Binding CanUseJournal}">
+            <StackPanel x:Name="PopupPanel" DataContext="{Binding Editor}" Width="300" Spacing="10">
               <TextBox x:Name="FilterSearch" Text="{Binding SearchText}" MinHeight="32" PlaceholderText="Найти значение"
                        AutomationProperties.Name="Поиск в фильтре" />
               <CheckBox x:Name="AllValuesCheckBox" Content="Все" FontWeight="Normal" Classes="status-filter-option" IsThreeState="True" MinHeight="32"

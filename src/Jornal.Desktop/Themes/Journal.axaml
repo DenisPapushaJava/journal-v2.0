@@ -219,7 +219,7 @@
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="Margin" Value="8,0" />
   </Style>
-  <Style Selector="GridSplitter.workspace-splitter:pointerover /template/ Border#WorkspaceSplitterLine, GridSplitter.workspace-splitter:focus /template/ Border#WorkspaceSplitterLine, Window.customizing GridSplitter.workspace-splitter /template/ Border#WorkspaceSplitterLine">
+  <Style Selector="GridSplitter.workspace-splitter:pointerover /template/ Border#WorkspaceSplitterLine, GridSplitter.workspace-splitter:focus.keyboard-resize /template/ Border#WorkspaceSplitterLine, Window.customizing GridSplitter.workspace-splitter /template/ Border#WorkspaceSplitterLine">
     <Setter Property="Background" Value="{DynamicResource JournalAccent}" />
     <Setter Property="Opacity" Value="1" />
   </Style>

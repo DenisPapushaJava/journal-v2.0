@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   package:
-    name: Package (${{ matrix.runtime }})
+    name: Release (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     strategy:
@@ -30,10 +30,8 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            runtime: linux-x64
             python: python3
           - os: windows-latest
-            runtime: win-x64
             python: python
     defaults:
       run:
@@ -71,12 +69,10 @@ jobs:
           path: artifacts/installer-dependencies/*.exe
           key: installer-windows-${{ hashFiles('installer/windows/dependencies.json') }}
       - name: Package
+        if: runner.os == 'Windows'
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
-        run: ${{ matrix.python }} scripts/release.py package --version "$RELEASE_VERSION" --runtime "${{ matrix.runtime }}" --updates
-      - name: Test Linux update and restart
-        if: runner.os == 'Linux'
-        run: python3 scripts/test-update-install-linux.py
+        run: python scripts/release.py package --version "$RELEASE_VERSION" --runtime win-x64 --updates
       - name: Test Windows install and restart
         if: runner.os == 'Windows'
         shell: pwsh
@@ -89,15 +85,16 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: diagnostics-${{ matrix.runtime }}
+          name: diagnostics-${{ runner.os }}
           path: |
             artifacts/test-results/*.trx
             artifacts/installer-logs/*.log
           if-no-files-found: ignore
           retention-days: 14
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: runner.os == 'Windows'
         with:
-          name: package-${{ matrix.runtime }}
+          name: package-win-x64
           path: |
             artifacts/release/*
           if-no-files-found: error
@@ -125,8 +122,7 @@ jobs:
         run: python3 scripts/release.py validate --version "$REQUESTED_VERSION" --github-output "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: package-*
-          merge-multiple: true
+          name: package-win-x64
           path: artifacts/release
       - name: Create or update draft
         env:
@@ -138,8 +134,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if gh release view "$RELEASE_TAG" --json isDraft > /tmp/release-state.json 2>/dev/null; then
-            python3 -c 'import json; assert json.load(open("/tmp/release-state.json"))["isDraft"], "Published releases are not overwritten"'
+          if gh release view "$RELEASE_TAG" --json isDraft,assets > /tmp/release-state.json 2>/dev/null; then
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          state = json.loads(Path('/tmp/release-state.json').read_text())
+          if not state['isDraft']:
+              raise SystemExit('Published releases are not overwritten')
+          expected = {path.name for path in Path('artifacts/release').iterdir()}
+          unexpected = {asset['name'] for asset in state['assets']} - expected
+          if unexpected:
+              raise SystemExit('Draft contains obsolete assets; review it before retrying: ' + ', '.join(sorted(unexpected)))
+          PY
             gh release upload "$RELEASE_TAG" artifacts/release/* --clobber
           else
             options=(--draft --verify-tag --title "Journal $RELEASE_VERSION" --notes-file docs/release-notes.md)

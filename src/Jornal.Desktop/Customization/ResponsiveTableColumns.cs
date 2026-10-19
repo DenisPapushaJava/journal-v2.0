@@ -12,6 +12,7 @@ internal sealed class ResponsiveTableColumns : IDisposable
 {
     private readonly DataGrid _table;
     private readonly Dictionary<DataGridColumn, DataGridLength> _widths;
+    private ScrollBar? _verticalScrollBar;
     private bool _queued;
     private bool _disposed;
     private double _lastAvailable = -1;
@@ -22,6 +23,11 @@ internal sealed class ResponsiveTableColumns : IDisposable
         _table = table;
         _widths = table.Columns.Skip(1).ToDictionary(column => column, column => column.Width);
         foreach (var column in _widths.Keys) column.PropertyChanged += OnColumnChanged;
+        table.TemplateApplied += OnTemplateApplied;
+        table.PropertyChanged += OnTablePropertyChanged;
+        // Поддерживает и создание после первого применения шаблона. Повторного обхода в layout нет.
+        _verticalScrollBar = table.GetVisualDescendants().OfType<ScrollBar>()
+            .FirstOrDefault(bar => bar.Name == "PART_VerticalScrollbar");
         table.LayoutUpdated += OnLayoutUpdated;
         table.Sorting += OnSorting;
         Schedule();
@@ -48,8 +54,19 @@ internal sealed class ResponsiveTableColumns : IDisposable
     }
     private double AvailableWidth()
     {
-        var vertical = _table.GetVisualDescendants().OfType<ScrollBar>().FirstOrDefault(bar => bar.Name == "PART_VerticalScrollbar");
+        var vertical = _verticalScrollBar;
         return _table.Bounds.Width - (vertical?.IsVisible == true ? vertical.Bounds.Width : 0);
+    }
+    private void OnTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    {
+        _verticalScrollBar = e.NameScope.Find<ScrollBar>("PART_VerticalScrollbar");
+        Schedule();
+    }
+    private void OnTablePropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != TemplatedControl.TemplateProperty) return;
+        _verticalScrollBar = null;
+        Schedule();
     }
     private void OnLayoutUpdated(object? sender, EventArgs e)
     {
@@ -97,8 +114,11 @@ internal sealed class ResponsiveTableColumns : IDisposable
     public void Dispose()
     {
         _disposed = true;
+        _table.TemplateApplied -= OnTemplateApplied;
+        _table.PropertyChanged -= OnTablePropertyChanged;
         _table.LayoutUpdated -= OnLayoutUpdated;
         _table.Sorting -= OnSorting;
         foreach (var column in _widths.Keys) column.PropertyChanged -= OnColumnChanged;
+        _verticalScrollBar = null;
     }
 }
