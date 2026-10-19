@@ -27,6 +27,7 @@ public sealed class JournalRefreshWindowTests
     [InlineData(false)] [InlineData(true)]
     public async Task VisibleInactiveWindowReceivesExternalColorAndRepaintsTheRow(bool restoreFromMinimized)
     {
+        var refresh = new ControlledRefresh();
         using var fixture = new LocalJournalFixture();
         var original = JournalPeriodTests.Row(42, DateOnly.FromDateTime(DateTime.Today)) with { Color = unchecked((int)0xFF42C6FF) };
         await LocalJournalStore.InitializeAsync(fixture.Path, [original], LocalJournalFixture.Prices, "synthetic.mdb", new string('a', 64),
@@ -34,25 +35,26 @@ public sealed class JournalRefreshWindowTests
         var store = new LocalJournalStore(fixture.Path);
         var model = new MainWindowViewModel(store, store, store);
         model.InitializeSource(new(fixture.Path, store, store, store, IsLocalCopy: true)); model.InitializeStartupPeriod();
-        var window = new MainWindow { DataContext = model, ShowActivated = false };
+        var window = refresh.Window(model); window.ShowActivated = false;
         var other = new Window { Width = 200, Height = 100 };
         try
         {
             await window.LoadInitialOrdersAsync(); window.Show(); Pump();
             window.FindControl<JournalSearchBox>("SearchBox")!.Focus(); Pump();
             other.Show(); other.Activate(); Pump();
+            await refresh.Tick(window);
             Assert.True(window.IsVisible); Assert.False(window.IsActive);
             if (restoreFromMinimized) { window.WindowState = WindowState.Minimized; Pump(); }
             const int newColor = unchecked((int)0xFFE4BC88);
             await new LocalJournalStore(fixture.Path).SetColorAsync([original], newColor, TestContext.Current.CancellationToken);
+            refresh.Signal(); refresh.Clock.Advance(16);
             if (restoreFromMinimized)
             {
-                await Task.Delay(TimeSpan.FromSeconds(16), TestContext.Current.CancellationToken); Pump();
+                await refresh.Tick(window);
                 Assert.Equal(original.Color, model.Orders.Single().Color);
                 window.WindowState = WindowState.Normal; Pump();
             }
-            for (var attempt = 0; attempt < 400 && model.Orders.Single().Color != newColor; attempt++)
-            { await Task.Delay(50, TestContext.Current.CancellationToken); Pump(); }
+            await refresh.Tick(window);
             Assert.Equal(newColor, Assert.Single(model.Orders).Color);
             var row = window.FindControl<DataGrid>("OrdersGrid")!.GetVisualDescendants().OfType<DataGridRow>().Single(control => control.IsVisible);
             Assert.Equal(Color.FromUInt32(unchecked((uint)newColor)), Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color);
@@ -66,23 +68,24 @@ public sealed class JournalRefreshWindowTests
     [InlineData("   ")]
     public async Task EmptyTodayRefreshesWithFocusInAnEmptyLetter(string text)
     {
+        var refresh = new ControlledRefresh();
         var directory = Path.Combine(Path.GetTempPath(), "journal-empty-today-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, "test.mdb"); File.WriteAllText(path, "synthetic");
         var reader = new JournalPeriodTests.Reader { Rows = [] };
         var model = new MainWindowViewModel(reader);
         model.InitializeSource(new(path, reader)); model.InitializeStartupPeriod();
-        var window = new MainWindow { DataContext = model };
+        var window = refresh.Window(model);
         try
         {
             await window.LoadInitialOrdersAsync(); window.Show(); window.Activate(); Pump();
+            await refresh.Tick(window);
             Assert.Empty(model.Orders); Assert.Single(reader.Days);
             var letter = window.FindControl<TextBox>("ResultTextBox")!;
             letter.Focus(); letter.Text = text; Pump(); Assert.True(letter.IsKeyboardFocusWithin);
             reader.Rows = [JournalPeriodTests.Row(42, DateOnly.FromDateTime(DateTime.Today))];
             File.AppendAllText(path, "changed");
-            for (var attempt = 0; attempt < 400 && model.Orders.Count == 0; attempt++)
-            { await Task.Delay(50, TestContext.Current.CancellationToken); Pump(); }
+            refresh.Signal(); refresh.Clock.Advance(15); await refresh.Tick(window);
             Assert.Equal(42, Assert.Single(model.Orders).Id);
             Assert.True(model.IsTodaySelected); Assert.True(letter.IsKeyboardFocusWithin);
             Assert.Equal(text, model.ResultText); Assert.Equal(0, reader.FullCalls);
@@ -93,32 +96,72 @@ public sealed class JournalRefreshWindowTests
     [AvaloniaFact]
     public async Task OpenColumnFilterKeepsItsDraftUntilTheUserClosesIt()
     {
+        var refresh = new ControlledRefresh();
         var directory = Path.Combine(Path.GetTempPath(), "journal-refresh-ui-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, "test.mdb"); File.WriteAllText(path, "watch-test");
         var reader = new JournalPeriodTests.Reader(); var model = new MainWindowViewModel(reader);
         model.InitializeSource(new(path, reader));
-        var window = new MainWindow { DataContext = model };
+        var window = refresh.Window(model);
         try
         {
             await window.LoadInitialOrdersAsync(); window.Show(); window.Activate(); Pump();
             var header = window.GetVisualDescendants().OfType<ColumnFilterHeader>().First();
             header.ShowFilter(); Pump(); Assert.True(header.IsFilterOpen);
-            await Task.Delay(TimeSpan.FromSeconds(4.5), TestContext.Current.CancellationToken); Pump();
+            await refresh.Tick(window); refresh.Clock.Advance(16); await refresh.Tick(window);
             Assert.Equal(1, reader.FullCalls); Assert.True(header.IsFilterOpen);
             var button = header.GetVisualDescendants().OfType<Button>().Single(value => value.Flyout is not null);
             button.Flyout!.Hide();
             var letter = window.FindControl<TextBox>("ResultTextBox")!;
             letter.Focus(); letter.Text = "Ручной ввод письма"; Pump();
-            await Task.Delay(700, TestContext.Current.CancellationToken); Pump();
+            refresh.Clock.Advance(1); await refresh.Tick(window);
             Assert.Equal(1, reader.FullCalls); Assert.True(letter.IsEffectivelyEnabled);
             Assert.Equal("Ручной ввод письма", model.ResultText);
             window.FindControl<DataGrid>("OrdersGrid")!.Focus();
-            for (var attempt = 0; attempt < 320 && reader.FullCalls == 1; attempt++)
-            { await Task.Delay(50, TestContext.Current.CancellationToken); Pump(); }
+            await refresh.Tick(window);
             Assert.Equal(2, reader.FullCalls);
         }
         finally { window.Close(); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaFact]
+    [Trait("Category", "RealTime")]
+    public async Task RealWatcherAndDispatcherTimerRefreshAnEmptyDay()
+    {
+        using var fixture = new LocalJournalFixture();
+        var reader = new JournalPeriodTests.Reader { Rows = [] };
+        var model = new MainWindowViewModel(reader);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(fixture.Path)!);
+        File.WriteAllText(fixture.Path, "synthetic");
+        model.InitializeSource(new(fixture.Path, reader)); model.InitializeStartupPeriod();
+        var window = new MainWindow { DataContext = model };
+        try
+        {
+            await window.LoadInitialOrdersAsync(); window.Show(); window.Activate(); Pump();
+            window.FindControl<TextBox>("ResultTextBox")!.Focus();
+            reader.Rows = [JournalPeriodTests.Row(42, DateOnly.FromDateTime(DateTime.Today))];
+            File.AppendAllText(fixture.Path, "changed");
+            var deadline = System.Diagnostics.Stopwatch.StartNew();
+            while (model.Orders.Count == 0 && deadline.Elapsed < TimeSpan.FromSeconds(20))
+            { await Task.Delay(50, TestContext.Current.CancellationToken); Pump(); }
+            Assert.Equal(42, Assert.Single(model.Orders).Id);
+            Assert.Equal(0, reader.FullCalls);
+        }
+        finally { window.Close(); }
+    }
+
+    private sealed class ControlledRefresh
+    {
+        public JournalAutoRefreshTests.Clock Clock { get; } = new();
+        private Action? _changed;
+        private sealed class Subscription : IDisposable { public void Dispose() { } }
+        public MainWindow Window(MainWindowViewModel model) => new(Clock, (_, changed, _) =>
+        {
+            _changed = changed;
+            return Task.FromResult<IDisposable>(new Subscription());
+        }) { DataContext = model };
+        public void Signal() { Assert.NotNull(_changed); _changed(); Pump(); }
+        public async Task Tick(MainWindow window) { Pump(); await window.TickJournalRefreshAsync(); Pump(); }
     }
 
     [AvaloniaTheory]

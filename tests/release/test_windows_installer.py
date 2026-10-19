@@ -4,6 +4,7 @@ import io
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -13,6 +14,17 @@ spec.loader.exec_module(installer)
 
 
 class InstallerDependenciesTests(unittest.TestCase):
+    def test_warming_downloads_rechecks_each_signature_without_running_the_compiler(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(installer, 'ROOT', Path(directory)), patch.object(installer, 'os', SimpleNamespace(name='nt')), \
+                    patch.object(installer, 'fetch', side_effect=lambda asset, cache: cache / asset['name']) as fetch, \
+                    patch.object(installer, 'verify_signature') as signature, patch.object(installer.subprocess, 'run') as run:
+                metadata, assets, cache = installer.prepare_dependencies()
+                self.assertEqual(len(metadata['files']), fetch.call_count)
+                self.assertEqual(len(assets), signature.call_count)
+                for key, asset in metadata['files'].items(): signature.assert_any_call(cache / asset['name'], asset['publisher'])
+                run.assert_not_called()
+
     def asset(self):
         return dict(name="runtime.exe", url="https://example.test/runtime.exe", algorithm="sha512", hash=hashlib.sha512(b"trusted").hexdigest())
 

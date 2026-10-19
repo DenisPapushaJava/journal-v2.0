@@ -13,10 +13,12 @@ spec.loader.exec_module(ci)
 class ScopeTests(unittest.TestCase):
     def test_docs_and_editor_only_are_quick_but_binary_assets_are_not(self):
         paths = ['README.md', 'AGENTS.md', 'LICENSE', 'docs/pricing.md',
+                 'docs/screenshots/main.png', 'docs/screenshots/dark.webp',
                  '.agents/skills/jornal-modernization/SKILL.md', '.github/pull_request_template.md',
                  '.vscode/launch.json', '.vscode/tasks.json', '.vscode/settings.json', '.vscode/extensions.json']
         self.assertEqual(ci.classify(paths), {'code': False, 'packaging': False})
         for path in ['docs/design/assets/journal-icon.png', 'logo.png', '.vscode/not-a-known-setting.json',
+                     'docs/screenshots/tool.exe', 'docs/screenshots-other/main.png',
                      'unrecognized-build-file', 'services/new-service/run.ts', 'src/NewHost/Program.cs']:
             with self.subTest(path=path): self.assertEqual(ci.classify([path]), {'code': True, 'packaging': True})
 
@@ -50,26 +52,69 @@ class ScopeTests(unittest.TestCase):
     def test_release_stays_unconditional_and_protected_checks_have_an_explicit_gate(self):
         workflow = (ROOT / '.github/workflows/modern.yml').read_text(encoding='utf-8')
         self.assertNotIn('paths-ignore:', workflow); self.assertNotIn('\n  paths:', workflow)
-        build = workflow.split('\n  build:', 1)[1]
-        self.assertIn('name: Check (${{ matrix.os }})', build)
-        self.assertIn('needs: scope', build); self.assertIn('if: ${{ always() }}', build)
-        self.assertIn('SCOPE_RESULT: ${{ needs.scope.result }}', build)
-        self.assertIn('scripts/ci_scope.py gate', build)
-        jet = build.split('- name: Test native Access transactions', 1)[1].split('- name:', 1)[0]
-        self.assertIn("if: ${{ !cancelled() && needs.scope.outputs.code == 'true' && runner.os == 'Windows' }}", jet)
-        self.assertNotIn("outputs.packaging", jet)
-        self.assertLess(build.index('- name: Test native Access transactions'), build.index('- name: Package update artifacts'))
-        restore = build.split('- name: Restore x64 SDK for packaging', 1)[1].split('- name:', 1)[0]
-        self.assertIn('architecture: x64', restore)
+        build = workflow.split('\n  build:', 1)[1].split('\n  native:', 1)[0]
+        self.assertIn('needs: scope', build)
+        self.assertNotIn('needs: [scope, native]', build)
+        native = workflow.split('\n  native:', 1)[1].split('\n  checks:', 1)[0]
+        self.assertIn("needs.scope.outputs.code == 'true'", native)
+        self.assertNotIn('outputs.packaging', native)
+        self.assertIn('uses: ./.github/workflows/native-access.yml', native)
+        checks = workflow.split('\n  checks:', 1)[1]
+        self.assertIn('name: Check (${{ matrix.os }})', checks)
+        self.assertIn('needs: [scope, build, native]', checks)
+        self.assertIn('if: ${{ always() }}', checks)
+        self.assertIn('scripts/ci_scope.py jobs-gate', checks)
+        for variable in ['SCOPE_RESULT', 'CHECK_CODE', 'CHECK_PACKAGING', 'BUILD_RESULT', 'NATIVE_RESULT']:
+            self.assertIn(variable + ': ${{ needs.', checks)
+        jet = (ROOT / '.github/workflows/native-access.yml').read_text(encoding='utf-8')
+        self.assertIn('architecture: x86', jet)
         self.assertIn("JOURNAL_REQUIRE_NATIVE_TESTS: '1'", jet)
+        self.assertIn('-RequireProvider', jet)
+        self.assertIn('--locked-mode', jet)
         release = (ROOT / '.github/workflows/release.yml').read_text(encoding='utf-8')
         self.assertNotIn('needs.scope', release)
-        self.assertLess(release.index('- name: Test native Access transactions'), release.index('- name: Package\n'))
-        native_release = release.split('- name: Test native Access transactions', 1)[1].split('- name:', 1)[0]
-        self.assertIn("if: ${{ !cancelled() && runner.os == 'Windows' }}", native_release)
-        for step in ['Test Windows offline installer and Access host', 'Test native Access transactions',
+        self.assertIn('uses: ./.github/workflows/native-access.yml', release)
+        self.assertIn('needs: [package, native]', release.split('\n  draft:', 1)[1])
+        for step in ['Test Windows offline installer and Access host',
                      'Test Linux update and restart', 'Test Windows install and restart']:
             self.assertIn(step, release)
+
+    def test_job_gate_rejects_missing_failed_cancelled_or_unexpectedly_skipped_native_checks(self):
+        for state in ['failure', 'cancelled', 'skipped', '', None]:
+            with self.subTest(build=state), self.assertRaises(ValueError):
+                ci.jobs_gate('success', 'true', 'false', state, 'success')
+            with self.subTest(native=state), self.assertRaises(ValueError):
+                ci.jobs_gate('success', 'true', 'false', 'success', state)
+        ci.jobs_gate('success', 'true', 'true', 'success', 'success')
+        ci.jobs_gate('success', 'false', 'false', 'success', 'skipped')
+        with self.assertRaises(ValueError): ci.jobs_gate('success', 'false', 'false', 'success', 'cancelled')
+        with self.assertRaises(ValueError): ci.jobs_gate('failure', 'false', 'false', 'success', 'skipped')
+
+    def test_unverified_push_gets_a_full_run_even_for_documentation(self):
+        self.assertEqual(ci.push_scope(False, 'нет подтверждения'), {'code': True, 'packaging': True, 'reason': 'нет подтверждения'})
+        self.assertEqual(ci.push_scope(True, 'проверен'), {'code': False, 'packaging': False, 'reason': 'проверен'})
+
+    def test_caches_cover_locked_packages_and_raw_verified_installer_downloads(self):
+        for name in ['modern.yml', 'release.yml', 'native-access.yml']:
+            text = (ROOT / '.github/workflows' / name).read_text(encoding='utf-8')
+            self.assertIn('path: .nuget/packages', text)
+            self.assertIn("key: nuget-${{ runner.os }}-${{ hashFiles('**/packages.lock.json', '.config/dotnet-tools.json') }}", text)
+        self.assertIn('uses: actions/cache/restore@', (ROOT / '.github/workflows/native-access.yml').read_text())
+        for name in ['modern.yml', 'release.yml']:
+            text = (ROOT / '.github/workflows' / name).read_text(encoding='utf-8')
+            self.assertIn('path: artifacts/installer-dependencies/*.exe', text)
+            self.assertIn("hashFiles('installer/windows/dependencies.json')", text)
+            self.assertNotIn('path: artifacts/installer-dependencies\n', text)
+
+    def test_verified_main_warms_missing_caches_without_rebuilding_the_application(self):
+        text = (ROOT / '.github/workflows/modern.yml').read_text(encoding='utf-8')
+        self.assertIn("lookup-only: ${{ needs.scope.outputs.code != 'true' }}", text)
+        self.assertIn("github.event_name == 'push' && steps.nuget.outputs.cache-hit != 'true'", text)
+        self.assertIn('python scripts/windows_installer.py --download-only', text)
+        self.assertIn("lookup-only: ${{ needs.scope.outputs.packaging != 'true' }}", text)
+        build = text.split('run: dotnet build', 1)[0].rsplit('      - if:', 1)[1]
+        self.assertIn("needs.scope.outputs.code == 'true'", build)
+        self.assertNotIn('cache-hit', build)
 
     def test_editor_comments_and_trailing_commas_do_not_hide_invalid_json(self):
         value = ci.parse_editor_json('{"url":"https://example.invalid/*path*/",/*заметка*/ "items":[1,2,],// строка\n}')
@@ -103,6 +148,14 @@ class ScopeTests(unittest.TestCase):
             git('mv', 'src/Jornal.Desktop/Views/Example.axaml', 'docs/renamed.md'); git('commit', '-m', 'Переименование')
             result = ci.determine('push', {'before': head, 'after': git('rev-parse', 'HEAD')}, root)
             self.assertTrue(result['code']); self.assertFalse(result['packaging'])
+            asset = commit('docs/design/assets/logo.png', 'synthetic image')
+            git('switch', '-c', 'screenshot', asset)
+            (root / 'docs/screenshots').mkdir(parents=True)
+            git('mv', 'docs/design/assets/logo.png', 'docs/screenshots/moved.png')
+            git('commit', '-m', 'Перенос изображения')
+            result = ci.determine('pull_request', {'pull_request': {'base': {'sha': asset},
+                'head': {'sha': git('rev-parse', 'HEAD')}}}, root)
+            self.assertTrue(result['code']); self.assertTrue(result['packaging'])
             # PR с отставшей базой не должен включать чужие изменения main.
             git('switch', '-c', 'feature', base); feature = commit('docs/feature.md', 'Описание функции\n')
             result = ci.determine('pull_request', {'pull_request': {'base': {'sha': head}, 'head': {'sha': feature}}}, root)

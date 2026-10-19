@@ -45,7 +45,7 @@ def verify_signature(path, publisher):
         "{ throw 'Invalid dependency signature or publisher' }"], env=environment, check=True)
 
 
-def build_offline_installer(app_setup, access_host, output_dir, version):
+def prepare_dependencies():
     if os.name != "nt":
         raise ValueError("The Windows offline installer must be built on Windows")
     metadata = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -54,6 +54,11 @@ def build_offline_installer(app_setup, access_host, output_dir, version):
     for key, asset in metadata["files"].items():
         assets[key] = fetch(asset, cache)
         verify_signature(assets[key], asset["publisher"])
+    return metadata, assets, cache
+
+
+def build_offline_installer(app_setup, access_host, output_dir, version):
+    metadata, assets, cache = prepare_dependencies()
     compiler_dir = cache / "inno-6.7.3"
     compiler = compiler_dir / "ISCC.exe"
     if not compiler.exists():
@@ -70,3 +75,11 @@ def build_offline_installer(app_setup, access_host, output_dir, version):
         raise ValueError("Offline installer was not created")
     result.with_suffix(".exe.sha256").write_text(hashlib.sha256(result.read_bytes()).hexdigest() + "  " + result.name + "\n", encoding="utf-8")
     return result
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Подготовить проверенные зависимости OfflineSetup без сборки.")
+    parser.add_argument("--download-only", action="store_true", required=True)
+    parser.parse_args()
+    prepare_dependencies()

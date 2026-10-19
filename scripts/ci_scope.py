@@ -31,7 +31,8 @@ FULL_TESTS = ('AccessHost', 'AppUpdate', 'Update', 'WindowsInstaller', 'Installe
 def classify(paths):
     code = full = False
     for path in paths:
-        if path in DOC_FILES or path in EDITOR_FILES or path.endswith('.md') and path.startswith(DOC_ROOTS):
+        if (path in DOC_FILES or path in EDITOR_FILES or path.endswith('.md') and path.startswith(DOC_ROOTS) or
+                path.startswith('docs/screenshots/') and Path(path).suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp')):
             continue
         code = True
         if (path.startswith(FULL_PREFIXES) or path in FULL_DESKTOP or
@@ -84,6 +85,17 @@ def gate(result, code, packaging):
         raise ValueError('Состав проверок не подтверждён: обязательная проверка остановлена.')
 
 
+def jobs_gate(result, code, packaging, build, native):
+    gate(result, code, packaging)
+    if build != 'success' or native != ('success' if code == 'true' else 'skipped'):
+        raise ValueError('Сборка и обязательный Jet не завершились успешно.')
+
+
+def push_scope(verified, reason):
+    # Успешный PR покрывает точный состав squash-коммита, а не произвольный push.
+    return {'code': not verified, 'packaging': not verified, 'reason': reason}
+
+
 def parse_editor_json(text):
     # VS Code допускает JSONC. Строки с URL/экранированием не являются комментариями.
     clean = []; index = 0; quoted = False
@@ -127,15 +139,22 @@ def check_repository(root=ROOT):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('scope', 'gate', 'check'))
+    parser.add_argument('command', choices=('scope', 'gate', 'jobs-gate', 'check'))
     args = parser.parse_args()
     if args.command == 'gate':
         gate(os.environ.get('SCOPE_RESULT'), os.environ.get('CHECK_CODE'), os.environ.get('CHECK_PACKAGING'))
+    elif args.command == 'jobs-gate':
+        jobs_gate(os.environ.get('SCOPE_RESULT'), os.environ.get('CHECK_CODE'), os.environ.get('CHECK_PACKAGING'),
+                     os.environ.get('BUILD_RESULT'), os.environ.get('NATIVE_RESULT'))
     elif args.command == 'check':
         check_repository()
     else:
         event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text(encoding='utf-8'))
         scope = determine(os.environ['GITHUB_EVENT_NAME'], event)
+        if os.environ['GITHUB_EVENT_NAME'] == 'push':
+            from ci_verified_merge import verify
+            verified, reason = verify(event, os.environ.get('GITHUB_REPOSITORY', ''), os.environ.get('GH_TOKEN', ''))
+            scope = push_scope(verified, reason)
         with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as output:
             for name in ('code', 'packaging'):
                 output.write(f'{name}={str(scope[name]).lower()}\n')
