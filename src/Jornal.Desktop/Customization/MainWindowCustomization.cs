@@ -77,12 +77,16 @@ public sealed partial class MainWindowCustomization
             {
                 if (!e.GetCurrentPoint(splitter).Properties.IsLeftButtonPressed) return;
                 _workspaceResizePointer = e.Pointer; _workspaceResizeSnapshot = _renderedWorkspace;
-                splitter.Focus();
+                splitter.Classes.Remove("keyboard-resize");
+                splitter.Focus(NavigationMethod.Pointer);
             }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            splitter.GotFocus += (_, e) => splitter.Classes.Set("keyboard-resize",
+                e.NavigationMethod is NavigationMethod.Tab or NavigationMethod.Directional);
             splitter.DragCompleted += (_, _) =>
             { _workspaceResizePointer = null; _workspaceResizeSnapshot = null; WorkspaceSplitterChanged(); };
             splitter.AddHandler(InputElement.KeyDownEvent, (_, e) =>
             {
+                if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down) splitter.Classes.Add("keyboard-resize");
                 if (e.Key == Key.Escape && CancelWorkspaceResize()) e.Handled = true;
             }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             splitter.KeyUp += (_, e) =>

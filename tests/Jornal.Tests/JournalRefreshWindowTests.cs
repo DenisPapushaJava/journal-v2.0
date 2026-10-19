@@ -124,6 +124,63 @@ public sealed class JournalRefreshWindowTests
         finally { window.Close(); Directory.Delete(directory, true); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, "column")] [InlineData(true, "column")]
+    [InlineData(false, "status")] [InlineData(true, "status")]
+    [InlineData(false, "font")] [InlineData(true, "font")]
+    [InlineData(false, "color")] [InlineData(true, "color")]
+    public async Task PopupsKeepPausingRefreshAfterThemeVisibilityAndTemplateChanges(bool dark, string popup)
+    {
+        var refresh = new ControlledRefresh();
+        using var fixture = new LocalJournalFixture();
+        Directory.CreateDirectory(Path.GetDirectoryName(fixture.Path)!); File.WriteAllText(fixture.Path, "synthetic");
+        var reader = new JournalPeriodTests.Reader(); var model = new MainWindowViewModel(reader) { IsDarkTheme = dark };
+        model.InitializeSource(new(fixture.Path, reader));
+        var window = refresh.Window(model);
+        try
+        {
+            await window.LoadInitialOrdersAsync(); window.Show(); window.Activate(); Pump();
+            var table = window.FindControl<DataGrid>("OrdersGrid")!;
+            var manager = table.Columns.Single(column => column.Header is "Менеджер");
+            manager.IsVisible = false; Pump(); manager.IsVisible = true; Pump();
+            model.IsDarkTheme = !dark; Pump();
+            var template = table.Template; table.Template = null; Pump(); table.Template = template; Pump();
+            Func<bool> isOpen; Action close;
+            if (popup == "column")
+            {
+                var header = table.GetVisualDescendants().OfType<ColumnFilterHeader>().Single(item => item.DataContext == model.ManagerFilter);
+                var button = header.FindControl<JournalButton>("ColumnFilterButton")!;
+                header.ShowFilter(); isOpen = () => header.IsFilterOpen; close = () => button.Flyout!.Hide();
+            }
+            else if (popup == "status")
+            {
+                var header = table.GetVisualDescendants().OfType<StatusFilterHeader>().Single();
+                var button = header.FindControl<JournalButton>("StatusFilterButton")!;
+                header.ShowFilter(); isOpen = () => header.IsFilterOpen; close = () => button.Flyout!.Hide();
+            }
+            else
+            {
+                var bar = window.FindControl<ResultFormattingBar>("ResultFormatting")!;
+                if (popup == "font")
+                {
+                    var combo = bar.FindControl<ComboBox>("ResultFontSize")!;
+                    combo.IsDropDownOpen = true; isOpen = () => combo.IsDropDownOpen; close = () => combo.IsDropDownOpen = false;
+                }
+                else
+                {
+                    var button = bar.FindControl<Button>("ResultColorButton")!;
+                    button.Flyout!.ShowAt(button); isOpen = () => button.Flyout!.IsOpen; close = () => button.Flyout!.Hide();
+                }
+            }
+            Pump(); Assert.True(isOpen());
+            await refresh.Tick(window); refresh.Clock.Advance(16); await refresh.Tick(window);
+            Assert.True(isOpen()); Assert.Equal(1, reader.FullCalls);
+            close(); table.Focus(); Pump(); await refresh.Tick(window);
+            Assert.Equal(2, reader.FullCalls);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     [Trait("Category", "RealTime")]
     public async Task RealWatcherAndDispatcherTimerRefreshAnEmptyDay()

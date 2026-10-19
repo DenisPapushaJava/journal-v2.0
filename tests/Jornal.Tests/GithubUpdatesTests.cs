@@ -35,6 +35,8 @@ public sealed class GithubUpdatesTests
         var update = await updater.CheckAsync(true, TestContext.Current.CancellationToken);
         Assert.Equal("2026.11.0-beta.1", update!.Version);
         Assert.Contains("/releases?", fixture.Downloader.LastApiUrl);
+        await updater.DownloadAsync(update, new Progress<int>(), TestContext.Current.CancellationToken);
+        Assert.Equal(1, fixture.Downloader.FileDownloads);
         // Даже ошибочно помеченный стабильным GitHub Release не разрешает beta в стабильном канале.
         fixture.Downloader.MislabelPreview = true;
         await Assert.ThrowsAsync<InvalidDataException>(() => updater.CheckAsync(false, TestContext.Current.CancellationToken));

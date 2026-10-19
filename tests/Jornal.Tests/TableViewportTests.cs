@@ -104,6 +104,34 @@ public sealed class TableViewportTests
 
     [AvaloniaTheory]
     [InlineData(false)] [InlineData(true)]
+    public void ReapplyingTemplateUpdatesTheScrollbarUsedForColumnWidths(bool dark)
+    {
+        var store = new MemoryUiPreferencesStore(); store.Save(new() { DarkTheme = dark });
+        var reader = new LinkedColumnFilterTests.Reader { Items = Enumerable.Range(1, 40)
+            .Select(id => LinkedColumnFilterTests.Rows()[0] with { Id = id }).ToArray() };
+        var model = new MainWindowViewModel(reader);
+        var window = new MainWindow(store) { DataContext = model, Width = 1920, Height = 768 };
+        try
+        {
+            window.Show(); Pump(); var grid = window.FindControl<DataGrid>("OrdersGrid")!; AssertFilled(grid);
+            var previous = grid.GetVisualDescendants().OfType<ScrollBar>().Single(bar => bar.Name == "PART_VerticalScrollbar");
+            var template = grid.Template;
+            grid.Template = null; Pump(); grid.Template = template; Pump();
+            var current = grid.GetVisualDescendants().OfType<ScrollBar>().Single(bar => bar.Name == "PART_VerticalScrollbar");
+            Assert.NotSame(previous, current); Assert.DoesNotContain(grid, previous.GetVisualAncestors());
+            Assert.True(current.IsVisible); AssertFilled(grid);
+            model.SearchText = "нет подходящих заявок"; Pump();
+            Assert.Empty(model.Orders); Assert.False(current.IsVisible); AssertFilled(grid);
+            model.SearchText = ""; model.IsDarkTheme = !dark; Pump();
+            Assert.NotEmpty(model.Orders); AssertFilled(grid);
+            window.Width = 1280; Pump(); Assert.True(Bar(grid).IsVisible);
+            window.Width = 1920; Pump(); AssertFilled(grid);
+        }
+        finally { window.Close(); Pump(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)] [InlineData(true)]
     public void LegacyPixelWidthsAutomaticallyBecomeRelativeAndSurviveRestart(bool dark)
     {
         var store = new MemoryUiPreferencesStore(); store.Save(new() { DarkTheme = dark, Layout = new()

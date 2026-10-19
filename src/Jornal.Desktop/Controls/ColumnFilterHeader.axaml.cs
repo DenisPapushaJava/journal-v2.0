@@ -23,6 +23,7 @@ public partial class ColumnFilterHeader : UserControl
         var model = DataContext as OrderColumnFilterViewModel;
         if (_model == model) return;
         Disconnect(); _model = model;
+        PopupRoot.DataContext = model;
         if (_model is not null) _model.PropertyChanged += OnModelChanged;
     }
     private void Disconnect()
@@ -30,6 +31,7 @@ public partial class ColumnFilterHeader : UserControl
         FilterPopup.Hide();
         if (_model is not null) _model.PropertyChanged -= OnModelChanged;
         _model = null;
+        PopupRoot.DataContext = null;
     }
     private void OnModelChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -41,8 +43,6 @@ public partial class ColumnFilterHeader : UserControl
     {
         if (_model?.CanUseJournal != true) { FilterPopup.Hide(); return; }
         _model.BeginEdit();
-        PopupPanel.DataContext = _model.Editor;
-        PopupRoot.DataContext = _model;
         FilterSearch.Focus();
     }
     private void OnFilterClosed(object? sender, EventArgs e) => _model?.BeginEdit();

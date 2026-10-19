@@ -11,11 +11,16 @@ namespace Jornal.Infrastructure.Access;
 public sealed partial class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IPriceEditor, IPriceImpactReader, IOrderMaintenance, IOrderDurationInitializer, IOrderAnnotationsInitializer, IMachineCatalogReader, IMachineCreator
 {
     private readonly Action<Process> _start = static process => { process.Start(); };
+    private readonly Action<Process> _stop = static process => process.Kill();
     private readonly TimeSpan _timeout = TimeSpan.FromMinutes(2);
-    internal AccessHostClient(string path, string? executable, Action<Process> start, TimeSpan? timeout = null) : this(path, executable)
+    private readonly TimeSpan _cleanupTimeout = TimeSpan.FromSeconds(3);
+    internal AccessHostClient(string path, string? executable, Action<Process> start, TimeSpan? timeout = null,
+        Action<Process>? stop = null, TimeSpan? cleanupTimeout = null) : this(path, executable)
     {
         _start = start;
         _timeout = timeout ?? _timeout;
+        _stop = stop ?? _stop;
+        _cleanupTimeout = cleanupTimeout ?? _cleanupTimeout;
     }
     public static string DefaultExecutable => System.IO.Path.Combine(AppContext.BaseDirectory, "AccessHost", "Jornal.AccessHost.exe");
     public static bool IsBundled => OperatingSystem.IsWindows() && File.Exists(DefaultExecutable);
@@ -154,12 +159,16 @@ public sealed partial class AccessHostClient(string path, string? executable = n
         Task? error = null;
         Task? input = null;
         Task? exit = null;
+        Stream? inputPipe = null, outputPipe = null, errorPipe = null;
         try
         {
             _start(process);
-            output = ReadResponseAsync(process.StandardOutput.BaseStream, deadline.Token);
+            inputPipe = process.StandardInput.BaseStream;
+            outputPipe = process.StandardOutput.BaseStream;
+            errorPipe = process.StandardError.BaseStream;
+            output = ReadResponseAsync(outputPipe, deadline.Token);
             // stderr не участвует в протоколе и не передаётся в диагностику, но канал нельзя оставлять заполненным.
-            error = process.StandardError.BaseStream.CopyToAsync(Stream.Null, 4096, deadline.Token);
+            error = errorPipe.CopyToAsync(Stream.Null, 4096, deadline.Token);
             exit = process.WaitForExitAsync(deadline.Token);
             // После начала отправки записи любой обрыв считается неподтверждённым исходом.
             dispatched = true;
@@ -367,16 +376,7 @@ public sealed partial class AccessHostClient(string path, string? executable = n
         }
         finally
         {
-            // Ранняя ошибка JSON может оставить хост на записи stdout, а клиента — на отправке большого stdin.
-            // Запускаем отмену I/O и сразу останавливаем процесс, не ожидая callbacks отмены на полном pipe.
-            var cancelling = deadline.CancelAsync();
-            try { if (process.Id != 0 && !process.HasExited) process.Kill(entireProcessTree: true); }
-            catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception) { }
-            try { await cancelling.ConfigureAwait(false); } catch (Exception) { }
-            if (input is not null) try { await input.ConfigureAwait(false); } catch (Exception) { }
-            if (output is not null) try { await output.ConfigureAwait(false); } catch (Exception) { }
-            if (error is not null) try { await error.ConfigureAwait(false); } catch (Exception) { }
-            if (exit is not null) try { await exit.ConfigureAwait(false); } catch (Exception) { }
+            await CleanupAsync(process, deadline, inputPipe, outputPipe, errorPipe, input, output, error, exit).ConfigureAwait(false);
         }
     }
 }

@@ -59,7 +59,7 @@ public sealed class AccessHostStreamingTests
         var result = await host.Client.ReadAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
         Assert.Equal(rows, result);
         Assert.Equal(1, host.Starts);
-        await host.AssertStoppedAsync();
+        host.AssertStopped();
     }
 
     [Theory]
@@ -77,7 +77,7 @@ public sealed class AccessHostStreamingTests
         using var host = new Host(payload);
         await Assert.ThrowsAsync<OrderReadException>(() => host.Client.ReadAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
         Assert.Equal(1, host.Starts);
-        await host.AssertStoppedAsync();
+        host.AssertStopped();
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public sealed class AccessHostStreamingTests
         Assert.IsType<JsonException>(error.InnerException);
         Assert.Equal(DiagnosticStage.ValidateAccessResponse, DiagnosticStages.Of(error));
         Assert.Equal(1, host.Starts);
-        await host.AssertStoppedAsync();
+        host.AssertStopped();
     }
 
     [Theory]
@@ -109,7 +109,7 @@ public sealed class AccessHostStreamingTests
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
         Assert.Equal(1, host.Starts);
-        await host.AssertStoppedAsync();
+        host.AssertStopped();
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class AccessHostStreamingTests
         Assert.Equal(OrderWriteFailure.OutcomeUnknown, error.Failure);
         Assert.True(error.RequiresReload);
         Assert.Equal(1, host.Starts);
-        await host.AssertStoppedAsync();
+        host.AssertStopped();
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public sealed class AccessHostStreamingTests
         Assert.IsAssignableFrom<OperationCanceledException>(error.InnerException);
         Assert.False(token.IsCancellationRequested);
         Assert.Equal(1, host.Starts);
-        await host.AssertStoppedAsync();
+        host.AssertStopped();
     }
 
     [Fact]
@@ -149,7 +149,95 @@ public sealed class AccessHostStreamingTests
         Assert.Equal(OrderWriteFailure.OutcomeUnknown, error.Failure);
         Assert.True(error.RequiresReload);
         Assert.Equal(1, host.Starts);
-        await host.AssertStoppedAsync();
+        host.AssertStopped();
+    }
+
+    [Fact]
+    public async Task CancellationStopsOnlyTheStartedProcessAndClosesItsPipesBeforeReturning()
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using var host = new Host(JsonSerializer.Serialize(new AccessHostResponse(1, [], AnnotationsSupported: true)), "no-eof-with-child");
+        var operation = host.Client.ReadAsync(cancellation.Token);
+        await host.WaitForMarkerAsync();
+        using var child = Process.GetProcessById(host.ChildProcessId);
+        Assert.False(child.HasExited);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        host.AssertStopped();
+        Assert.False(child.HasExited); // Не трогаем другие процессы, даже у подменённого тестового хоста.
+        Assert.Equal(1, host.Starts);
+    }
+
+    [Fact]
+    public async Task CleanupWaitsForActualExitEvenWhenTheRequestTokenIsAlreadyCancelled()
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var stopRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var host = new Host("", "silent", stop: _ => stopRequested.TrySetResult());
+        var operation = host.Client.ReadAsync(cancellation.Token);
+        await host.WaitForMarkerAsync();
+        cancellation.Cancel();
+        await stopRequested.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        // Имитируем промежуток между запросом остановки и настоящим выходом процесса.
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        Assert.False(operation.IsCompleted);
+        host.Stop();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        host.AssertStopped();
+    }
+
+    [Fact]
+    public async Task ExitBetweenTheCheckAndStopDoesNotReplaceTheOriginalJsonFailure()
+    {
+        var stops = 0;
+        using var host = new Host("", "invalid-before-input", stop: process =>
+        {
+            stops++;
+            process.Kill();
+            if (!process.WaitForExit(5000)) throw new TimeoutException("Probe did not exit.");
+            throw new InvalidOperationException("Process exited before the stop request.");
+        });
+        var error = await Assert.ThrowsAsync<OrderWriteException>(() => host.Client.SetColorAsync([Row(42)], OrderColors.Work,
+            TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        Assert.IsType<JsonException>(error.InnerException);
+        Assert.Equal(DiagnosticStage.ValidateAccessResponse, DiagnosticStages.Of(error));
+        Assert.Equal(OrderWriteFailure.OutcomeUnknown, error.Failure);
+        Assert.True(error.RequiresReload);
+        Assert.Equal(1, stops); Assert.Equal(1, host.Starts);
+        host.AssertStopped();
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task RefusedOrIneffectiveStopIsBoundedAndKeepsTheWriteUnconfirmed(bool refused)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var stops = 0;
+        using var host = new Host("", "silent", stop: _ =>
+        {
+            stops++;
+            if (refused) throw new System.ComponentModel.Win32Exception(5);
+        }, cleanupTimeout: TimeSpan.FromSeconds(1));
+        var operation = host.Client.SetColorAsync([Row(42)], OrderColors.Work, cancellation.Token);
+        await host.WaitForMarkerAsync();
+        cancellation.Cancel();
+        var error = await Assert.ThrowsAsync<OrderWriteException>(() => operation.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        Assert.IsAssignableFrom<OperationCanceledException>(error.InnerException);
+        Assert.Equal(OrderWriteFailure.OutcomeUnknown, error.Failure); Assert.True(error.RequiresReload);
+        Assert.Equal(1, host.Starts); Assert.Equal(1, stops);
+        using var stillRunning = Process.GetProcessById(host.ProcessId);
+        Assert.False(stillRunning.HasExited);
+        host.AssertPipesClosed();
+    }
+
+    [Fact]
+    public async Task CancellationBeforeStartDoesNotLaunchOrStopAnything()
+    {
+        using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
+        var stops = 0;
+        using var host = new Host("", stop: _ => stops++);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.Client.ReadAsync(cancellation.Token));
+        Assert.Equal(0, host.Starts); Assert.Equal(0, stops);
     }
 
     private static OrderSummary Row(int id) => new(id, new(2026, 10, 19), $"1019--{id}", "Менеджер", "Заказчик 'А' №2 🔧", "Лазер", "5083H111", 2.5m,
@@ -165,10 +253,14 @@ public sealed class AccessHostStreamingTests
         private readonly string _root = Path.Combine(Path.GetTempPath(), "journal-stream-host-" + Guid.NewGuid().ToString("N"));
         private readonly string _marker;
         private int? _pid;
+        private SafeHandle[] _pipeHandles = [];
         public AccessHostClient Client { get; }
         public int Starts { get; private set; }
+        public int ProcessId => _pid ?? throw new InvalidOperationException("Probe was not started.");
+        public int ChildProcessId => int.Parse(File.ReadAllText(_marker + ".child"), System.Globalization.CultureInfo.InvariantCulture);
 
-        public Host(string payload, string scenario = "response", int exitCode = 0, TimeSpan? timeout = null)
+        public Host(string payload, string scenario = "response", int exitCode = 0, TimeSpan? timeout = null,
+            Action<Process>? stop = null, TimeSpan? cleanupTimeout = null)
         {
             Directory.CreateDirectory(_root);
             var file = Path.Combine(_root, "reply.json");
@@ -178,12 +270,20 @@ public sealed class AccessHostStreamingTests
             Client = new AccessHostClient("unused.mdb", dotnet, process =>
             {
                 foreach (var argument in new[] { "exec", "--runtimeconfig", Path.ChangeExtension(typeof(AccessHostStreamingTests).Assembly.Location, ".runtimeconfig.json"),
-                    typeof(ProbeMarker).Assembly.Location, scenario, file, _marker, exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture) })
+                    typeof(ProbeMarker).Assembly.Location, scenario, file, _marker, exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Path.ChangeExtension(typeof(AccessHostStreamingTests).Assembly.Location, ".runtimeconfig.json") })
                     process.StartInfo.ArgumentList.Add(argument);
                 process.Start();
                 _pid = process.Id;
+                _pipeHandles = new[] { process.StandardInput.BaseStream, process.StandardOutput.BaseStream, process.StandardError.BaseStream }
+                    .Select(pipe => (SafeHandle)(pipe switch
+                    {
+                        System.IO.Pipes.PipeStream stream => stream.SafePipeHandle,
+                        FileStream stream => stream.SafeFileHandle,
+                        _ => throw new InvalidOperationException("Unexpected process pipe.")
+                    })).ToArray();
                 Starts++;
-            }, timeout);
+            }, timeout, stop, cleanupTimeout);
         }
 
         public async Task WaitForMarkerAsync()
@@ -193,30 +293,35 @@ public sealed class AccessHostStreamingTests
             while (!File.Exists(_marker)) await Task.Delay(10, deadline.Token);
         }
 
-        public async Task AssertStoppedAsync()
+        public void AssertStopped()
         {
             if (_pid is not { } pid) throw new InvalidOperationException("Probe was not started.");
             try
             {
                 using var process = Process.GetProcessById(pid);
-                await process.WaitForExitAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
                 Assert.True(process.HasExited);
             }
             catch (ArgumentException) { /* Процесс уже завершён и удалён из таблицы процессов. */ }
+            AssertPipesClosed();
+        }
+
+        public void AssertPipesClosed() => Assert.All(_pipeHandles, handle => Assert.True(handle.IsClosed));
+        public void Stop() { if (_pid is { } pid) Stop(pid); }
+        private static void Stop(int pid)
+        {
+            try
+            {
+                using var process = Process.GetProcessById(pid);
+                if (!process.HasExited) process.Kill();
+                process.WaitForExit(10000);
+            }
+            catch (ArgumentException) { }
         }
 
         public void Dispose()
         {
-            if (_pid is { } pid)
-            {
-                try
-                {
-                    using var process = Process.GetProcessById(pid);
-                    if (!process.HasExited) process.Kill(entireProcessTree: true);
-                    process.WaitForExit(10000);
-                }
-                catch (ArgumentException) { }
-            }
+            Stop();
+            if (File.Exists(_marker + ".child")) Stop(ChildProcessId);
             Directory.Delete(_root, recursive: true);
         }
     }

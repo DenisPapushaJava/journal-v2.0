@@ -59,7 +59,7 @@
           </Grid>
           <Grid Width="40" Height="36" VerticalAlignment="Center">
             <ui:JournalButton x:Name="TrashButton" Label="Корзина" Icon="trash" IconOnly="True" Width="32" Height="32" Padding="0"
-                              IsEnabled="{Binding CanOpenTrash}" Click="OnTrashClick" ToolTip.Tip="{Binding TrashHint}" AutomationProperties.Name="{Binding TrashHint}" VerticalAlignment="Bottom" HorizontalAlignment="Left" />
+                              IsEnabled="{Binding CanOpenTrash}" Click="OnTrashClick" ToolTip.Tip="{Binding TrashHint}" AutomationProperties.Name="{Binding TrashHint}" VerticalAlignment="Center" HorizontalAlignment="Left" />
             <Border x:Name="TrashBadge" Background="{DynamicResource JournalAccent}" CornerRadius="8" Padding="3,0" MinWidth="16" MaxWidth="28" Height="16"
                     IsVisible="{Binding HasTrashItems}" HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False">
               <TextBlock Text="{Binding TrashBadgeText}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource JournalOnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -327,7 +327,8 @@
                 <DataGridTextColumn Header="Менеджер" Binding="{ReflectionBinding ManagerName}" Width="124*" MinWidth="118">
                   <DataGridTextColumn.HeaderTemplate>
                     <DataTemplate>
-                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.ManagerFilter}" />
+                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.ManagerFilter}"
+                                             AttachedToVisualTree="OnJournalFilterAttached" DetachedFromVisualTree="OnJournalFilterDetached" />
                     </DataTemplate>
                   </DataGridTextColumn.HeaderTemplate>
                 </DataGridTextColumn>
@@ -335,21 +336,24 @@
                 <DataGridTextColumn Header="Вид резки" Binding="{ReflectionBinding CuttingType}" Width="122*" MinWidth="116">
                   <DataGridTextColumn.HeaderTemplate>
                     <DataTemplate>
-                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.CuttingTypeFilter}" />
+                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.CuttingTypeFilter}"
+                                             AttachedToVisualTree="OnJournalFilterAttached" DetachedFromVisualTree="OnJournalFilterDetached" />
                     </DataTemplate>
                   </DataGridTextColumn.HeaderTemplate>
                 </DataGridTextColumn>
                 <DataGridTextColumn Header="Материал" Binding="{ReflectionBinding MaterialName}" Width="116*" MinWidth="114">
                   <DataGridTextColumn.HeaderTemplate>
                     <DataTemplate>
-                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.MaterialFilter}" />
+                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.MaterialFilter}"
+                                             AttachedToVisualTree="OnJournalFilterAttached" DetachedFromVisualTree="OnJournalFilterDetached" />
                     </DataTemplate>
                   </DataGridTextColumn.HeaderTemplate>
                 </DataGridTextColumn>
                 <DataGridTextColumn Header="Толщ., мм" Binding="{ReflectionBinding ThicknessText}" SortMemberPath="ThicknessMillimeters" Width="118*" MinWidth="116" ui:TableCellPresentation.IsNumeric="True">
                   <DataGridTextColumn.HeaderTemplate>
                     <DataTemplate>
-                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.ThicknessFilter}" />
+                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.ThicknessFilter}"
+                                             AttachedToVisualTree="OnJournalFilterAttached" DetachedFromVisualTree="OnJournalFilterDetached" />
                     </DataTemplate>
                   </DataGridTextColumn.HeaderTemplate>
                 </DataGridTextColumn>
@@ -369,7 +373,8 @@
                 <DataGridTemplateColumn Header="Гибка" SortMemberPath="HasBending" Width="96*" MinWidth="94" IsReadOnly="True">
                   <DataGridTemplateColumn.HeaderTemplate>
                     <DataTemplate>
-                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.BendingFilter}" />
+                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.BendingFilter}"
+                                             AttachedToVisualTree="OnJournalFilterAttached" DetachedFromVisualTree="OnJournalFilterDetached" />
                     </DataTemplate>
                   </DataGridTemplateColumn.HeaderTemplate>
                   <DataGridTemplateColumn.CellTemplate>
@@ -391,7 +396,8 @@
                 <DataGridTemplateColumn Header="Статус" Width="110*" MinWidth="100" SortMemberPath="StatusText">
                   <DataGridTemplateColumn.HeaderTemplate>
                     <DataTemplate>
-                      <ui:StatusFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext}" />
+                      <ui:StatusFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext}"
+                                             AttachedToVisualTree="OnJournalFilterAttached" DetachedFromVisualTree="OnJournalFilterDetached" />
                     </DataTemplate>
                   </DataGridTemplateColumn.HeaderTemplate>
                   <DataGridTemplateColumn.CellTemplate>

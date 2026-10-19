@@ -28,7 +28,7 @@
 python scripts/release.py package --version 2026.1.0-alpha.1 --runtime win-x64 --updates
 ```
 
-Команда публикует интерфейс x64 и хост x86, создаёт обычный Velopack Setup/feed и полный OfflineSetup в `artifacts/release`. Упаковка Windows выполняется на Windows; с Linux её делает GitHub Actions. `scripts/publish.sh` даёт только папку UI для разработки, без полного комплекта.
+Команда публикует интерфейс x64 и хост x86. В пустой `artifacts/release` попадают четыре файла: OfflineSetup, полный `.nupkg`, `releases.win-x64.json` и `SHA256SUMS`. Внутренний Velopack Setup включается в полный установщик, отдельного portable/ZIP нет. Перед формированием набора проверяются версия, размер и SHA-256 пакета по JSON-индексу. Упаковка Windows выполняется на Windows; с Linux её делает GitHub Actions. `scripts/publish.sh` даёт только папку UI для разработки, без полного комплекта. Подробности — [состав выпуска](releases.md#состав-файлов-выпуска).
 
 Версии, прямые URL и SHA-512/SHA-256 закреплены в `installer/windows/dependencies.json`; бинарные зависимости не хранятся в Git. На этапе сборки проверяются хеш и Authenticode-подпись Microsoft/Pyrsys. Компилятор Inno Setup 6.7.3 устанавливается в изолированную папку `artifacts/installer-dependencies`, его оригинальный установщик также проверяется. Для сборки нужен интернет или заполненный проверенный кеш. [Inno Setup](https://jrsoftware.org/isinfo.php), [загрузка .NET](https://learn.microsoft.com/en-us/dotnet/core/install/windows).
 

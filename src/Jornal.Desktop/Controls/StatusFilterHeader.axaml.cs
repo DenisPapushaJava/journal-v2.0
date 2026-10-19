@@ -23,6 +23,7 @@ public partial class StatusFilterHeader : UserControl
         var model = DataContext as MainWindowViewModel;
         if (_model == model) return;
         Disconnect(); _model = model;
+        PopupRoot.DataContext = model;
         if (_model is not null) _model.PropertyChanged += OnModelChanged;
     }
     private void Disconnect()
@@ -30,6 +31,7 @@ public partial class StatusFilterHeader : UserControl
         StatusPopup.Hide();
         if (_model is not null) _model.PropertyChanged -= OnModelChanged;
         _model = null;
+        PopupRoot.DataContext = null;
     }
     private void OnModelChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -42,8 +44,6 @@ public partial class StatusFilterHeader : UserControl
     {
         if (_model?.CanBrowseJournal != true) { StatusPopup.Hide(); return; }
         _model.BeginStatusFilterEdit();
-        PopupPanel.DataContext = _model.StatusFilterEditor;
-        PopupRoot.DataContext = _model;
         AllStatusesCheckBox.Focus();
     }
     private void OnFilterClosed(object? sender, EventArgs e)
