@@ -37,7 +37,7 @@ public sealed class CompactPanelsMigrationTests
             Assert.Null(loaded.Error); var applied = loaded.Preferences!;
             Assert.True(applied.Layout.CompactPanelsPresetApplied);
             Assert.Equal(new[] { "orders", "clipboard", "result" }, applied.Layout.Workspace!.Panels);
-            Assert.Equal(106, applied.Layout.Workspace.Height);
+            Assert.Equal(138, applied.Layout.Workspace.Height);
             Assert.Equal(previous.Layout.Columns, applied.Layout.Columns); Assert.Equal(24, applied.Layout.RowHeight);
             Assert.Equal(previous.DarkTheme, applied.DarkTheme); Assert.False(applied.ShowTodayOnStartup);
             Assert.Equal(previous.ResultFormatting, applied.ResultFormatting);

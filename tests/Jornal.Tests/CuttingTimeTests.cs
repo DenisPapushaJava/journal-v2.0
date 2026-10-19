@@ -103,7 +103,6 @@ public sealed class CuttingTimeTests
         var text = OrderResultFormatter.Format([reopened]);
         var clipboard = ResultClipboardContent.FromText(text);
         Assert.Equal(text, clipboard.Text); Assert.Contains("29:46", clipboard.Html); Assert.Contains("29:46", clipboard.Rtf);
-        Assert.Equal(6, System.Text.RegularExpressions.Regex.Matches(clipboard.Html, "<td ").Count);
     }
 
     [Fact]

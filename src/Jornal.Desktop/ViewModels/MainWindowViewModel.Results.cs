@@ -11,6 +11,8 @@ public partial class MainWindowViewModel
 {
     private readonly HashSet<int> _resultOrderIds = [];
     private int _selectedCount;
+    internal const string ResultCopiedFeedback = "Скопировано";
+    internal const string ResultClearedFeedback = "Результат очищен";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanClearResult)), NotifyPropertyChangedFor(nameof(CanCopyResult))]
     private string _resultText = string.Empty;
     private const string DefaultResultMessage = "";
@@ -18,6 +20,8 @@ public partial class MainWindowViewModel
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowResultFeedback)), NotifyPropertyChangedFor(nameof(ResultFeedbackBrush))]
     private bool _hasResultError;
     public bool ShowResultFeedback => HasResultError || ResultMessage != DefaultResultMessage;
+    internal bool HasTransientResultFeedback => !HasResultError &&
+        ResultMessage is ResultCopiedFeedback or ResultClearedFeedback;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanAddResult)), NotifyPropertyChangedFor(nameof(CanClearResult)),
      NotifyPropertyChangedFor(nameof(CanCopyResult)), NotifyPropertyChangedFor(nameof(CanEditResult)), NotifyPropertyChangedFor(nameof(CanConfigureSource)), NotifyPropertyChangedFor(nameof(CanCheckUpdates))]
     private bool _isCopyingResult;
@@ -69,7 +73,7 @@ public partial class MainWindowViewModel
         ResultText = string.Empty;
         _resultOrderIds.Clear();
         HasResultError = false;
-        ResultMessage = "Результат очищен";
+        ResultMessage = ResultClearedFeedback;
     }
 
     public async Task CopyResultAsync(IResultClipboard clipboard)
@@ -84,7 +88,7 @@ public partial class MainWindowViewModel
         try
         {
             await clipboard.WriteAsync(ResultClipboardContent.FromText(text, style));
-            ResultMessage = "Скопировано";
+            ResultMessage = ResultCopiedFeedback;
         }
         catch (Exception exception)
         {

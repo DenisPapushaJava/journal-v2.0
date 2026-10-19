@@ -63,11 +63,11 @@ public sealed partial class MainWindowCustomization
     private double AvailableWorkspaceHeight()
     {
         var body = Find<Grid>("BodyGrid");
-        if (body.Bounds.Height <= 0) return 472;
+        if (body.Bounds.Height <= 0) return WorkspaceLayout.MaximumHeight - 8;
         var error = Find<Border>("LoadErrorPanel");
         return Math.Clamp(body.Bounds.Height - 12 - Math.Max(36, Find<Grid>("FiltersPanel").Bounds.Height)
             - 40 - (Model?.IsCustomizing == true ? 96 : 128) - 2 - 8
-            - (error.IsVisible ? error.Bounds.Height + error.Margin.Bottom : 0), 106, 472);
+            - (error.IsVisible ? error.Bounds.Height + error.Margin.Bottom : 0), _layout.ResultMinimumHeight, WorkspaceLayout.MaximumHeight - 8);
     }
 
     private double AvailableWorkspaceWidth() => Find<Grid>("BodyGrid").Bounds.Width is > 0 and var width
@@ -75,12 +75,12 @@ public sealed partial class MainWindowCustomization
 
     private bool WorkspaceFits(WorkspaceNode root)
     {
-        var minimum = WorkspaceGeometry.Minimum(root);
+        var minimum = WorkspaceGeometry.Minimum(root, _layout.ResultMinimumHeight);
         return minimum.Width <= AvailableWorkspaceWidth() + .5 && minimum.Height <= AvailableWorkspaceHeight() + .5;
     }
 
     private double WorkspaceHeight(WorkspaceLayout workspace, WorkspaceNode root) =>
-        Math.Max(WorkspaceGeometry.Minimum(root).Height, Math.Min(workspace.Height - 8, AvailableWorkspaceHeight())) + 8;
+        Math.Max(WorkspaceGeometry.Minimum(root, _layout.ResultMinimumHeight).Height, Math.Min(workspace.Height - 8, AvailableWorkspaceHeight())) + 8;
 
     private void UpdateWorkspaceSize()
     {
@@ -123,7 +123,7 @@ public sealed partial class MainWindowCustomization
                     if (columns) grid.ColumnDefinitions.Add(new ColumnDefinition(WorkspaceGeometry.Gap, GridUnitType.Pixel));
                     else grid.RowDefinitions.Add(new RowDefinition(WorkspaceGeometry.Gap, GridUnitType.Pixel));
                 }
-                var minimum = WorkspaceGeometry.Minimum(node.Children[index]);
+                var minimum = WorkspaceGeometry.Minimum(node.Children[index], _layout.ResultMinimumHeight);
                 if (columns) grid.ColumnDefinitions.Add(new ColumnDefinition(node.Weights[index], GridUnitType.Star) { MinWidth = minimum.Width });
                 else grid.RowDefinitions.Add(new RowDefinition(node.Weights[index], GridUnitType.Star) { MinHeight = minimum.Height });
             }
@@ -195,8 +195,8 @@ public sealed partial class MainWindowCustomization
     }
 
     private void ResizeHeight(double height) => _layout = _layout.Workspace is { } workspace
-        ? _layout with { Workspace = workspace with { Height = Math.Clamp(height, 106, 480) } }
-        : _layout with { ResultHeight = Math.Clamp(height, ScreenLayout.MinimumResultHeight, ScreenLayout.MaximumResultHeight) };
+        ? _layout with { Workspace = workspace with { Height = Math.Clamp(height, _layout.ResultMinimumHeight, WorkspaceLayout.MaximumHeight) } }
+        : _layout with { ResultHeight = Math.Clamp(height, _layout.ResultMinimumHeight, ScreenLayout.MaximumResultHeight) };
 
     private void ApplyWorkspaceMove(WorkspaceNode root, string source)
     {
@@ -259,7 +259,7 @@ public sealed partial class MainWindowCustomization
             _ => targetBounds
         };
         var bounds = allowed ? WorkspaceGeometry.Arrange(root, new Rect(board.Position,
-            new Size(board.Width, WorkspaceHeight(_layout.Workspace!, root) - 8)))[handle.PanelId] : rejectedBounds;
+            new Size(board.Width, WorkspaceHeight(_layout.Workspace!, root) - 8)), _layout.ResultMinimumHeight)[handle.PanelId] : rejectedBounds;
         ShowDropGuide(bounds);
         var guide = Find<Border>("DropGuide");
         guide.Classes.Set("forbidden", !allowed);

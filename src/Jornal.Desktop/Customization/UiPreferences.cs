@@ -9,10 +9,14 @@ public sealed record ColumnPreference(string Id, int Position, bool Visible, boo
 public sealed record ScreenLayout
 {
     public const int CurrentColumnSizingVersion = 1;
-    public const double MinimumResultHeight = 106;
+    public const double MinimumResultHeight = 138;
     public const double MaximumResultHeight = 280;
     public bool ResultAboveCommands { get; init; } = true;
     public double ResultHeight { get; init; } = MinimumResultHeight;
+    [JsonConverter(typeof(ResultButtonAppearanceConverter))]
+    public ResultButtonAppearance ResultButtons { get; init; } = new();
+    [JsonIgnore]
+    public double ResultMinimumHeight => (ResultButtons ?? new()).MinimumPanelHeight;
     [JsonConverter(typeof(TableRowHeightConverter))]
     public double RowHeight { get; init; } = TableDensity.DefaultHeight;
     public string[] PanelOrder { get; init; } = ["orders", "clipboard"];
@@ -30,6 +34,7 @@ public sealed record ScreenLayout
 
     public ScreenLayout Normalize()
     {
+        var resultButtons = (ResultButtons ?? new()).Normalize();
         var defaults = new ScreenLayout();
         var order = (PanelOrder ?? []).Where(defaults.PanelOrder.Contains).Distinct()
             .Concat(defaults.PanelOrder).Distinct().ToArray();
@@ -42,10 +47,11 @@ public sealed record ScreenLayout
             column.Width is > 0 and <= 5000).DistinctBy(column => column.Id).Take(64).ToArray();
         return this with
         {
-            ResultHeight = double.IsFinite(ResultHeight) ? Math.Clamp(ResultHeight, MinimumResultHeight, MaximumResultHeight) : MinimumResultHeight,
+            ResultButtons = resultButtons,
+            ResultHeight = double.IsFinite(ResultHeight) ? Math.Clamp(ResultHeight, resultButtons.MinimumPanelHeight, MaximumResultHeight) : resultButtons.MinimumPanelHeight,
             RowHeight = TableDensity.NormalizeHeight(RowHeight),
             ColumnSizingVersion = ColumnSizingVersion < CurrentColumnSizingVersion ? 0 : CurrentColumnSizingVersion,
-            PanelOrder = order, PanelWidths = widths, Columns = columns, Workspace = Workspace?.Normalize()
+            PanelOrder = order, PanelWidths = widths, Columns = columns, Workspace = Workspace?.Normalize(resultButtons.MinimumPanelHeight)
         };
     }
 }

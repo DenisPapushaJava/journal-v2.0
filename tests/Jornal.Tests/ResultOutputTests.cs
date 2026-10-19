@@ -23,7 +23,9 @@ public sealed class ResultOutputTests
             { FontSizePoints = decimal.Parse(size, CultureInfo.InvariantCulture), ColorHex = color });
         Assert.Equal(text, content.Text);
         var html = new HtmlParser().ParseDocument(content.Html);
-        foreach (var element in html.QuerySelectorAll("table,td"))
+        var styledElements = html.QuerySelectorAll("span");
+        Assert.NotEmpty(styledElements);
+        foreach (var element in styledElements)
         {
             Assert.Contains($"font-size:{size}pt", element.GetAttribute("style"));
             Assert.Contains($"color:{color}", element.GetAttribute("style"));
@@ -31,6 +33,28 @@ public sealed class ResultOutputTests
         }
         Assert.Contains($@"\red{red}\green{green}\blue{blue};", content.Rtf);
         Assert.Contains($@"\f0\fs{halfPoints}\cf1 ", content.Rtf);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Только текст")]
+    [InlineData("  Лист 6x1000x2000,\t   Материал: Ст3,\t  3 шт.  \n\nПравка <script>alert('x')</script> & {текст} ₽ 😀\n")]
+    [InlineData("Первая\r\n\r\nВторая\rТретья\n\n")]
+    public void HtmlIsOneEditableFragmentWithEveryLineAndNoUneditableObjectsOrBackground(string text)
+    {
+        var content = ResultClipboardContent.FromText(text);
+        Assert.Equal(text, content.Text);
+        var html = new HtmlParser().ParseDocument(content.Html);
+        Assert.Empty(html.QuerySelectorAll("table,img,center,signature,script,iframe,style,object,embed,canvas,svg"));
+        Assert.DoesNotContain("background", content.Html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("white-space:", content.Html, StringComparison.OrdinalIgnoreCase);
+        var root = Assert.Single(html.Body!.Children);
+        Assert.Equal("DIV", root.TagName);
+        var lines = text.ReplaceLineEndings("\n").Split('\n');
+        var expected = lines.Take(lines.Length - (lines[^1].Length == 0 ? 1 : 0))
+            .Select(line => line.Replace("\t", " \u00a0 "));
+        Assert.Equal(expected, root.Children.Select(block => block.TextContent));
+        Assert.All(root.Children, block => Assert.Equal("DIV", block.TagName));
     }
 
     [Fact]
@@ -150,21 +174,21 @@ public sealed class ResultOutputTests
     }
 
     [Fact]
-    public void HtmlHasAlignedCellsAndEscapesUserTextWithoutLosingEdits()
+    public void HtmlEscapesUserTextAndKeepsEveryFieldWithoutIntroducingATable()
     {
         const string text = "Примечание <script>alert('x')</script> & {правка} 😀\nЛист 6x1000x2000,\t   Материал: 5083H111,\t   3 шт.\t   Вес 10,5 кг.\t   Резка 500 ₽.\t   резка HansLaser\n";
         var content = ResultClipboardContent.FromText(text);
         var html = new HtmlParser().ParseDocument(content.Html);
         Assert.Equal(text, content.Text);
         Assert.Empty(html.QuerySelectorAll("script"));
-        var rows = html.QuerySelectorAll("tr");
+        var rows = Assert.Single(html.Body!.Children).Children;
         Assert.Equal(2, rows.Length);
         Assert.Equal("Примечание <script>alert('x')</script> & {правка} 😀", rows[0].TextContent);
-        Assert.Equal("6", rows[0].QuerySelector("td")!.GetAttribute("colspan"));
-        Assert.Equal(6, rows[1].QuerySelectorAll("td").Length);
+        Assert.Empty(html.QuerySelectorAll("table,td,img"));
+        Assert.Equal(text.Split('\n')[1].Replace("\t", " \u00a0 "), rows[1].TextContent);
         Assert.Contains("Резка 500 ₽.", rows[1].TextContent);
         Assert.DoesNotContain("<script>", content.Html);
-        Assert.Contains("background-color:#ffffff", content.Html);
+        Assert.DoesNotContain("background", content.Html);
     }
 
     [Fact]
@@ -184,7 +208,7 @@ public sealed class ResultOutputTests
     [Fact]
     public void WindowsHtmlOffsetsPointToUtf8FragmentAndCompleteContext()
     {
-        const string fragment = "<table><tr><td>Амг3 &amp; ₽ 😀</td></tr></table>";
+        var fragment = ResultClipboardContent.FromText("Амг3 & ₽ 😀\nВторая строка").Html;
         var bytes = ResultClipboardPayload.WindowsHtml(fragment);
         var header = Encoding.UTF8.GetString(bytes);
         int Offset(string field) => int.Parse(Regex.Match(header, $@"{field}:(\d+)").Groups[1].Value, CultureInfo.InvariantCulture);
@@ -203,6 +227,7 @@ public sealed class ResultOutputTests
         var content = ResultClipboardContent.FromText(OrderResultFormatter.Format([Order()]));
         using var data = (IAsyncDataTransfer)ResultClipboardPayload.Create(content);
         Assert.Single(data.Items);
+        Assert.Null(await data.TryGetBitmapAsync());
         Assert.Equal(content.Text, await data.TryGetTextAsync());
         var rtf = await data.TryGetValueAsync(ResultClipboardPayload.RtfFormat);
         Assert.Equal(content.Rtf + (OperatingSystem.IsWindows() ? "\0" : ""), Encoding.ASCII.GetString(rtf!));

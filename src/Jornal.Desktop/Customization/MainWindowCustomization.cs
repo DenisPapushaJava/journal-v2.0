@@ -51,6 +51,7 @@ public sealed partial class MainWindowCustomization
         _panels = new() { ["orders"] = Find<Border>("OrdersCommands"),
             ["clipboard"] = Find<Border>("ClipboardCommands") };
         _defaultColumns = CaptureColumns();
+        Find<ResultButtonsEditor>("ResultButtonsCustomization").AppearanceChanged += OnResultButtonsChanged;
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _saveTimer.Tick += (_, _) => Flush();
         foreach (var column in _table.Columns.Skip(1)) column.PropertyChanged += OnColumnChanged;
@@ -161,6 +162,7 @@ public sealed partial class MainWindowCustomization
 
     private void End()
     {
+        Find<ResultButtonsEditor>("ResultButtonsCustomization").ClosePopups();
         _beforeEdit = null;
         if (Model is { } model) model.IsCustomizing = false;
         _window.Classes.Remove("customizing");
@@ -183,6 +185,8 @@ public sealed partial class MainWindowCustomization
         _saveTimer.Stop();
         foreach (var column in _table.Columns.Skip(1)) column.PropertyChanged -= OnColumnChanged;
         _responsiveColumns.Dispose();
+        Find<ResultButtonsEditor>("ResultButtonsCustomization").AppearanceChanged -= OnResultButtonsChanged;
+        Find<ResultButtonsEditor>("ResultButtonsCustomization").ClosePopups();
     }
 
     public bool Flush()
@@ -271,6 +275,7 @@ public sealed partial class MainWindowCustomization
         var wasApplying = _applying;
         _applying = true;
         _layout = layout.Normalize() with { ColumnSizingVersion = ScreenLayout.CurrentColumnSizingVersion };
+        ApplyResultButtons();
         ApplyTableDensity();
         // Сначала восстанавливаем исходные определения: новые столбцы получают безопасные значения.
         var columns = _defaultColumns.ToDictionary(column => column.Id);
@@ -318,7 +323,7 @@ public sealed partial class MainWindowCustomization
         var filtersHeight = Math.Max(36, Find<Grid>("FiltersPanel").Bounds.Height);
         var error = Find<Border>("LoadErrorPanel");
         var available = body.Bounds.Height - 160 - 24 - filtersHeight - 12 - 36 - 128 - (error.IsVisible ? error.Bounds.Height + error.Margin.Bottom : 0);
-        var height = Math.Min(_layout.ResultHeight, Math.Max(ScreenLayout.MinimumResultHeight, available));
+        var height = Math.Min(_layout.ResultHeight, Math.Max(_layout.ResultMinimumHeight, available));
         _top.RowDefinitions[_layout.ResultAboveCommands ? 0 : 2].Height = new GridLength(height);
         _top.RowDefinitions[_layout.ResultAboveCommands ? 2 : 0].Height = new GridLength(160);
     }

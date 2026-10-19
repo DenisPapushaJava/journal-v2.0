@@ -12,32 +12,26 @@ public sealed record ResultClipboardContent(string Text, string Html, string Rtf
         return new(text, CreateHtml(text, normalized), CreateRtf(text, normalized));
     }
 
+    private static string FontStyle(ResultTextStyle style) =>
+        "font-family:Arial,sans-serif;font-size:" + style.FontSizePoints.ToString("0.#", CultureInfo.InvariantCulture) +
+        "pt;color:" + style.ColorHex + ";";
+
     private static string CreateHtml(string text, ResultTextStyle style)
     {
-        var font = "font-family:Arial,sans-serif;font-size:" + style.FontSizePoints.ToString("0.#", CultureInfo.InvariantCulture) +
-            "pt;color:" + style.ColorHex + ";";
-        var html = new StringBuilder("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;")
-            .Append(font).Append("line-height:1.4;background-color:#ffffff;\"><tbody>");
+        var font = FontStyle(style);
+        var html = new StringBuilder("<div style=\"").Append(font).Append("line-height:1.4;\">");
         var lines = text.ReplaceLineEndings("\n").Split('\n');
         var count = lines.Length - (lines[^1].Length == 0 ? 1 : 0);
-        var columns = lines.Max(line => line.Count(character => character == '\t') + 1);
         for (var index = 0; index < count; index++)
         {
-            html.Append("<tr>");
-            var fields = lines[index].Split('\t');
-            for (var fieldIndex = 0; fieldIndex < fields.Length; fieldIndex++)
-            {
-                var field = fields[fieldIndex];
-                var span = fieldIndex == fields.Length - 1 ? columns - fields.Length + 1 : 1;
-                html.Append("<td colspan=\"").Append(span.ToString(CultureInfo.InvariantCulture))
-                    .Append("\" style=\"").Append(font).Append("padding:3px 12px 3px 0;vertical-align:top;white-space:")
-                    .Append(fields.Length == 1 ? "pre-wrap" : "normal").Append(";\">");
-                html.Append(field.Length == 0 ? "<br>" : WebUtility.HtmlEncode(field));
-                html.Append("</td>");
-            }
-            html.Append("</tr>");
+            html.Append("<div style=\"margin:0;\"><span style=\"").Append(font).Append("\">");
+            // Короткий промежуток между полями; обычные пробелы позволяют перенос строк.
+            // Исходные табуляции и выравнивание остаются в text/RTF без изменений.
+            var encoded = WebUtility.HtmlEncode(lines[index].Replace("\t", " \u00a0 "));
+            html.Append(encoded.Length == 0 ? "<br>" : encoded);
+            html.Append("</span></div>");
         }
-        return html.Append("</tbody></table>").ToString();
+        return html.Append("</div>").ToString();
     }
 
     private static string CreateRtf(string text, ResultTextStyle style)
