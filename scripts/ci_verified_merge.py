@@ -3,11 +3,23 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKS = {'Состав проверок', 'Check (ubuntu-latest)', 'Check (windows-latest)'}
 FALLBACK = 'Проверенный squash PR не подтверждён: полный прогон.'
+
+
+def verify_after_merge(event, repository, token, *, root=ROOT, sleep=time.sleep):
+    # Связь свежего squash-коммита с PR может появиться в API не сразу после push.
+    for delay in (0, 2, 4, 8):
+        if delay:
+            sleep(delay)
+        ok, reason = verify(event, repository, token, root=root)
+        if ok:
+            return ok, reason
+    return False, reason
 
 
 def git(*args, root=ROOT):
@@ -21,6 +33,7 @@ def sha(value):
 
 
 def verify(event, repository, token, *, root=ROOT, get=None):
+    phase = 'Git'
     try:
         if (event.get('ref') != 'refs/heads/main' or event.get('forced') or event.get('deleted') or
                 re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository) is None):
@@ -39,15 +52,23 @@ def verify(event, repository, token, *, root=ROOT, get=None):
                 with urllib.request.urlopen(request, timeout=10) as response:
                     return json.load(response)
 
-        for associated in get('/commits/' + after + '/pulls?per_page=100'):
+        phase = 'связь коммита с PR'
+        associated_prs = get('/commits/' + after + '/pulls?per_page=100')
+        if not associated_prs:
+            # Индекс commits/pulls может запаздывать; запись самого слитого PR уже доступна.
+            recent = get('/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=10')
+            associated_prs = [pr for pr in recent if isinstance(pr, dict) and pr.get('merge_commit_sha') == after]
+        for associated in associated_prs:
             number = associated['number']
             if not isinstance(number, int) or number < 1:
                 continue
+            phase = 'метаданные PR'
             pr = get('/pulls/' + str(number))
             if (not pr.get('merged') or pr.get('merge_commit_sha') != after or pr['base']['ref'] != 'main' or
                     pr['base']['sha'] != before or pr['base']['repo']['full_name'] != repository or
                     pr['head']['repo']['full_name'] != repository):
                 continue
+            phase = 'Git-дерево PR'
             head = sha(pr['head']['sha'])
             try:
                 git('cat-file', '-e', head + '^{commit}', root=root)
@@ -56,6 +77,7 @@ def verify(event, repository, token, *, root=ROOT, get=None):
             if git('rev-parse', head + '^{tree}', root=root) != git('rev-parse', after + '^{tree}', root=root):
                 continue
             git('merge-base', '--is-ancestor', before, head, root=root)
+            phase = 'результат CI для головы PR'
             runs = get('/actions/workflows/modern.yml/runs?event=pull_request&head_sha=' + head + '&per_page=20')['workflow_runs']
             # Учитываем и повтор старого run: дата обновления важнее порядка ответа API.
             candidates = [run for run in runs if run.get('head_sha') == head and run.get('event') == 'pull_request']
@@ -66,10 +88,11 @@ def verify(event, repository, token, *, root=ROOT, get=None):
             run_id = run['id']
             if not isinstance(run_id, int) or run_id < 1:
                 continue
+            phase = 'обязательные задания CI'
             jobs = get('/actions/runs/' + str(run_id) + '/jobs?filter=latest&per_page=100')['jobs']
             if all(any(job.get('name') == name and job.get('status') == 'completed' and job.get('conclusion') == 'success'
                        for job in jobs) for name in CHECKS):
                 return True, f'Подтверждён squash PR #{number}: состав совпадает, обязательные проверки успешны.'
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
         pass
-    return False, FALLBACK
+    return False, f'{FALLBACK} Этап: {phase}.'

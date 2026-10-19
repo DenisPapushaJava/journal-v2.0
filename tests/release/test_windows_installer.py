@@ -14,6 +14,28 @@ spec.loader.exec_module(installer)
 
 
 class InstallerDependenciesTests(unittest.TestCase):
+    def test_windows_powershell_does_not_inherit_incompatible_pwsh_modules(self):
+        with patch.dict(installer.os.environ, {'PSModulePath': 'PowerShell7-only', 'PSMODULEPATH': 'UPPERCASE-PowerShell7'}), \
+                patch.object(installer.shutil, 'which', return_value='pwsh.exe'), \
+                patch.object(installer.subprocess, 'run') as run:
+            installer.verify_signature(Path('runtime.exe'), 'Microsoft Corporation')
+            environment = run.call_args.kwargs['env']
+            self.assertFalse(any(key.casefold() == 'psmodulepath' for key in environment))
+            self.assertEqual('runtime.exe', environment['JOURNAL_VERIFY_FILE'])
+            self.assertEqual('Microsoft Corporation', environment['JOURNAL_VERIFY_PUBLISHER'])
+            self.assertTrue(run.call_args.kwargs['check'])
+            self.assertIn('Get-AuthenticodeSignature', run.call_args.args[0][-1])
+            self.assertEqual('pwsh.exe', run.call_args.args[0][0])
+
+    def test_signature_verification_keeps_windows_powershell_as_a_fallback(self):
+        with patch.dict(installer.os.environ, {'PSMODULEPATH': 'PowerShell7-only'}), \
+                patch.object(installer.shutil, 'which', return_value=None), \
+                patch.object(installer.subprocess, 'run') as run:
+            installer.verify_signature(Path('runtime.exe'), 'Microsoft Corporation')
+            self.assertEqual('powershell.exe', run.call_args.args[0][0])
+            self.assertTrue(run.call_args.kwargs['check'])
+            self.assertFalse(any(key.casefold() == 'psmodulepath' for key in run.call_args.kwargs['env']))
+
     def test_warming_downloads_rechecks_each_signature_without_running_the_compiler(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(installer, 'ROOT', Path(directory)), patch.object(installer, 'os', SimpleNamespace(name='nt')), \
