@@ -40,7 +40,7 @@ Jet запускается для любого кода, независимо о
 ## Кэш
 
 - NuGet: `actions/cache`, ключ по ОС, всем `packages.lock.json` и манифесту dotnet tools; `restore --locked-mode` сохраняется. Кэшируются пакеты в `.nuget/packages`, а не `bin/obj` или готовые сборки.
-- Установщик: только исходные скачанные EXE из `artifacts/installer-dependencies/`, ключ по `installer/windows/dependencies.json`. Каждое использование повторно проверяет хеш и Authenticode издателя. Распакованный компилятор Inno Setup не кэшируется. Перед запуском Windows PowerShell для Authenticode удаляется унаследованный PSModulePath: модули PowerShell 7 несовместимы с ним. Полный CI отдельно проверяет download-only из pwsh, затем собирает установщик из bash.
+- Установщик: только исходные скачанные EXE из `artifacts/installer-dependencies/`, ключ по `installer/windows/dependencies.json`. Каждое использование повторно проверяет хеш и Authenticode издателя. Распакованный компилятор Inno Setup не кэшируется. Для Authenticode выбирается установленный PowerShell 7 с возвратом к Windows PowerShell при его отсутствии; унаследованный PSModulePath очищается. Полный CI проверяет download-only из pwsh до долгой сборки/тестов, затем собирает установщик из bash.
 - Проверенный main использует `lookup-only`: при попадании SDK и зависимости не скачиваются, при промахе выполняются только restore/tools и загрузка проверенных EXE. Это создаёт кэши в области default branch, доступной будущим PR и тегам. Один кэш внутри PR сам по себе не ускоряет следующие PR/релизы. Jet использует restore-only, чтобы его сокращённый набор пакетов не занял ключ полного решения.
 - При отсутствии кэша выполняется обычное скачивание. Секреты и данные пользователей в кэш не входят.
 

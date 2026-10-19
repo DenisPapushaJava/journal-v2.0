@@ -115,6 +115,7 @@ class ScopeTests(unittest.TestCase):
         self.assertIn('python scripts/windows_installer.py --download-only', text)
         smoke = text.split('- name: Verify installer downloads from PowerShell', 1)[1].split('- name:', 1)[0]
         self.assertIn('shell: pwsh', smoke)
+        self.assertLess(text.index('- name: Verify installer downloads from PowerShell'), text.index('run: dotnet build'))
         self.assertIn("needs.scope.outputs.packaging == 'true'", smoke)
         self.assertIn("lookup-only: ${{ needs.scope.outputs.packaging != 'true' }}", text)
         build = text.split('run: dotnet build', 1)[0].rsplit('      - if:', 1)[1]
