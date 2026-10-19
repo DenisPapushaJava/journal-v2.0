@@ -126,6 +126,18 @@ class VerifiedMergeTests(unittest.TestCase):
             self.assertEqual(2, check.call_count)
         sleep.assert_called_once_with(2)
 
+    def test_lagging_commit_index_can_use_the_exact_recently_merged_pr(self):
+        def get(path):
+            if path.startswith('/commits/'): return []
+            if path.startswith('/pulls?'): return [dict(number=42, merge_commit_sha=self.after)]
+            return self.get(path)
+        self.assertTrue(self.verify(get=get)[0])
+        def wrong_commit(path):
+            if path.startswith('/commits/'): return []
+            if path.startswith('/pulls?'): return [dict(number=42, merge_commit_sha=self.head)]
+            return self.get(path)
+        self.assertFalse(self.verify(get=wrong_commit)[0])
+
     def test_post_merge_retry_is_bounded_and_keeps_the_full_run_fallback(self):
         sleep = Mock()
         with patch.object(verified, 'verify', return_value=(False, verified.FALLBACK)) as check:

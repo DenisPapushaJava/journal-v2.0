@@ -53,7 +53,12 @@ def verify(event, repository, token, *, root=ROOT, get=None):
                     return json.load(response)
 
         phase = 'связь коммита с PR'
-        for associated in get('/commits/' + after + '/pulls?per_page=100'):
+        associated_prs = get('/commits/' + after + '/pulls?per_page=100')
+        if not associated_prs:
+            # Индекс commits/pulls может запаздывать; запись самого слитого PR уже доступна.
+            recent = get('/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=10')
+            associated_prs = [pr for pr in recent if isinstance(pr, dict) and pr.get('merge_commit_sha') == after]
+        for associated in associated_prs:
             number = associated['number']
             if not isinstance(number, int) or number < 1:
                 continue
