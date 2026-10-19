@@ -81,7 +81,7 @@ public partial class MainWindow
         get
         {
             if (_ordersMenu.Menu.IsOpen || _resultMenu.IsOpen || ColumnsButton.Flyout?.IsOpen == true ||
-                SearchScopeSelector.IsDropDownOpen || DateFilter.IsDropDownOpen || ResultFormatting.HasOpenPopup) return true;
+                SearchScopeSelector.IsDropDownOpen || DateFilter.IsDropDownOpen || ResultFormatting.HasOpenPopup || ResultButtonsCustomization.HasOpenPopup) return true;
             foreach (var header in _journalFilterHeaders)
                 if (header is ColumnFilterHeader { IsFilterOpen: true } or StatusFilterHeader { IsFilterOpen: true }) return true;
             return false;

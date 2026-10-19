@@ -37,7 +37,7 @@ public sealed class WorkspaceTreeTests
         Assert.Equal(bounds["orders"].Top, bounds["clipboard"].Top);
         Assert.True(bounds["clipboard"].Left > bounds["orders"].Right);
         Assert.Equal(before, JsonSerializer.Serialize(initial));
-        Assert.Equal(new Size(620, 292), WorkspaceGeometry.Minimum(root));
+        Assert.Equal(new Size(620, 324), WorkspaceGeometry.Minimum(root));
         AssertPanels(root); AssertNoOverlap(bounds);
     }
 

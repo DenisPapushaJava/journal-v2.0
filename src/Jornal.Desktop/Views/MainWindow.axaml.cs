@@ -117,6 +117,8 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _resultFeedbackClosed = true;
+        CancelResultFeedbackExpiration();
         SearchBox.CancelPendingInput();
         _journalRefreshTimer.Stop();
         _journalPressedPointers.Clear();
@@ -180,6 +182,7 @@ public partial class MainWindow : Window
 
     private void ConnectViewModel()
     {
+        CancelResultFeedbackExpiration();
         CloseContextMenus();
         SearchBox.CancelPendingInput();
         if (_viewModel is not null)
@@ -214,6 +217,7 @@ public partial class MainWindow : Window
         }
         UpdateTheme();
         _sorting.Synchronize();
+        ScheduleResultFeedbackExpiration();
     }
 
     private void OnSortingResetRequested(object? sender, EventArgs e)
@@ -225,6 +229,8 @@ public partial class MainWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(MainWindowViewModel.ResultMessage) or nameof(MainWindowViewModel.HasResultError))
+            ScheduleResultFeedbackExpiration();
         if (e.PropertyName == nameof(MainWindowViewModel.IsRefreshingOrders) && _viewModel?.IsRefreshingOrders != true) ClearReadRefreshAppearance();
         if (e.PropertyName is nameof(MainWindowViewModel.SourceDescription) or nameof(MainWindowViewModel.AutomaticJournalRefresh)) ConfigureAutoRefresh();
         if (e.PropertyName == nameof(MainWindowViewModel.FilterDate)) _sorting.Synchronize();

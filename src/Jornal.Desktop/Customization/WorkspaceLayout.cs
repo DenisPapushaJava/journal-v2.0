@@ -6,6 +6,7 @@ namespace Jornal.Desktop.Customization;
 /// <summary>Дерево разделений панелей; прежняя область статусов схлопывается при чтении профиля.</summary>
 public sealed record WorkspaceLayout
 {
+    public const double MaximumHeight = 520;
     public static IReadOnlyList<string> PanelIds { get; } = Array.AsReadOnly(new[] { "result", "orders", "clipboard" });
     public int TreeVersion { get; init; } = 1;
     public WorkspaceNode? Root { get; init; }
@@ -22,7 +23,7 @@ public sealed record WorkspaceLayout
         Height = ScreenLayout.MinimumResultHeight
     };
 
-    public WorkspaceLayout Normalize()
+    public WorkspaceLayout Normalize(double resultMinimumHeight = ScreenLayout.MinimumResultHeight)
     {
         var defaults = new WorkspaceLayout();
         var panels = (Panels ?? []).Where(defaults.Panels.Contains).Distinct()
@@ -44,7 +45,7 @@ public sealed record WorkspaceLayout
         return this with
         {
             Root = root, TreeVersion = 1, Panels = root.PanelIds().ToArray(), ColumnWidths = widths, TopFraction = fraction,
-            Height = double.IsFinite(Height) ? Math.Clamp(Height, ScreenLayout.MinimumResultHeight, 480) : defaults.Height
+            Height = double.IsFinite(Height) ? Math.Clamp(Height, resultMinimumHeight, MaximumHeight) : defaults.Height
         };
     }
 }

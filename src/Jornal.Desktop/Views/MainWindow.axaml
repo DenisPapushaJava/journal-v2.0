@@ -87,11 +87,11 @@
       </Grid>
     </Border>
     <Grid x:Name="BodyGrid" Grid.Row="3" Margin="24,12,24,0" RowDefinitions="Auto,12,*">
-      <Grid x:Name="TopArea" RowDefinitions="106,12,120">
+      <Grid x:Name="TopArea" RowDefinitions="138,12,120">
         <Grid x:Name="ResultSlot">
           <Border x:Name="ResultPanel" Classes="panel result-editor" Background="#F1F2F4" Margin="0,0,0,4">
-            <Grid ColumnDefinitions="*,176">
-              <Grid RowDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,184">
+              <Grid RowDefinitions="*,22">
                 <TextBox x:Name="ResultTextBox" Classes="result-editor" Text="{Binding ResultText, Mode=TwoWay}"
                          IsReadOnly="{Binding !CanEditResult}" AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="Arial"
                          FontSize="{Binding ResultFontSizePixels}" Background="Transparent" BorderThickness="0"
@@ -103,27 +103,30 @@
                            Foreground="{Binding ResultFeedbackBrush}" FontSize="11" Margin="14,0,12,6" TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding ResultMessage}" AutomationProperties.LiveSetting="Polite" />
               </Grid>
-              <Grid Grid.Column="1" Margin="8,4">
-                <ui:ResultFormattingBar x:Name="ResultFormatting" Margin="0,0,38,0" HorizontalAlignment="Left" VerticalAlignment="Top" />
-                <StackPanel x:Name="ResultActions" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Top">
+              <Grid Grid.Column="1" Margin="8,4" ColumnDefinitions="*,10,44">
+                <ui:ResultFormattingBar x:Name="ResultFormatting" Margin="0,4,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                <StackPanel x:Name="ResultActions" Grid.Column="2" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <ui:JournalButton x:Name="AddResultButton" Label="Сформировать результат по выбранным заявкам" Icon="list-checks" IconOnly="True"
-                                    Classes="result-tool" Width="28" Height="28" MinHeight="28" Padding="0" CornerRadius="14"
+                                    Classes="result-tool result-action" Width="36" Height="36" MinHeight="36" IconSize="20" Padding="0" CornerRadius="18"
                                     IsEnabled="{Binding CanAddResult}" Click="OnAddResultClick"
                                     ToolTip.Tip="Сформировать результат по выбранным заявкам" />
-                  <ui:JournalButton x:Name="CopyResultButton" Label="Копировать результат" Icon="clipboard-copy" IconOnly="True"
-                                    Classes="result-tool copy-tool" Width="28" Height="28" MinHeight="28" Padding="0" CornerRadius="14"
+                  <ui:JournalButton x:Name="CopyResultButton" Label="Копировать результат" Icon="copy" IconOnly="True"
+                                    Classes="result-tool result-action copy-tool" Width="36" Height="36" MinHeight="36" IconSize="20" Padding="0" CornerRadius="18"
                                     IsEnabled="{Binding CanCopyResult}" Click="OnCopyResultClick"
                                     ToolTip.Tip="Копировать для письма" />
                   <ui:JournalButton x:Name="ClearResultButton" Label="Очистить результат" Icon="x" IconOnly="True"
-                                    Classes="result-tool" Width="28" Height="28" MinHeight="28" Padding="0" CornerRadius="14"
+                                    Classes="result-tool result-action" Width="36" Height="36" MinHeight="36" IconSize="20" Padding="0" CornerRadius="18"
                                     Command="{Binding ClearResultCommand}" IsEnabled="{Binding CanClearResult}"
                                     ToolTip.Tip="Очистить результат" />
                 </StackPanel>
               </Grid>
-              <ui:LayoutHandle x:Name="ResultMoveHandle" AutomationProperties.Name="Переместить панель: Результат"
-                               Title="Результат" PanelId="result" IsVisible="{Binding IsCustomizing}" Margin="8" Height="24"
-                               HorizontalAlignment="Left" VerticalAlignment="Top"
-                               ToolTip.Tip="К краю — разместить рядом · в центр — обмен · Shift+стрелки — разместить" />
+              <StackPanel Orientation="Horizontal" Spacing="8" Margin="8" HorizontalAlignment="Left" VerticalAlignment="Top"
+                          IsVisible="{Binding IsCustomizing}">
+                <ui:LayoutHandle x:Name="ResultMoveHandle" AutomationProperties.Name="Переместить панель: Результат"
+                                 Title="Результат" PanelId="result" Height="24" VerticalAlignment="Center" IsVisible="{Binding IsCustomizing}"
+                                 ToolTip.Tip="К краю — разместить рядом · в центр — обмен · Shift+стрелки — разместить" />
+                <ui:ResultButtonsEditor x:Name="ResultButtonsCustomization" />
+              </StackPanel>
             </Grid>
           </Border>
           <ui:LayoutHandle x:Name="ResultResizeHandle" PanelId="result-size" Classes="result-resizer" Height="8"

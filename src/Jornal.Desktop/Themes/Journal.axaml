@@ -2,6 +2,11 @@
         xmlns:svg="clr-namespace:Avalonia.Svg;assembly=Svg.Controls.Avalonia"
         xmlns:ui="using:Jornal.Desktop.Controls">
   <Styles.Resources>
+    <SolidColorBrush x:Key="ResultActionBackground" Color="#D6E1EE" />
+    <SolidColorBrush x:Key="ResultActionForeground" Color="#244265" />
+    <SolidColorBrush x:Key="ResultActionBorder" Color="#647F9D" />
+    <SolidColorBrush x:Key="ResultActionHover" Color="#C0D2E6" />
+    <SolidColorBrush x:Key="ResultActionPressed" Color="#ABC2DD" />
     <ui:OrderRowOutlineWidthConverter x:Key="OrderRowOutlineWidth" />
     <ui:OrderRowBrushConverter x:Key="OrderRowBackground" />
     <ui:OrderRowBrushConverter x:Key="OrderRowForeground" Foreground="True" />
@@ -320,11 +325,6 @@
     <Setter Property="Foreground" Value="#263B57" />
     <Setter Property="BorderBrush" Value="#8198B4" />
   </Style>
-  <Style Selector="Button.command.result-tool.copy-tool">
-    <Setter Property="Background" Value="#F2B4C9E2" />
-    <Setter Property="Foreground" Value="#203F68" />
-    <Setter Property="BorderBrush" Value="#6E8BAE" />
-  </Style>
   <Style Selector="Button.command.result-tool:pointerover:not(:disabled)">
     <Setter Property="Background" Value="#BCCDE3" />
     <Setter Property="Foreground" Value="#1E3653" />
@@ -338,6 +338,36 @@
   </Style>
   <Style Selector="Button.command.result-tool:disabled">
     <Setter Property="Opacity" Value="0.7" />
+  </Style>
+  <Style Selector="Button.command.result-action">
+    <Setter Property="Background" Value="{DynamicResource ResultActionBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource ResultActionForeground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ResultActionBorder}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Button.command.result-action:pointerover:not(:disabled)">
+    <Setter Property="Background" Value="{DynamicResource ResultActionHover}" />
+    <Setter Property="Foreground" Value="{DynamicResource ResultActionForeground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ResultActionBorder}" />
+  </Style>
+  <Style Selector="Button.command.result-action:pressed:not(:disabled)">
+    <Setter Property="Background" Value="{DynamicResource ResultActionPressed}" />
+  </Style>
+  <Style Selector="Button.command.result-action:focus-visible">
+    <Setter Property="BorderBrush" Value="{DynamicResource ResultActionForeground}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="Button.command.result-action:disabled">
+    <Setter Property="Background" Value="{DynamicResource ResultActionBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource ResultActionForeground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ResultActionBorder}" />
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+  <Style Selector="Window.customizing Button.command.result-action:disabled">
+    <Setter Property="Background" Value="{DynamicResource ResultActionBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource ResultActionForeground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ResultActionBorder}" />
+    <Setter Property="Opacity" Value="1" />
   </Style>
   <Style Selector="Button.command.read-refresh-pending:disabled">
     <Setter Property="Opacity" Value="1" />
