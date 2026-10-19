@@ -12,6 +12,9 @@ namespace Jornal.Desktop.Views;
 public partial class MainWindow
 {
     private JournalAutoRefresh? _journalAutoRefresh;
+    private readonly TimeProvider? _journalRefreshClock;
+    private readonly Func<string, Action, Action, Task<IDisposable>>? _journalSubscribe;
+    private readonly bool _runJournalRefreshTimer;
     private readonly DispatcherTimer _journalRefreshTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly HashSet<IPointer> _journalPressedPointers = [];
 
@@ -52,7 +55,8 @@ public partial class MainWindow
     {
         _journalAutoRefresh?.Dispose();
         var model = _viewModel;
-        _journalAutoRefresh = model is null ? null : new(model.RefreshAutomaticallyAsync, action => Dispatcher.UIThread.Post(action));
+        _journalAutoRefresh = model is null ? null : new(model.RefreshAutomaticallyAsync,
+            action => Dispatcher.UIThread.Post(action), _journalRefreshClock, _journalSubscribe);
         ConfigureAutoRefresh();
     }
 
@@ -69,7 +73,9 @@ public partial class MainWindow
             .Any(control => control is ColumnFilterHeader { IsFilterOpen: true } or StatusFilterHeader { IsFilterOpen: true }) == true ||
         ResultPanel.GetVisualDescendants().Any(control => control is ComboBox { IsDropDownOpen: true } || control is Button { Flyout.IsOpen: true });
 
-    private async void OnJournalRefreshTick(object? sender, EventArgs e)
+    private async void OnJournalRefreshTick(object? sender, EventArgs e) => await TickJournalRefreshAsync();
+
+    internal async Task TickJournalRefreshAsync()
     {
         if (_journalAutoRefresh is not { } refresh || _viewModel is not { } model) return;
         // Окна редактора, пакетного импорта, прайса и корзины используют тот же источник.

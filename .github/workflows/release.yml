@@ -13,6 +13,9 @@ on:
 permissions:
   contents: read
 
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -42,6 +45,11 @@ jobs:
         env:
           REQUESTED_VERSION: ${{ inputs.version || github.ref_name }}
         run: ${{ matrix.python }} scripts/release.py validate --version "$REQUESTED_VERSION" --github-output "$GITHUB_OUTPUT"
+      - name: Cache NuGet dependencies
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/packages.lock.json', '.config/dotnet-tools.json') }}
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
@@ -56,29 +64,12 @@ jobs:
         shell: pwsh
         run: ./tests/Fixtures/New-AccessFixture.ps1 -Destination "$env:RUNNER_TEMP/journal-synthetic.mdb"
       - run: dotnet test tests/Jornal.Tests/Jornal.Tests.csproj -c Release --no-build --no-restore
-      - name: Set up x86 SDK for native Jet tests
-        if: ${{ !cancelled() && runner.os == 'Windows' }}
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - name: Cache verified installer downloads
+        if: runner.os == 'Windows'
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
-          global-json-file: global.json
-          architecture: x86
-      - name: Prepare required native Jet fixture
-        if: ${{ !cancelled() && runner.os == 'Windows' }}
-        shell: pwsh
-        run: |
-          & "$env:WINDIR/SysWOW64/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File ./tests/Fixtures/New-AccessFixture.ps1 -Destination "$env:RUNNER_TEMP/journal-synthetic-x86.mdb" -RequireProvider
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Test native Access transactions
-        if: ${{ !cancelled() && runner.os == 'Windows' }}
-        env:
-          JOURNAL_REQUIRE_NATIVE_TESTS: '1'
-        run: dotnet test tests/Jornal.Access.Tests/Jornal.Access.Tests.csproj -c Release --no-restore -p:PlatformTarget=x86 --logger "trx;LogFileName=native-tests.trx" --results-directory artifacts/test-results
-      - name: Restore x64 SDK for packaging
-        if: ${{ !cancelled() && runner.os == 'Windows' }}
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-          architecture: x64
+          path: artifacts/installer-dependencies/*.exe
+          key: installer-windows-${{ hashFiles('installer/windows/dependencies.json') }}
       - name: Package
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
@@ -113,10 +104,14 @@ jobs:
           retention-days: 14
           compression-level: 0
 
+  native:
+    name: Jet x86
+    uses: ./.github/workflows/native-access.yml
+
   draft:
     name: Draft release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    needs: [package, native]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

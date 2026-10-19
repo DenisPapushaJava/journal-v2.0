@@ -32,7 +32,17 @@ public partial class MainWindow : Window
     public MainWindow() : this(new MemoryUiPreferencesStore()) { }
 
     public MainWindow(IUiPreferencesStore preferencesStore, IUpdateRestartStore? restartStore = null)
+        : this(preferencesStore, restartStore, null, null, true) { }
+
+    internal MainWindow(TimeProvider refreshClock, Func<string, Action, Action, Task<IDisposable>> subscribe)
+        : this(new MemoryUiPreferencesStore(), null, refreshClock, subscribe, false) { }
+
+    private MainWindow(IUiPreferencesStore preferencesStore, IUpdateRestartStore? restartStore,
+        TimeProvider? refreshClock, Func<string, Action, Action, Task<IDisposable>>? subscribe, bool runRefreshTimer)
     {
+        _journalRefreshClock = refreshClock;
+        _journalSubscribe = subscribe;
+        _runJournalRefreshTimer = runRefreshTimer;
         InitializeComponent();
         ColumnsButton.AttachedToVisualTree += (_, _) =>
         {
@@ -67,7 +77,7 @@ public partial class MainWindow : Window
         RefreshDiagnosticsIndicator();
         _customization.Initialize();
         _sorting.Synchronize();
-        _journalRefreshTimer.Start();
+        if (_runJournalRefreshTimer) _journalRefreshTimer.Start();
         if (_viewModel is not null)
         {
             if (!_updateDraftRestored && _restartStore is not null)
