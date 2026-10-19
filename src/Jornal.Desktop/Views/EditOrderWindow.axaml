@@ -141,7 +141,7 @@
           </WrapPanel>
         </StackPanel>
         <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <ui:JournalButton x:Name="CalculatePriceButton" Label="Рассчитать" Icon="refresh-cw" Command="{Binding CalculateCommand}" IsEnabled="{Binding CanSave}" MinHeight="38" />
+          <ui:JournalButton x:Name="CalculatePriceButton" Label="Рассчитать" Icon="refresh-cw" Command="{Binding CalculateCommand}" IsEnabled="{Binding CanCalculate}" MinHeight="38" />
           <ui:JournalButton x:Name="CancelButton" Label="Отмена" Classes="outline" MinHeight="38"
                             Click="OnCancelClick" IsEnabled="{Binding !SaveCommand.IsRunning}" />
           <ui:JournalButton x:Name="SaveButton" Label="Сохранить" Classes="primary" MinHeight="38"

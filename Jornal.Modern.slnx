@@ -11,6 +11,9 @@
     <Project Path="tests/Jornal.Tests/Jornal.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Fixtures/" />
+  <Folder Name="/tests/Fixtures/AccessHostProbe/">
+    <Project Path="tests/Fixtures/AccessHostProbe/Jornal.AccessHostProbe.csproj" />
+  </Folder>
   <Folder Name="/tests/Fixtures/UpdateProbe/">
     <Project Path="tests/Fixtures/UpdateProbe/Jornal.UpdateProbe.csproj" />
   </Folder>

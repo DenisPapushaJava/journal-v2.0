@@ -11,7 +11,12 @@ namespace Jornal.Infrastructure.Access;
 public sealed partial class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IPriceEditor, IPriceImpactReader, IOrderMaintenance, IOrderDurationInitializer, IOrderAnnotationsInitializer, IMachineCatalogReader, IMachineCreator
 {
     private readonly Action<Process> _start = static process => { process.Start(); };
-    internal AccessHostClient(string path, string? executable, Action<Process> start) : this(path, executable) => _start = start;
+    private readonly TimeSpan _timeout = TimeSpan.FromMinutes(2);
+    internal AccessHostClient(string path, string? executable, Action<Process> start, TimeSpan? timeout = null) : this(path, executable)
+    {
+        _start = start;
+        _timeout = timeout ?? _timeout;
+    }
     public static string DefaultExecutable => System.IO.Path.Combine(AppContext.BaseDirectory, "AccessHost", "Jornal.AccessHost.exe");
     public static bool IsBundled => OperatingSystem.IsWindows() && File.Exists(DefaultExecutable);
 
@@ -135,7 +140,7 @@ public sealed partial class AccessHostClient(string path, string? executable = n
         var dispatched = false;
         var stage = DiagnosticStage.LaunchAccessHost;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        deadline.CancelAfter(TimeSpan.FromMinutes(2));
+        deadline.CancelAfter(_timeout);
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo(System.IO.Path.GetFullPath(executable ?? DefaultExecutable))
@@ -145,26 +150,29 @@ public sealed partial class AccessHostClient(string path, string? executable = n
                 StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
             }
         };
-        Task<string>? output = null;
-        Task<string>? error = null;
+        Task<AccessHostResponse?>? output = null;
+        Task? error = null;
+        Task? input = null;
+        Task? exit = null;
         try
         {
             _start(process);
-            output = process.StandardOutput.ReadToEndAsync(deadline.Token);
-            error = process.StandardError.ReadToEndAsync(deadline.Token);
+            output = ReadResponseAsync(process.StandardOutput.BaseStream, deadline.Token);
+            // stderr не участвует в протоколе и не передаётся в диагностику, но канал нельзя оставлять заполненным.
+            error = process.StandardError.BaseStream.CopyToAsync(Stream.Null, 4096, deadline.Token);
+            exit = process.WaitForExitAsync(deadline.Token);
             // После начала отправки записи любой обрыв считается неподтверждённым исходом.
             dispatched = true;
             stage = DiagnosticStage.SendAccessRequest;
-            await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(request).AsMemory(), deadline.Token);
-            process.StandardInput.Close();
+            input = WriteRequestAsync(process, request, deadline.Token);
+            await AwaitWithReadersAsync(input, output, error).ConfigureAwait(false);
             stage = DiagnosticStage.ReadAccessResponse;
-            await process.WaitForExitAsync(deadline.Token);
+            await AwaitWithReadersAsync(exit, output, error).ConfigureAwait(false);
             if (AccessHostBlockedException.IsExitCode(process.ExitCode))
                 throw new AccessHostBlockedException(process.ExitCode);
-            var responseJson = await output;
-            _ = await error;
+            var response = await output.ConfigureAwait(false);
+            await error.ConfigureAwait(false);
             stage = DiagnosticStage.ValidateAccessResponse;
-            var response = JsonSerializer.Deserialize<AccessHostResponse>(responseJson);
             if (response is null || response.Protocol != 1 || process.ExitCode != 0)
                 throw new InvalidDataException("Некорректный ответ модуля Access.");
             if (response.Diagnostic is { } diagnostic)
@@ -359,11 +367,16 @@ public sealed partial class AccessHostClient(string path, string? executable = n
         }
         finally
         {
+            // Ранняя ошибка JSON может оставить хост на записи stdout, а клиента — на отправке большого stdin.
+            // Запускаем отмену I/O и сразу останавливаем процесс, не ожидая callbacks отмены на полном pipe.
+            var cancelling = deadline.CancelAsync();
             try { if (process.Id != 0 && !process.HasExited) process.Kill(entireProcessTree: true); }
             catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception) { }
-            // Наблюдаем и ошибки перенаправленных потоков при отмене/завершении процесса.
-            if (output is not null) try { await output; } catch (Exception) { }
-            if (error is not null) try { await error; } catch (Exception) { }
+            try { await cancelling.ConfigureAwait(false); } catch (Exception) { }
+            if (input is not null) try { await input.ConfigureAwait(false); } catch (Exception) { }
+            if (output is not null) try { await output.ConfigureAwait(false); } catch (Exception) { }
+            if (error is not null) try { await error.ConfigureAwait(false); } catch (Exception) { }
+            if (exit is not null) try { await exit.ConfigureAwait(false); } catch (Exception) { }
         }
     }
 }

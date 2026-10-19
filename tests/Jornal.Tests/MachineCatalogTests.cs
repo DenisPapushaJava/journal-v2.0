@@ -70,6 +70,10 @@ public sealed class MachineCatalogTests
         form.Name = "Гидроабразивная"; form.Profile = form.Profiles[1]; form.Thickness = "70"; form.Rate = "600";
         form.AddRateCommand.Execute(null); Assert.Empty(await store.ReadMachinesAsync(TestContext.Current.CancellationToken));
         await form.SaveCommand.ExecuteAsync(null); Assert.False(form.HasError, form.Error);
+        Assert.False(form.SaveCommand.CanExecute(null));
+        await form.SaveCommand.ExecuteAsync(null);
+        Assert.False(form.HasError, form.Error);
+        Assert.Single(await store.ReadMachinesAsync(TestContext.Current.CancellationToken));
         await prices.ShowCreatedMachineAsync(form.CreatedMachine!);
         Assert.Equal(form.CreatedMachine!.TableName, prices.TableName);
         var orderForm = new NewOrderViewModel(store); await orderForm.LoadMachinesAsync(TestContext.Current.CancellationToken);

@@ -18,5 +18,6 @@
     <ProjectReference Include="../../src/Jornal.Infrastructure/Jornal.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Jornal.Parsing/Jornal.Parsing.csproj" />
     <ProjectReference Include="../../src/Jornal.Desktop/Jornal.Desktop.csproj" />
+    <ProjectReference Include="../Fixtures/AccessHostProbe/Jornal.AccessHostProbe.csproj" />
   </ItemGroup>
 </Project>

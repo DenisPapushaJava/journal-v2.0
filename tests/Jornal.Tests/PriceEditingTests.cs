@@ -84,6 +84,26 @@ public sealed class PriceEditingTests
     }
 
     [AvaloniaFact]
+    public async Task UnchangedOrRevertedPriceDraftDoesNotCallTheEditor()
+    {
+        var store = new DemoOrderStore();
+        var editor = new UnconfirmedEditor(store, false);
+        var form = new PriceEditorViewModel(store.Prices, editor, "Тест", "Тест");
+        await form.RefreshCommand.ExecuteAsync(null);
+        form.BeginEditCommand.Execute(null);
+        await form.SaveCommand.ExecuteAsync(null);
+        Assert.Equal(0, editor.Attempts);
+        var row = form.Rows.First();
+        var before = row.Value;
+        row.Value = "99";
+        Assert.True(form.CanSave);
+        row.Value = before;
+        Assert.False(form.CanSave);
+        await form.SaveCommand.ExecuteAsync(null);
+        Assert.Equal(0, editor.Attempts);
+    }
+
+    [AvaloniaFact]
     public async Task DraftValidationCancelAndSuccessfulSaveAreExplicitAndKeepHistoricalOrders()
     {
         var store = new DemoOrderStore(); var before = await store.ReadAsync(TestContext.Current.CancellationToken);

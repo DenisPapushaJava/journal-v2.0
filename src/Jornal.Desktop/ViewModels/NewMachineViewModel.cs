@@ -31,7 +31,7 @@ public sealed partial class NewMachineViewModel(IMachineCreator creator, IMachin
     public bool CanEdit => !IsBusy && !RequiresReload;
     public bool ShowDatabaseNotice => storage == PriceStorageKind.SharedDatabase;
     public bool HasChanges => Name.Length > 0 || Rates.Count > 0 || Thickness.Length > 0 || Rate.Length > 0;
-    public bool CanSave => CanEdit && !string.IsNullOrWhiteSpace(Name) && Rates.Count > 0 && Rates.All(row => !row.HasError) && Thickness.Length == 0 && Rate.Length == 0;
+    public bool CanSave => CreatedMachine is null && CanEdit && !string.IsNullOrWhiteSpace(Name) && Rates.Count > 0 && Rates.All(row => !row.HasError) && Thickness.Length == 0 && Rate.Length == 0;
     public CuttingMachine? CreatedMachine { get; private set; }
     public event EventHandler? Saved;
     public event EventHandler? SavingChanged;
@@ -63,6 +63,7 @@ public sealed partial class NewMachineViewModel(IMachineCreator creator, IMachin
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
+        if (!CanSave) return;
         Error = null;
         try
         {

@@ -14,6 +14,8 @@ public sealed class DeliveryNumberTests
         Assert.Equal("БЛЦБ-123", form.Number);
         Assert.False(form.HasDifferentNumbers);
         Assert.False(form.SaveCommand.CanExecute(null));
+        await form.SaveCommand.ExecuteAsync(null);
+        Assert.Equal(0, writes);
         form.Number = new string('1', 255);
         await form.SaveCommand.ExecuteAsync(null);
         Assert.True(form.IsSaved);
@@ -38,5 +40,22 @@ public sealed class DeliveryNumberTests
         await form.SaveCommand.ExecuteAsync(null);
         Assert.Equal(1, writes);
         Assert.True(form.IsSaved);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClearOnlyWritesWhenAtLeastOneSelectedNumberChanges(bool mixed)
+    {
+        var writes = 0;
+        var row = ResultOutputTests.Order() with { DeliveryNumber = "" };
+        var form = new DeliveryNumberViewModel([row, row with { Id = row.Id + 1, DeliveryNumber = mixed ? "123" : "" }],
+            _ => { writes++; return Task.FromResult(true); });
+        await form.SaveCommand.ExecuteAsync(null);
+        Assert.Equal(0, writes);
+        form.ClearNumberCommand.Execute(null);
+        Assert.Equal(mixed, form.SaveCommand.CanExecute(null));
+        await form.SaveCommand.ExecuteAsync(null);
+        Assert.Equal(mixed ? 1 : 0, writes);
     }
 }

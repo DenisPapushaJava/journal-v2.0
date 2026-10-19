@@ -108,12 +108,19 @@ public partial class EditOrderViewModel : ObservableObject
     public bool HasChanges => Changes.Count > 0;
     public bool HasError => Error is not null;
     public bool IsBusy => SaveCommand.IsRunning || CalculateCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || IsEditingPrices;
-    public bool CanSave => !Material.NeedsReview && !Annotations.NeedsReview && !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null && ThicknessOptions.CanSave;
+    public bool CanCalculate => !Material.NeedsReview && !Annotations.NeedsReview && !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null && ThicknessOptions.CanSave;
+    public bool CanSave => HasChanges && CanCalculate;
     public bool CanRefresh => RequiresReload && !IsBusy && !HasPendingImport;
     partial void OnRequiresReloadChanged(bool value) => NotifyBusy();
+    partial void OnChangesChanged(IReadOnlyList<OrderFieldChange> value)
+    {
+        OnPropertyChanged(nameof(CanSave));
+        SaveCommand.NotifyCanExecuteChanged();
+    }
     private void NotifyBusy()
     {
-        OnPropertyChanged(nameof(IsBusy)); OnPropertyChanged(nameof(CanSave)); OnPropertyChanged(nameof(CanRefresh));
+        OnPropertyChanged(nameof(IsBusy)); OnPropertyChanged(nameof(CanSave)); OnPropertyChanged(nameof(CanCalculate)); OnPropertyChanged(nameof(CanRefresh));
+        SaveCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanImport)); OnPropertyChanged(nameof(CanEditFields));
         BusyChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -138,6 +145,11 @@ public partial class EditOrderViewModel : ObservableObject
             .Select(field => new OrderFieldChange(field.Label, Display(_initial[field]), Display(field.Value))).ToList();
         if (Annotations.HasBending != (_expected.Annotations?.HasBending ?? false)) changes.Add(new("Гибка", _expected.Annotations?.HasBending == true ? "Да" : "Нет", Annotations.HasBending ? "Да" : "Нет"));
         if (Annotations.Comment != (_expected.Annotations?.Comment ?? "")) changes.Add(new("Комментарий", Display(_expected.Annotations?.Comment), Display(Annotations.Comment)));
+        if (_expected.Annotations is { } annotations && !annotations.Matches(_expected.ToSummary()) && !Annotations.NeedsReview &&
+            (Annotations.HasBending || Annotations.HasComment))
+            changes.Add(new("Гибка и комментарий", "Требуют проверки", "Подтверждены"));
+        if (_quote is { } quote && quote.StoredPrice != _expected.Price)
+            changes.Add(new("Стоимость", StoredPriceText, PriceText));
         AddImportedCountChanges(changes); Changes = changes;
     }
 
@@ -218,7 +230,7 @@ public partial class EditOrderViewModel : ObservableObject
     {
         AppDiagnostics.Current?.Mark(DiagnosticOperation.PriceRead);
         if (RequiresReload || SavedRecord is not null || SaveCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || HasPendingImport) return;
-        Error = null; AccessHostHelp.ShowFor(null); _quote = null;
+        Error = null; AccessHostHelp.ShowFor(null); _quote = null; RefreshChanges();
         try
         {
             await ThicknessOptions.WaitForLoadAsync(cancellationToken);
@@ -231,13 +243,17 @@ public partial class EditOrderViewModel : ObservableObject
         catch (Exception exception) { Error = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось рассчитать цену."); AccessHostHelp.ShowFor(exception); }
     }
 
-    private void ShowQuote(CuttingPriceQuote quote) { _quote = quote; PriceText = quote.StoredPrice.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) + " ₽"; }
+    private void ShowQuote(CuttingPriceQuote quote)
+    {
+        _quote = quote; PriceText = quote.StoredPrice.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
+        RefreshChanges();
+    }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
+        if (!HasChanges || SaveCommand.IsRunning || RequiresReload || SavedRecord is not null || CalculateCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || HasPendingImport || IsEditingPrices) return;
         AppDiagnostics.Current?.Mark(DiagnosticOperation.OrderEdit);
-        if (RequiresReload || SavedRecord is not null || CalculateCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || HasPendingImport) return;
         Error = null; AccessHostHelp.ShowFor(null);
         try
         {
@@ -246,7 +262,7 @@ public partial class EditOrderViewModel : ObservableObject
             var change = BuildChange();
             var result = await new CuttingPriceService(_store).CalculateResultAsync(change.PriceRequest);
             if (result.Quote is not { } quote)
-            { _quote = null; PriceText = "Не рассчитана"; Error = result.Error; return; }
+            { _quote = null; PriceText = "Не рассчитана"; Error = result.Error; RefreshChanges(); return; }
             if (_quote is null)
             {
                 ShowQuote(quote);
@@ -266,6 +282,7 @@ public partial class EditOrderViewModel : ObservableObject
     public void AcceptCurrentSnapshot(OrderRecord? current)
     {
         _quote = null; PriceText = "Не рассчитана";
+        RefreshChanges();
         if (current is null) { Error = "Заявка удалена. Правки сохранены в форме."; RequiresReload = true; return; }
         if (current == _expected) { RequiresReload = false; HasCurrentVersion = false; Error = null; return; }
         _current = current; HasCurrentVersion = true; RequiresReload = true;
