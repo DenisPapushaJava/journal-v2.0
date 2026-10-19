@@ -123,7 +123,7 @@ public sealed class ScreenCustomizationTests
             Assert.True(model.IsDarkTheme);
             Assert.Equal(2, Grid.GetColumn(Find<Border>(window, "OrdersCommands")));
             Assert.Equal(2, Grid.GetRow(Find<Grid>(window, "ResultSlot")));
-            Assert.Equal(146, Find<Grid>(window, "ResultSlot").Bounds.Height);
+            Assert.Equal(158, Find<Grid>(window, "ResultSlot").Bounds.Height);
             Assert.False(table.Columns[3].IsVisible);
             Assert.Equal(1, table.Columns[2].DisplayIndex);
             model.SearchText = "5083";
@@ -146,7 +146,7 @@ public sealed class ScreenCustomizationTests
             Click(window, "ResetLayoutButton");
             Click(window, "SaveLayoutButton");
             Assert.True(store.Value!.Layout.ResultAboveCommands);
-            Assert.Equal(138, store.Value.Layout.ResultHeight);
+            Assert.Equal(150, store.Value.Layout.ResultHeight);
             Assert.NotNull(store.Value.Layout.Workspace);
             Assert.True(model.IsDarkTheme);
             Assert.All(store.Value.Layout.Columns, column => Assert.True(column.Visible));
@@ -166,7 +166,7 @@ public sealed class ScreenCustomizationTests
             model.ResultText = "Текст для письма";
             var point = Center(window, sizeHandle);
             Drag(window, "ResultResizeHandle", new Point(point.X, point.Y + 70));
-            Assert.Equal(208, result.Bounds.Height);
+            Assert.Equal(220, result.Bounds.Height);
             Assert.False(model.IsCustomizing);
             Assert.Equal("Текст для письма", model.ResultText);
             Click(window, "PersonalizeButton");
@@ -178,7 +178,7 @@ public sealed class ScreenCustomizationTests
             for (var i = 0; i < 80; i++) PressKey(window, Key.Left);
             Assert.True(Find<Border>(window, "OrdersCommands").Bounds.Width >= 312);
             Click(window, "SaveLayoutButton");
-            Assert.Equal(208, store.Value!.Layout.ResultHeight);
+            Assert.Equal(220, store.Value!.Layout.ResultHeight);
             window.Width = 1280;
             window.Height = 680;
             Pump();
@@ -194,7 +194,7 @@ public sealed class ScreenCustomizationTests
             Pump();
             Click(window, "SaveLayoutButton");
             // В маленьком окне отмена захвата не заменяет желаемую высоту временно уменьшенной.
-            Assert.Equal(208, store.Value.Layout.ResultHeight);
+            Assert.Equal(220, store.Value.Layout.ResultHeight);
         }
         finally { window.Close(); }
     }

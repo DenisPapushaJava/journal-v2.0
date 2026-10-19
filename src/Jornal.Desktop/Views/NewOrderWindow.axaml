@@ -78,7 +78,11 @@
       <Border Grid.Column="2" Classes="panel" Padding="20">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="12">
-          <TextBlock Text="Стоимость" Classes="section" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Стоимость" Classes="section" VerticalAlignment="Center" />
+            <ui:JournalButton Grid.Column="1" x:Name="CalculatePriceButton" Label="Обновить тарифы" Icon="refresh-cw" IconOnly="True" Width="30" Height="30" Padding="0"
+                              Command="{Binding CalculatePriceCommand}" IsVisible="{Binding HasPricing}" ToolTip.Tip="Обновить тарифы" />
+          </Grid>
           <TextBlock Text="{Binding PriceText}" FontSize="18" FontWeight="Medium" />
           <TextBlock Text="{Binding PriceBreakdown}" Classes="muted" TextWrapping="Wrap" />
           <TextBlock Text="{Binding PriceError}" IsVisible="{Binding HasPriceError}"
@@ -108,7 +112,10 @@
         <ui:OrderEntryControl DataContext="{Binding Manager}" />
         <ui:OrderEntryControl Grid.Column="2" DataContext="{Binding Customer}" />
       </Grid>
-      <TextBlock Grid.Row="1" Text="{Binding BatchSummary}" Classes="muted" Margin="0,10,0,8" />
+      <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,10,0,8">
+        <TextBlock Text="{Binding BatchSummary}" Classes="muted" VerticalAlignment="Center" />
+        <ui:JournalButton Grid.Column="1" x:Name="RefreshBatchTariffsButton" Label="Обновить тарифы" Icon="refresh-cw" Command="{Binding CalculatePriceCommand}" />
+      </Grid>
       <TextBlock Grid.Row="2" Text="{Binding ImportError}" IsVisible="{Binding HasImportError}" TextWrapping="Wrap"
                  Foreground="{DynamicResource JournalDangerForeground}" Margin="0,0,0,8" />
       <ListBox x:Name="BatchCards" Grid.Row="3" ItemsSource="{Binding BatchItems}" Background="Transparent"
@@ -170,8 +177,6 @@
           </WrapPanel>
         </StackPanel>
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <ui:JournalButton x:Name="CalculatePriceButton" Label="Рассчитать" Icon="refresh-cw" IsVisible="{Binding HasPricing}"
-                            Command="{Binding CalculatePriceCommand}" MinHeight="38" />
           <ui:JournalButton x:Name="CancelButton" Label="Отмена" Classes="outline" MinHeight="38"
                             Click="OnCancelClick" IsEnabled="{Binding !SaveCommand.IsRunning}" />
           <ui:JournalButton x:Name="SaveButton" Label="{Binding SaveLabel}" Classes="primary" MinHeight="38"

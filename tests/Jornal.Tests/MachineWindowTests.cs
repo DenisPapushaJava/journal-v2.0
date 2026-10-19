@@ -33,7 +33,7 @@ public sealed class MachineWindowTests
         {
             owner.Show(); Pump(); Click(owner, owner.FindControl<JournalButton>("NewMachineButton")!);
             var window = Assert.Single(owner.OwnedWindows.OfType<NewMachineWindow>()); window.Width = 620; window.Height = 520; Pump();
-            var form = (NewMachineViewModel)window.DataContext!; form.Name = "Гидроабразивная"; form.Profile = form.Profiles[1];
+            var form = (NewMachineViewModel)window.DataContext!; form.Name = "Гидроабразивная"; form.Profile = form.Profiles.Single(choice => choice.Id == CuttingMachine.WaterjetProfile);
             form.Thickness = "2.5"; form.Rate = "170"; Click(window, window.FindControl<JournalButton>("AddMachineRateButton")!);
             form.Thickness = "70"; form.Rate = "600"; Click(window, window.FindControl<JournalButton>("AddMachineRateButton")!);
             Assert.Empty(await store.ReadMachinesAsync()); Assert.Equal(2, form.Rates.Count);

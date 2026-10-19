@@ -44,7 +44,7 @@ public sealed class EditSpecificationImportTests
         form.CancelImportReplacementCommand.Execute(null);
         Assert.False(form.HasPendingImport); Assert.Equal(values, form.Fields.Select(entry => entry.Value)); Assert.Equal(price, form.PriceText);
         await form.RequestImportAsync([sample.Path], Token); form.ReplaceImportCommand.Execute(null);
-        Assert.True(form.HasImport); Assert.Equal("Моя правка", form.Customer.Value); Assert.Equal("Не рассчитана", form.PriceText);
+        Assert.True(form.HasImport); Assert.Equal("Моя правка", form.Customer.Value); Assert.Equal("—", form.PriceText);
         var change = form.BuildChange();
         Assert.Equal(store.Current, change.Expected); Assert.Equal(store.Current!.Id, change.Values.Id);
         Assert.Equal(store.Current.Manager, change.Values.Manager); Assert.Equal(store.Current.DeliveryNumber, change.Values.DeliveryNumber);
@@ -99,7 +99,10 @@ public sealed class EditSpecificationImportTests
         await form.RequestImportAsync(["new.pdf"], Token); form.ReplaceImportCommand.Execute(null);
         Assert.Empty(form.MaterialId.Value); Assert.Empty(form.Gas.Value);
         await form.CalculateCommand.ExecuteAsync(null); await form.SaveCommand.ExecuteAsync(null);
-        Assert.Equal(0, store.PriceReads); Assert.Equal(0, store.Updates); Assert.True(form.MaterialId.HasError); Assert.True(form.Gas.HasError);
+        Assert.Equal(0, store.PriceReads); Assert.Equal(0, store.Updates);
+        Assert.True(form.Thickness.HasDisplayError); // ID нужен для выбора прайса; газ в формулу не входит.
+        form.MaterialId.Value = "2";
+        await form.SaveCommand.ExecuteAsync(null); Assert.True(form.Gas.HasError); Assert.Equal(0, store.Updates);
         form.MaterialId.Value = "2"; form.Gas.Value = "N2";
         await form.CalculateCommand.ExecuteAsync(null); await form.SaveCommand.ExecuteAsync(null); Assert.Equal(1, store.Updates);
     }

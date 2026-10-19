@@ -56,7 +56,7 @@ public sealed class WindowsSecurityHelpTests
     {
         var creator = new BlockingCreator(); var form = ManualMdbCreationTests.Filled(creator);
         await form.CalculatePriceCommand.ExecuteAsync(null);
-        Assert.True(form.HasPriceError); Assert.True(form.AccessHostHelp.IsVisible);
+        Assert.True(form.Thickness.HasDisplayError); Assert.True(form.AccessHostHelp.IsVisible);
         await form.SaveCommand.ExecuteAsync(null);
         Assert.True(form.HasSaveError); Assert.True(form.AccessHostHelp.IsVisible); Assert.False(form.RequiresReload);
         Assert.Equal("Клиент 'А'", form.Customer.Value); Assert.True(form.SaveCommand.CanExecute(null));

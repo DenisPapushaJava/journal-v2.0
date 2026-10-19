@@ -2,8 +2,19 @@ using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Local;
 
-public sealed partial class LocalJournalStore : IMachineCatalogReader, IMachineCreator
+public sealed partial class LocalJournalStore : IMachineCatalogReader, IMachineCreator, IMachineImportEditor
 {
+    public Task<CuttingMachine> UpdateMachineImportAsync(MachineImportChange change, CancellationToken cancellationToken = default)
+    {
+        var snapshot = change.Snapshot();
+        if (!snapshot.HasChanges) return Task.FromResult(snapshot.Values);
+        return WriteAsync(book =>
+        {
+            var machines = CuttingMachine.Snapshot(book.Machines ?? []);
+            snapshot.Verify(machines.SingleOrDefault(machine => machine.TableName == snapshot.Expected.TableName));
+            return (book with { Machines = machines.Select(machine => machine.TableName == snapshot.Expected.TableName ? snapshot.Values : machine).ToArray() }, snapshot.Values);
+        }, cancellationToken);
+    }
     public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyList<CuttingMachine>>(book => CuttingMachine.Snapshot(book.Machines ?? []), cancellationToken);
     public Task<CuttingMachine> CreateMachineAsync(MachineCreation creation, CancellationToken cancellationToken = default)

@@ -14,6 +14,29 @@ public sealed partial class NativeAccessTests
         new(machine, [new(2.5m, "2,5", 170), new(70m, "70", 600)], expected);
 
     [Fact]
+    public async Task NativeMachineImportChangesOnlyItsProfileAndRejectsAStaleWriter()
+    {
+        using var database = Database.Create(); var token = TestContext.Current.CancellationToken;
+        var catalog = new OleDbMachineCatalog(database.Path);
+        var machine = CustomMachine(); await catalog.CreateMachineAsync(NewMachine(machine), token);
+        var before = await database.Read(); var schema = database.Schema();
+        var price = await OleDbPriceReader.ReadAsync(database.Path, machine.TableName, token);
+        foreach (var profile in new string?[] { CuttingMachine.VintechProfile, CuttingMachine.HansProfile, null, CuttingMachine.WaterjetProfile })
+        {
+            var change = new MachineImportChange(machine, profile);
+            var saved = await catalog.UpdateMachineImportAsync(change, token);
+            Assert.Equal(change.Values, saved); Assert.Equal(saved, Assert.Single(await catalog.ReadMachinesAsync(token)));
+            var conflict = await Assert.ThrowsAsync<OrderWriteException>(() => catalog.UpdateMachineImportAsync(new(machine, machine.SpecificationProfileId == CuttingMachine.HansProfile ? null : CuttingMachine.HansProfile), token));
+            Assert.Equal(OrderWriteFailure.Conflict, conflict.Failure);
+            machine = saved;
+        }
+        Assert.Equal(before, await database.Read()); Assert.Equal(schema, database.Schema());
+        Assert.Equal(price.Rates, (await OleDbPriceReader.ReadAsync(database.Path, machine.TableName, token)).Rates);
+        Assert.Equal(machine.Name, database.Scalar("SELECT [Name] FROM [JournalMachines]"));
+        Assert.Equal(machine.TableName, database.Scalar("SELECT [PriceTableName] FROM [JournalMachines]"));
+    }
+
+    [Fact]
     public async Task NativeMachineCreationUsesLegacyColumnsPreservesOrdersAndAllowsCreateAndEdit()
     {
         using var database = Database.Create(); var token = TestContext.Current.CancellationToken;

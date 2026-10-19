@@ -9,6 +9,15 @@ internal sealed class ThicknessPriceSource(Func<IPriceReader?> reader)
     private readonly Dictionary<string, Task<PriceTable>> _tables = [];
     private readonly CancellationTokenSource _lifetime = new();
     public bool IsAvailable => reader() is not null;
+    internal bool TryGet(string name, out PriceTable? table)
+    {
+        lock (_gate)
+        {
+            if (_tables.TryGetValue(name, out var task) && task.IsCompletedSuccessfully)
+            { table = task.GetAwaiter().GetResult(); return true; }
+        }
+        table = null; return false;
+    }
     public Task<PriceTable> ReadAsync(string name, CancellationToken cancellationToken)
     {
         Task<PriceTable> task;

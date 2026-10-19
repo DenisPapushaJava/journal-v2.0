@@ -30,7 +30,7 @@ public sealed class ManualMdbCreationTests
         var creator = new PricedCreator(); var form = Filled(creator);
         await form.CalculatePriceCommand.ExecuteAsync(null);
         form.Customer.Value = "Другой клиент"; Assert.Equal("977 ₽", form.PriceText);
-        form.Thickness.Value = "4"; Assert.Equal("Не рассчитана", form.PriceText);
+        form.Thickness.Value = "4"; Assert.Equal("—", form.PriceText);
         await form.CalculatePriceCommand.ExecuteAsync(null);
         Assert.True(form.HasPriceError); Assert.Equal(0, creator.Created);
         form.Thickness.Value = "2,5";

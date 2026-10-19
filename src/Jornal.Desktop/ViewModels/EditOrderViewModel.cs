@@ -40,7 +40,7 @@ public partial class EditOrderViewModel : ObservableObject
     public event EventHandler? BusyChanged;
 
     public EditOrderViewModel(OrderRecord expected, IOrderMaintenance store, string sourceDescription,
-        Func<CancellationToken, Task<OrderRecord?>> refresh)
+        Func<CancellationToken, Task<OrderRecord?>> refresh, TimeProvider? priceTimeProvider = null)
     {
         Fields = Array.AsReadOnly<OrderEntryField>([OrderDate, SpecificationNumber, Manager, Customer, CuttingType, Material,
             Thickness, SheetSize, SheetCount, Weight, CutLength, Coefficient, MaterialId, Gas, CuttingTime]);
@@ -63,7 +63,7 @@ public partial class EditOrderViewModel : ObservableObject
             OnPropertyChanged(nameof(CuttingTimeNotice));
             OnPropertyChanged(nameof(HasCuttingTimeNotice));
             if (field == CuttingType || field == Thickness || field == CutLength || field == Coefficient || field == MaterialId)
-            { _quote = null; PriceText = "Не рассчитана"; }
+            { InvalidateLivePrice(); PricePreviewError = null; }
             if (field == CuttingType) OnPropertyChanged(nameof(IsHansLaser));
             if (field == OrderDate || field == SpecificationNumber)
             { DateOnly.TryParseExact(OrderDate.Value.Trim(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var identityDate); Annotations.SetIdentity(identityDate, SpecificationNumber.Value.Trim()); }
@@ -72,7 +72,7 @@ public partial class EditOrderViewModel : ObservableObject
         SaveCommand.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) NotifyBusy(); };
         CalculateCommand.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) NotifyBusy(); };
         RefreshCommand.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) NotifyBusy(); };
-        InitializeThicknessOptions();
+        InitializeThicknessOptions(); InitializePricePreview(priceTimeProvider);
         foreach (var field in new[] { CuttingType, MaterialId }) field.PropertyChanged += (_, e) =>
         { if (!_populating && e.PropertyName == nameof(OrderEntryField.Value)) ThicknessOptions.SourceChanged(); };
     }
@@ -98,8 +98,8 @@ public partial class EditOrderViewModel : ObservableObject
     public OrderEntryField MaterialId { get; } = new("ID материала HansLaser");
     public OrderEntryField Gas { get; } = new("Газ HansLaser");
     public IReadOnlyList<OrderEntryField> Fields { get; }
-    public bool IsHansLaser => CuttingType.Value == "HansLaser";
-    [ObservableProperty] private string _priceText = "Не рассчитана";
+    public bool IsHansLaser => CuttingType.Value == "HansLaser" || SelectedMachine?.SpecificationProfileId == CuttingMachine.HansProfile;
+    [ObservableProperty] private string _priceText = "—";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _error;
     [ObservableProperty] private bool _requiresReload;
     [ObservableProperty] private bool _hasCurrentVersion;
@@ -108,8 +108,8 @@ public partial class EditOrderViewModel : ObservableObject
     public bool HasChanges => Changes.Count > 0;
     public bool HasError => Error is not null;
     public bool IsBusy => SaveCommand.IsRunning || CalculateCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || IsEditingPrices;
-    public bool CanCalculate => !Material.NeedsReview && !Annotations.NeedsReview && !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null && ThicknessOptions.CanSave;
-    public bool CanSave => HasChanges && CanCalculate;
+    public bool CanCalculate => !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null;
+    public bool CanSave => HasChanges && !Material.NeedsReview && !Annotations.NeedsReview && !RequiresReload && !IsBusy && !HasPendingImport && SavedRecord is null && (!NeedsPricePreview || ThicknessOptions.CanSave);
     public bool CanRefresh => RequiresReload && !IsBusy && !HasPendingImport;
     partial void OnRequiresReloadChanged(bool value) => NotifyBusy();
     partial void OnChangesChanged(IReadOnlyList<OrderFieldChange> value)
@@ -132,7 +132,7 @@ public partial class EditOrderViewModel : ObservableObject
         for (var i = 0; i < Fields.Count; i++) { Fields[i].Value = values[i]; _initial[Fields[i]] = values[i]; }
         Annotations.Load(row.Annotations, row.ToSummary());
         _timeEdited = false; _populating = false;
-        _quote = null; PriceText = "Не рассчитана";
+        _quote = null; PriceText = StoredPriceText; PriceBreakdown = ""; _refreshPriceRequested = false; _pricePreview?.Cancel();
         OnPropertyChanged(nameof(HasCuttingTimeNotice)); OnPropertyChanged(nameof(HasMetadata)); OnPropertyChanged(nameof(MetadataText));
         RefreshChanges();
         ThicknessOptions?.SourceChanged();
@@ -167,8 +167,8 @@ public partial class EditOrderViewModel : ObservableObject
     public OrderEditChange BuildChange()
     {
         if (Material.NeedsReview) throw new ArgumentException("Подтвердите материал.");
-        if (ImportPreview?.Report.Profile == CuttingMachine.WaterjetProfile && SelectedMachine?.SpecificationProfileId != CuttingMachine.WaterjetProfile)
-            throw new ArgumentException("Выберите станок с профилем AWJC.");
+        if (Jornal.Desktop.Import.SpecificationMachineBinding.Validate(ImportPreview, CuttingType.Value, SelectedMachine) is { } importError)
+        { CuttingType.Error = importError; throw new ArgumentException(importError); }
         foreach (var field in Fields) field.Error = null;
         ValidateImportedParameters();
         string? Text(OrderEntryField field, string? original)
@@ -228,24 +228,28 @@ public partial class EditOrderViewModel : ObservableObject
     [RelayCommand]
     private async Task CalculateAsync(CancellationToken cancellationToken)
     {
+        if (RequiresReload || SavedRecord is not null || SaveCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || IsEditingPrices || HasPendingImport) return;
         AppDiagnostics.Current?.Mark(DiagnosticOperation.PriceRead);
-        if (RequiresReload || SavedRecord is not null || SaveCommand.IsRunning || RefreshCommand.IsRunning || IsImporting || HasPendingImport) return;
-        Error = null; AccessHostHelp.ShowFor(null); _quote = null; RefreshChanges();
+        Error = null; PricePreviewError = null; AccessHostHelp.ShowFor(null); _refreshPriceRequested = true;
+        InvalidateLivePrice(); RefreshChanges();
         try
         {
             await ThicknessOptions.WaitForLoadAsync(cancellationToken);
-            if (ThicknessOptions.IsActive) await RefreshThicknessOptionsAsync(true, cancellationToken);
-            var result = await new CuttingPriceService(_store).CalculateResultAsync(BuildChange().PriceRequest, cancellationToken);
-            if (result.Quote is { } quote) ShowQuote(quote);
-            else { PriceText = "Не рассчитана"; Error = result.Error; }
+            await RefreshThicknessOptionsAsync(true, cancellationToken);
+            RefreshLivePrice(true);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (Exception exception) { Error = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось рассчитать цену."); AccessHostHelp.ShowFor(exception); }
+        catch (Exception exception) { PricePreviewError = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось обновить тарифы."); AccessHostHelp.ShowFor(exception); }
+        finally
+        {
+            if (_quote is null && !PriceInputsChanged && ImportPreview is null)
+            { _refreshPriceRequested = false; _pricePreview.Cancel(); PriceText = StoredPriceText; RefreshChanges(); NotifyBusy(); }
+        }
     }
 
     private void ShowQuote(CuttingPriceQuote quote)
     {
-        _quote = quote; PriceText = quote.StoredPrice.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
+        _pricePreview.Cancel(); _quote = quote; PricePreviewError = null; PriceBreakdown = FormatPriceBreakdown(quote); PriceText = quote.StoredPrice.ToString("N2", CultureInfo.GetCultureInfo("ru-RU")) + " ₽";
         RefreshChanges();
     }
 
@@ -258,15 +262,21 @@ public partial class EditOrderViewModel : ObservableObject
         try
         {
             await ThicknessOptions.WaitForLoadAsync();
-            if (!ThicknessOptions.CanSave || IsEditingPrices) return;
+            if (NeedsPricePreview && !ThicknessOptions.CanSave || IsEditingPrices) return;
+            FlushLivePrice();
             var change = BuildChange();
-            var result = await new CuttingPriceService(_store).CalculateResultAsync(change.PriceRequest);
-            if (result.Quote is not { } quote)
-            { _quote = null; PriceText = "Не рассчитана"; Error = result.Error; RefreshChanges(); return; }
-            if (_quote is null)
+            if (change.RequiresPriceCalculation || NeedsPricePreview)
             {
-                ShowQuote(quote);
-                change = BuildChange();
+                var result = await new CuttingPriceService(_store).CalculateResultAsync(change.PriceRequest);
+                if (result.Quote is not { } quote)
+                { _quote = null; PriceText = "—"; PriceBreakdown = ""; Error = result.Error; RefreshChanges(); return; }
+                if (change.ExpectedQuote is { } expected && expected != quote)
+                { ShowQuote(quote); Error = "Прайс изменился. Проверьте новую цену и повторите сохранение."; return; }
+                if (_quote is null)
+                {
+                    ShowQuote(quote);
+                    change = BuildChange();
+                }
             }
             SavedRecord = await _store.UpdateAsync(change);
             Saved?.Invoke(this, EventArgs.Empty);
@@ -281,7 +291,7 @@ public partial class EditOrderViewModel : ObservableObject
 
     public void AcceptCurrentSnapshot(OrderRecord? current)
     {
-        _quote = null; PriceText = "Не рассчитана";
+        _quote = null; PriceText = StoredPriceText; PriceBreakdown = ""; _refreshPriceRequested = false; _pricePreview?.Cancel();
         RefreshChanges();
         if (current is null) { Error = "Заявка удалена. Правки сохранены в форме."; RequiresReload = true; return; }
         if (current == _expected) { RequiresReload = false; HasCurrentVersion = false; Error = null; return; }

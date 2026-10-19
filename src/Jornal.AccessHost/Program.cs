@@ -41,6 +41,11 @@ try
     diagnosticStage = DiagnosticStage.Unknown;
     if (request.Operation == AccessHostOperation.ReadMachines)
         response = new(1, Machines: (await new OleDbMachineCatalog(request.Path).ReadMachinesAsync()).ToArray());
+    else if (request.Operation == AccessHostOperation.UpdateMachineImport)
+    {
+        var change = request.MachineImportChange ?? throw new InvalidDataException("Не передана привязка импорта станка.");
+        response = new(1, Machine: await new OleDbMachineCatalog(request.Path).UpdateMachineImportAsync(change));
+    }
     else if (request.Operation == AccessHostOperation.CreateMachine)
     {
         var creation = request.MachineCreation ?? throw new InvalidDataException("Не передан новый станок.");
@@ -104,7 +109,7 @@ catch (PriceCalculationException exception) { response = new(1, Error: exception
 catch (OrderWriteException exception) { response = new(1, Error: exception.Message, Failure: exception.Failure, Diagnostic: CaptureHost(exception, exception.Failure)); }
 catch (Exception exception)
 {
-    var failure = request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.UpdatePriceTable or AccessHostOperation.CreateMachine
+    var failure = request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.UpdatePriceTable or AccessHostOperation.CreateMachine or AccessHostOperation.UpdateMachineImport
         ? exception is ArgumentException or InvalidDataException ? OrderWriteFailure.NotSaved : OrderWriteFailure.OutcomeUnknown : (OrderWriteFailure?)null;
     response = new(1, Error: exception is OrderReadException or PriceReadException or ArgumentException or InvalidDataException
         ? exception.Message : "Модуль Access не смог выполнить запрос.",

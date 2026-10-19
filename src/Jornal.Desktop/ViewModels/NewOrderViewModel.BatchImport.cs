@@ -27,7 +27,6 @@ public partial class NewOrderViewModel
     public bool CanEditBatch => !SaveCommand.IsRunning && !CalculatePriceCommand.IsRunning && !IsSaved && !RequiresReload && !IsEditingPrices;
     public bool CanAddFiles => CanEditBatch && !IsImporting && !HasPendingImport;
     private bool CanSaveBatch => _creator is IManualOrderBatchCreator && IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.HasValidParameters && !item.Form.HasPriceValidationError && item.Form.ThicknessOptions.CanSave);
-    private bool CanCalculateBatch => IncludedCount > 0 && BatchItems.Where(item => item.IsIncluded).All(item => item.HasValidParameters);
 
     internal void NotifyBatchState()
     {
@@ -99,9 +98,9 @@ public partial class NewOrderViewModel
 
     private NewOrderViewModel NewBatchForm()
     {
-        var form = new NewOrderViewModel(_creator, IsLocalCopy, IsDatabase, InitialColor) { ImportReader = ImportReader, ExistingOrders = ExistingOrders };
+        var form = new NewOrderViewModel(_creator, IsLocalCopy, IsDatabase, InitialColor, _priceTimeProvider) { ImportReader = ImportReader, ExistingOrders = ExistingOrders };
         form._thicknessSource.Stop(); form._thicknessSource = _thicknessSource; form.ThicknessOptions.UseSource(_thicknessSource);
-        form.ThicknessOptions.ReloadAll = () => RefreshThicknessOptionsAsync(true);
+        form.ThicknessOptions.ReloadAll = () => CalculatePriceCommand.ExecuteAsync(null);
         form.PriceEditorFactory = PriceEditorFactory;
         form.Manager.Suggestions = Manager.Suggestions; form.Customer.Suggestions = Customer.Suggestions;
         form.Material.Suggestions = Material.Suggestions;
@@ -175,16 +174,6 @@ public partial class NewOrderViewModel
         }
     }
 
-    private async Task CalculateBatchPricesAsync(CancellationToken cancellationToken)
-    {
-        foreach (var item in BatchItems.Where(item => item.IsIncluded && item.HasValidParameters).ToArray())
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            using var registration = cancellationToken.Register(item.Form.CalculatePriceCommand.Cancel);
-            await item.Form.CalculatePriceCommand.ExecuteAsync(null);
-        }
-    }
-
     private async Task SaveBatchAsync()
     {
         _hasBatchPriceNotice = false; SaveError = null; AccessHostHelp.ShowFor(null);
@@ -199,6 +188,7 @@ public partial class NewOrderViewModel
                 Manager.Error = item.Form.Manager.Error; Customer.Error = item.Form.Customer.Error;
                 HasValidationErrors = true; return;
             }
+            item.Form.FlushLivePrice();
             drafts.Add(item.Form.BuildDraft());
         }
         HasValidationErrors = false;
@@ -216,6 +206,7 @@ public partial class NewOrderViewModel
                     $"Пакет не добавлен. Проверьте цены в карточках: {string.Join(", ", priceIssues.Take(5))}{(priceIssues.Count > 5 ? $" и ещё {priceIssues.Count - 5}" : "")}.";
                 return;
             }
+            drafts = items.Select(item => item.Form.BuildDraft()).ToList();
             CreatedOrders = await ((IManualOrderBatchCreator)_creator).CreateBatchAsync(drafts);
             if (CreatedOrders.Count != drafts.Count || CreatedOrders.Select(order => order.Id).Distinct().Count() != drafts.Count)
                 throw new OrderWriteException(OrderWriteFailure.OutcomeUnknown, "Сохранение пакета не подтверждено. Обновите список (F5).");

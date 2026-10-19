@@ -113,7 +113,7 @@ public sealed partial class DemoOrderStore : IOrderReader, IManualOrderCreator, 
     }
 
     // Чтение/правка тарифов отдельно от создания демозаявок с исторически неизвестной ценой.
-    public sealed class PriceAccess(DemoOrderStore store) : IPriceReader, IPriceEditor, IMachineCatalogReader, IMachineCreator, IPriceImpactReader
+    public sealed class PriceAccess(DemoOrderStore store) : IPriceReader, IPriceEditor, IMachineCatalogReader, IMachineCreator, IMachineImportEditor, IPriceImpactReader
     {
         public Task<IReadOnlyList<PriceThicknessUsage>> ReadThicknessUsageAsync(PriceTableChange change, CancellationToken cancellationToken = default)
         {
@@ -127,6 +127,7 @@ public sealed partial class DemoOrderStore : IOrderReader, IManualOrderCreator, 
         }
         public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => store.ReadMachinesAsync(cancellationToken);
         public Task<CuttingMachine> CreateMachineAsync(MachineCreation creation, CancellationToken cancellationToken = default) => store.CreateMachineAsync(creation, cancellationToken);
+        public Task<CuttingMachine> UpdateMachineImportAsync(MachineImportChange change, CancellationToken cancellationToken = default) => store.UpdateMachineImportAsync(change, cancellationToken);
         public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) => store.ReadAsync(tableName, cancellationToken);
         public Task<PriceTable> SaveAsync(PriceTableChange change, CancellationToken cancellationToken = default) => store.SaveAsync(change, cancellationToken);
     }
@@ -141,7 +142,7 @@ public sealed partial class DemoOrderStore : IOrderReader, IManualOrderCreator, 
         public async Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
         {
             change.Validate(); var machine = await CuttingPriceService.ResolveMachineAsync(this, change.PriceRequest.CuttingType, cancellationToken);
-            var table = await ReadAsync(CuttingPriceCalculator.SelectTable(change.PriceRequest, machine), cancellationToken);
+            var table = change.RequiresPriceCalculation ? await ReadAsync(CuttingPriceCalculator.SelectTable(change.PriceRequest, machine), cancellationToken) : null;
             lock (store._gate)
             {
                 cancellationToken.ThrowIfCancellationRequested();

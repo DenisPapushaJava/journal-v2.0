@@ -20,10 +20,11 @@ namespace Jornal.Tests;
 public sealed class ResultButtonsCustomizationTests
 {
     [Theory]
-    [InlineData("null", 36)] [InlineData("true", 36)] [InlineData("[]", 36)]
-    [InlineData("{\"Size\":\"44\",\"CopyColor\":17}", 36)]
-    [InlineData("{\"Size\":999,\"ResultColor\":\"#abc123\",\"ClearColor\":\"broken\"}", 44)]
+    [InlineData("null", 40)] [InlineData("true", 40)] [InlineData("[]", 40)]
+    [InlineData("{\"Size\":\"44\",\"CopyColor\":17}", 40)]
+    [InlineData("{\"Size\":999,\"ResultColor\":\"#abc123\",\"ClearColor\":\"broken\"}", 50)]
     [InlineData("{\"Size\":-999,\"CopyColor\":null}", 32)]
+    [InlineData("{\"Size\":36}", 36)]
     public void InvalidButtonFieldsDoNotResetTheRestOfTheProfile(string appearance, int size)
     {
         var profile = JsonSerializer.Deserialize<UiPreferences>("{\"DarkTheme\":true,\"Layout\":{\"RowHeight\":40,\"ResultButtons\":" + appearance + "}}")!;
@@ -71,11 +72,11 @@ public sealed class ResultButtonsCustomizationTests
             Click(Find<JournalButton>(editor, "ResultButtonsSettingsButton"));
             var minus = Find<Button>(editor, "DecreaseResultButtonsButton");
             var plus = Find<Button>(editor, "IncreaseResultButtonsButton");
-            for (var count = 0; count < 4; count++) Click(minus);
+            for (var count = 0; count < 8; count++) Click(minus);
             Assert.False(minus.IsEnabled);
             var panel = Find<Border>(window, "ResultPanel");
             double? axis = null;
-            for (var size = 32; size <= 44; size++)
+            for (var size = 32; size <= 50; size++)
             {
                 Assert.Equal(size, editor.Value.Size);
                 Assert.True(Find<JournalButton>(editor, "ResultButtonsSettingsButton").Flyout!.IsOpen);
@@ -90,18 +91,20 @@ public sealed class ResultButtonsCustomizationTests
                     var bounds = Bounds(button, panel);
                     Assert.InRange(Math.Abs(bounds.Center.X - axis.Value), 0, 1);
                     Assert.True(bounds.Top >= 0 && bounds.Bottom <= panel.Bounds.Height);
+                    Assert.True(bounds.Left >= Bounds(Find<ResultFormattingBar>(window, "ResultFormatting"), panel).Right);
+                    Assert.True(bounds.Right <= panel.Bounds.Width);
                     var icon = button.GetVisualDescendants().OfType<Avalonia.Svg.Svg>().Single();
                     var iconBounds = Bounds(icon, button);
                     Assert.InRange(Math.Abs(iconBounds.Center.X - button.Bounds.Width / 2), 0, 1);
                     Assert.InRange(Math.Abs(iconBounds.Center.Y - button.Bounds.Height / 2), 0, 1);
                 }
-                if (size < 44) Click(plus);
+                if (size < 50) Click(plus);
             }
             Assert.False(plus.IsEnabled);
-            Assert.Equal(36, store.Value!.Layout.ResultButtons.Size);
-            Screenshot(window, $"buttons-44-{dark}-{width}-{scale}");
+            Assert.Equal(40, store.Value!.Layout.ResultButtons.Size);
+            Screenshot(window, $"buttons-50-{dark}-{width}-{scale}");
             editor.ClosePopups(); Click(Find<JournalButton>(window, "CancelLayoutButton"));
-            Assert.Equal(36, Find<JournalButton>(window, "CopyResultButton").Width);
+            Assert.Equal(40, Find<JournalButton>(window, "CopyResultButton").Width);
         }
         finally { window.Close(); }
     }
@@ -206,7 +209,7 @@ public sealed class ResultButtonsCustomizationTests
         foreach (var legacy in new[] { false, true })
         {
             var root = WorkspaceNode.Split(WorkspaceAxis.Rows, WorkspaceLayout.PanelIds.Select(WorkspaceNode.Panel).ToArray(), 2, 1, 1);
-            var store = Store(new() { Size = 44 });
+            var store = Store(new() { Size = 50 });
             store.Save(store.Value! with { Layout = store.Value!.Layout with { Workspace = legacy ? null : new() { Root = root, Height = 480 } } });
             var (window, _) = Open(store, 1920, 1080);
             try
@@ -256,10 +259,10 @@ public sealed class ResultButtonsCustomizationTests
             Click(Find<Button>(editor, "IncreaseResultButtonsButton"));
             editor.ClosePopups(); Click(Find<JournalButton>(window, "SaveLayoutButton"));
             Assert.True(model.IsCustomizing); Assert.True(model.HasPreferencesError);
-            Assert.Equal(37, editor.Value.Size);
-            Assert.Equal(36, store.Value.Layout.ResultButtons.Size);
+            Assert.Equal(41, editor.Value.Size);
+            Assert.Equal(40, store.Value.Layout.ResultButtons.Size);
             Click(Find<JournalButton>(window, "CancelLayoutButton"));
-            Assert.False(model.IsCustomizing); Assert.Equal(36, editor.Value.Size);
+            Assert.False(model.IsCustomizing); Assert.Equal(40, editor.Value.Size);
         }
         finally { window.Close(); }
     }
@@ -289,7 +292,7 @@ public sealed class ResultButtonsCustomizationTests
             PressEscape(Find<Button>(editor, "DecreaseResultButtonsButton"));
             Assert.False(settings.Flyout.IsOpen); Assert.True(model.IsCustomizing);
             PressEscape(settings);
-            Assert.False(model.IsCustomizing); Assert.Equal(36, editor.Value.Size);
+            Assert.False(model.IsCustomizing); Assert.Equal(40, editor.Value.Size);
         }
         finally { window.Close(); }
     }

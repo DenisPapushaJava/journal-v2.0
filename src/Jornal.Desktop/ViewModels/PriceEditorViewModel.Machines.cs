@@ -6,6 +6,15 @@ public sealed partial class PriceEditorViewModel
 {
     private CuttingMachine[] _machines = [];
     private bool _catalogLoaded;
+    public bool IsCustomMachine => _machines.Any(machine => machine.TableName == TableName);
+    public bool CanEditMachineImport => _catalogLoaded && IsCustomMachine && !IsEditing && !IsBusy && !RequiresReload && editor is IMachineImportEditor && reader is IMachineCatalogReader;
+    public MachineImportViewModel? CreateMachineImportForm()
+    {
+        if (!CanEditMachineImport) return null;
+        var form = new MachineImportViewModel(_machines.Single(machine => machine.TableName == TableName), (IMachineImportEditor)editor!, (IMachineCatalogReader)reader);
+        form.SavingChanged += (_, _) => IsSaving = form.IsSaving;
+        return form;
+    }
     public bool CanAddMachine => _catalogLoaded && !IsEditing && !IsBusy && !RequiresReload && editor is IMachineCreator && reader is IMachineCatalogReader;
     private async Task LoadMachineCatalogAsync(CancellationToken cancellationToken)
     {

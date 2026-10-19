@@ -15,7 +15,8 @@ public sealed partial class LocalJournalStore
         {
             if (Find(book, change.Expected.Id) != change.Expected) throw Conflict();
             var machine = CuttingMachine.Verify(change.PriceRequest.CuttingType, change.Machine, book.Machines ?? []);
-            var saved = change.Calculate(book.Prices.Single(table => table.Name == CuttingPriceCalculator.SelectTable(change.PriceRequest, machine)), machine);
+            var table = change.RequiresPriceCalculation ? book.Prices.Single(table => table.Name == CuttingPriceCalculator.SelectTable(change.PriceRequest, machine)) : null;
+            var saved = change.Calculate(table, machine);
             return (Replace(book, saved), saved);
         }, cancellationToken);
     }

@@ -64,4 +64,14 @@ public partial class PriceEditorWindow : Window
         }
         catch (Exception exception) { model.Error = AppDiagnostics.Describe(DiagnosticOperation.AccessHost, exception, "Не удалось открыть добавление станка."); }
     }
+    private async void OnMachineImportClick(object? sender, RoutedEventArgs e)
+    {
+        if (Model is not { } model || model.CreateMachineImportForm() is not { } form) return;
+        try
+        {
+            var window = new MachineImportWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
+            if (await window.ShowDialog<CuttingMachine?>(this) is { } machine) await model.ShowCreatedMachineAsync(machine);
+        }
+        catch (Exception exception) { model.Error = AppDiagnostics.Describe(DiagnosticOperation.AccessHost, exception, "Не удалось открыть импорт спецификаций."); }
+    }
 }

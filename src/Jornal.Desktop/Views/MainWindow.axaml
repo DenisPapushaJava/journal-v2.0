@@ -90,7 +90,7 @@
       <Grid x:Name="TopArea" RowDefinitions="138,12,120">
         <Grid x:Name="ResultSlot">
           <Border x:Name="ResultPanel" Classes="panel result-editor" Background="#F1F2F4" Margin="0,0,0,4">
-            <Grid ColumnDefinitions="*,184">
+            <Grid ColumnDefinitions="*,190">
               <Grid RowDefinitions="*,22">
                 <TextBox x:Name="ResultTextBox" Classes="result-editor" Text="{Binding ResultText, Mode=TwoWay}"
                          IsReadOnly="{Binding !CanEditResult}" AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="Arial"
@@ -103,19 +103,19 @@
                            Foreground="{Binding ResultFeedbackBrush}" FontSize="11" Margin="14,0,12,6" TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding ResultMessage}" AutomationProperties.LiveSetting="Polite" />
               </Grid>
-              <Grid Grid.Column="1" Margin="8,4" ColumnDefinitions="*,10,44">
+              <Grid Grid.Column="1" Margin="8,4" ColumnDefinitions="*,10,50">
                 <ui:ResultFormattingBar x:Name="ResultFormatting" Margin="0,4,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" />
                 <StackPanel x:Name="ResultActions" Grid.Column="2" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <ui:JournalButton x:Name="AddResultButton" Label="Сформировать результат по выбранным заявкам" Icon="list-checks" IconOnly="True"
-                                    Classes="result-tool result-action" Width="36" Height="36" MinHeight="36" IconSize="20" Padding="0" CornerRadius="18"
+                                    Classes="result-tool result-action" Width="40" Height="40" MinHeight="40" IconSize="22" Padding="0" CornerRadius="20"
                                     IsEnabled="{Binding CanAddResult}" Click="OnAddResultClick"
                                     ToolTip.Tip="Сформировать результат по выбранным заявкам" />
                   <ui:JournalButton x:Name="CopyResultButton" Label="Копировать результат" Icon="copy" IconOnly="True"
-                                    Classes="result-tool result-action copy-tool" Width="36" Height="36" MinHeight="36" IconSize="20" Padding="0" CornerRadius="18"
+                                    Classes="result-tool result-action copy-tool" Width="40" Height="40" MinHeight="40" IconSize="22" Padding="0" CornerRadius="20"
                                     IsEnabled="{Binding CanCopyResult}" Click="OnCopyResultClick"
                                     ToolTip.Tip="Копировать для письма" />
                   <ui:JournalButton x:Name="ClearResultButton" Label="Очистить результат" Icon="x" IconOnly="True"
-                                    Classes="result-tool result-action" Width="36" Height="36" MinHeight="36" IconSize="20" Padding="0" CornerRadius="18"
+                                    Classes="result-tool result-action" Width="40" Height="40" MinHeight="40" IconSize="22" Padding="0" CornerRadius="20"
                                     Command="{Binding ClearResultCommand}" IsEnabled="{Binding CanClearResult}"
                                     ToolTip.Tip="Очистить результат" />
                 </StackPanel>

@@ -17,17 +17,22 @@ public partial class NewOrderViewModel
         _thicknessSource = new(() => _creator as IPriceReader ?? (_creator as DemoOrderStore)?.Prices);
         ThicknessOptions = new(Thickness, _thicknessSource,
             () => new(CuttingType.Value, IsHansLaser ? MaterialId.Value.Trim() : "", SelectedMachine, RequiresImportedHansFields), AccessHostHelp.ShowFor);
-        ThicknessOptions.ReloadAll = () => RefreshThicknessOptionsAsync(true);
+        ThicknessOptions.ReloadAll = () => CalculatePriceCommand.ExecuteAsync(null);
         ThicknessOptions.Changed += (_, _) =>
         {
             if (ThicknessOptions.IsVerified && ThicknessOptions.CanSave &&
                 _priceFailureKind is PriceCalculationFailure.PriceUnavailable or PriceCalculationFailure.InvalidPrice) PriceError = null;
+            ScheduleLivePrice();
             OnPropertyChanged(nameof(IsBusy)); SaveCommand.NotifyCanExecuteChanged(); NotifyBatchState();
         };
     }
     public async Task RefreshThicknessOptionsAsync(bool force = false, CancellationToken cancellationToken = default)
     {
-        if (force) _thicknessSource.Invalidate();
+        if (force)
+        {
+            _thicknessSource.Invalidate(); InvalidateLivePrice();
+            foreach (var item in BatchItems.Where(item => item.HasParameters)) item.Form.InvalidateLivePrice();
+        }
         await ThicknessOptions.RefreshAsync(cancellationToken);
         await Task.WhenAll(BatchItems.Where(item => item.HasParameters).Select(item => item.Form.ThicknessOptions.RefreshAsync(cancellationToken)));
     }
@@ -53,24 +58,25 @@ public partial class NewOrderViewModel
     }
     public async Task RefreshAfterPriceEditingAsync(CancellationToken cancellationToken = default)
     {
-        await LoadMachinesAsync(cancellationToken);
+        InvalidateLivePrice(); await LoadMachinesAsync(cancellationToken);
         await RefreshThicknessOptionsAsync(true, cancellationToken);
     }
     public void StopThicknessOptions()
     {
         if (_thicknessStopped) return;
-        _thicknessStopped = true;
+        _thicknessStopped = true; _pricePreview.Stop();
         ThicknessOptions.Stop();
-        foreach (var item in BatchItems) item.Form.ThicknessOptions.Stop();
+        foreach (var item in BatchItems) { item.Form._pricePreview.Stop(); item.Form.ThicknessOptions.Stop(); }
         _thicknessSource.Stop();
     }
     public void StartThicknessOptions()
     {
+        _pricePreview.Start(); ScheduleLivePrice();
         if (!_thicknessStopped) return;
         _thicknessStopped = false;
         _thicknessSource = new(() => _creator as IPriceReader ?? (_creator as DemoOrderStore)?.Prices);
-        ThicknessOptions.Restart(_thicknessSource);
+        InvalidateLivePrice(); ThicknessOptions.Restart(_thicknessSource);
         foreach (var item in BatchItems)
-        { item.Form._thicknessSource = _thicknessSource; item.Form.ThicknessOptions.Restart(_thicknessSource); }
+        { item.Form._pricePreview.Start(); item.Form._thicknessSource = _thicknessSource; item.Form.InvalidateLivePrice(); item.Form.ThicknessOptions.Restart(_thicknessSource); }
     }
 }

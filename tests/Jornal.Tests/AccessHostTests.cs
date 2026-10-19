@@ -253,7 +253,7 @@ public sealed class AccessHostTests
             Assert.Equal(batchHistory, batchReopened.Where(row => !batchCreated.Any(createdRow => createdRow.Id == row.Id)));
             var raw = (await client.ReadRecordAsync(42, TestContext.Current.CancellationToken))!;
             var changed = await client.UpdateAsync(new(raw, raw with { Customer = "Правка через x86 'А'" }), TestContext.Current.CancellationToken);
-            Assert.Equal(raw with { Customer = "Правка через x86 'А'", Price = 659m }, changed);
+            Assert.Equal(raw with { Customer = "Правка через x86 'А'" }, changed);
             await client.DeleteAsync(changed, TestContext.Current.CancellationToken);
             Assert.Null(await client.ReadRecordAsync(42, TestContext.Current.CancellationToken));
             Assert.Equal(changed, await client.RestoreAsync(changed, TestContext.Current.CancellationToken));

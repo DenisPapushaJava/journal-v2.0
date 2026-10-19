@@ -6,7 +6,7 @@ namespace Jornal.Desktop.Customization;
 /// <summary>Дерево разделений панелей; прежняя область статусов схлопывается при чтении профиля.</summary>
 public sealed record WorkspaceLayout
 {
-    public const double MaximumHeight = 520;
+    public const double MaximumHeight = 540;
     public static IReadOnlyList<string> PanelIds { get; } = Array.AsReadOnly(new[] { "result", "orders", "clipboard" });
     public int TreeVersion { get; init; } = 1;
     public WorkspaceNode? Root { get; init; }

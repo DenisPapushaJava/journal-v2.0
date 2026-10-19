@@ -9,6 +9,21 @@ namespace Jornal.Access.Tests;
 public sealed partial class NativeAccessTests
 {
     [Fact]
+    public async Task MetadataEditDoesNotRequireATariffOrRepriceAnExistingOrder()
+    {
+        using var database = Database.Create(); var token = TestContext.Current.CancellationToken;
+        var store = new OleDbOrderMaintenance(database.Path);
+        var original = (await store.ReadRecordAsync(42, token))!;
+        database.Execute("UPDATE [PriceLL500] SET [2,5]=NULL");
+        var saved = await store.UpdateAsync(new(original, original with { Customer = "Правка заказчика" }), token);
+        Assert.Equal(original with { Customer = "Правка заказчика" }, saved);
+        Assert.Equal(saved, await store.ReadRecordAsync(42, token));
+        var priceChange = new OrderEditChange(saved, saved with { CutLength = saved.CutLength + 1 });
+        Assert.True(priceChange.RequiresPriceCalculation);
+        await Assert.ThrowsAsync<PriceCalculationException>(() => store.UpdateAsync(priceChange, token));
+        Assert.Equal(saved, await store.ReadRecordAsync(42, token));
+    }
+    [Fact]
     public async Task EditingPreservesEveryUnchangedRawFieldAndTheLegacySchema()
     {
         using var database = Database.Create();
@@ -18,7 +33,7 @@ public sealed partial class NativeAccessTests
         Assert.Null(other!.Date); Assert.Null(other.Manager); Assert.Null(other.Price); Assert.Null(other.Coefficient);
         Assert.Equal(" 1,25 | 20 | 340 | 2 | N2 ", raw.Coefficient);
         var saved = await store.UpdateAsync(new(raw, raw with { Customer = "Новый 'А', %_*? []" }), TestContext.Current.CancellationToken);
-        Assert.Equal(raw with { Customer = "Новый 'А', %_*? []", Price = 659m }, saved);
+        Assert.Equal(raw with { Customer = "Новый 'А', %_*? []" }, saved);
         Assert.Equal(saved, await new OleDbOrderMaintenance(database.Path).ReadRecordAsync(42, TestContext.Current.CancellationToken));
         Assert.Equal(other, await store.ReadRecordAsync(43, TestContext.Current.CancellationToken));
         Assert.Equal(schema, database.Schema());

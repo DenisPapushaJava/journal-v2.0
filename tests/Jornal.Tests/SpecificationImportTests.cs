@@ -69,7 +69,7 @@ public sealed class SpecificationImportTests
         Assert.Equal("3", form.SheetCount.Value); Assert.Equal("48.2", form.Weight.Value); Assert.Equal("33", form.CutLength.Value);
         Assert.Equal("1.1", form.Coefficient.Value); Assert.Empty(form.Manager.Value); Assert.Empty(form.Customer.Value);
         Assert.Equal("Время резки: 200:01", form.ImportPreview!.Duration);
-        Assert.Equal("Не рассчитана", form.PriceText); Assert.False(form.IsSaved);
+        Assert.Equal("—", form.PriceText); Assert.False(form.IsSaved);
         Assert.Equal(3, (await store.ReadAsync(TestContext.Current.CancellationToken)).Count);
         await form.SaveCommand.ExecuteAsync(null);
         Assert.True(form.Manager.HasError); Assert.True(form.Customer.HasError);

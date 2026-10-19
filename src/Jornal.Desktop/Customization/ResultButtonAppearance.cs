@@ -5,7 +5,7 @@ namespace Jornal.Desktop.Customization;
 
 public sealed record ResultButtonAppearance
 {
-    public const int MinimumSize = 32, DefaultSize = 36, MaximumSize = 44;
+    public const int MinimumSize = 32, DefaultSize = 40, MaximumSize = 50;
     public const string DefaultResultColor = "#D6E1EE", DefaultCopyColor = "#35689B";
     public int Size { get; init; } = DefaultSize;
     public string ResultColor { get; init; } = DefaultResultColor;

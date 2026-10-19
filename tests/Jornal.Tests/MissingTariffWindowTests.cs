@@ -28,7 +28,7 @@ public sealed class MissingTariffWindowTests
             await form.WaitForThicknessOptionsAsync(TestContext.Current.CancellationToken); Dispatcher.UIThread.RunJobs();
             await form.SaveCommand.ExecuteAsync(null); Dispatcher.UIThread.RunJobs();
             var save = window.FindControl<JournalButton>("SaveButton")!;
-            var calculate = window.FindControl<JournalButton>("CalculatePriceButton")!;
+            var calculate = window.FindControl<JournalButton>("RefreshBatchTariffsButton")!;
             Assert.False(save.IsEffectivelyEnabled); Assert.True(calculate.IsEffectivelyEnabled);
             var list = window.GetVisualDescendants().OfType<ListBox>().Single(control => ReferenceEquals(control.ItemsSource, form.BatchItems));
             list.ScrollIntoView(form.BatchItems[1]); Dispatcher.UIThread.RunJobs();

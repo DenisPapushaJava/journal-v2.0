@@ -78,10 +78,10 @@ public partial class EditOrderViewModel
         finally { _populating = false; }
         Material.NeedsReview = preview.Report.Issues.Any(issue => issue.Code == "MaterialNeedsReview") && Material.Value.Length > 0;
         ImportPreview = preview; PendingImport = null;
-        _timeEdited = true; _quote = null; PriceText = "Не рассчитана"; Error = null; ImportError = null;
+        _timeEdited = true; _quote = null; PriceText = "—"; Error = null; ImportError = null;
         OnPropertyChanged(nameof(IsHansLaser)); OnPropertyChanged(nameof(HasMetadata)); OnPropertyChanged(nameof(MetadataText));
         OnPropertyChanged(nameof(HasCuttingTimeNotice)); RefreshChanges();
-        ThicknessOptions.SourceChanged();
+        InvalidateLivePrice(); ThicknessOptions.SourceChanged();
     }
 
     private void ValidateImportedParameters()
