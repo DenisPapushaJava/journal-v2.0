@@ -65,7 +65,8 @@ public static class OleDbOrderReader
         }
         catch (Exception exception) when (exception is OleDbException or InvalidOperationException)
         {
-            throw new OrderReadException("Access не удалось прочитать Orders. Проверьте доступ к файлу, структуру базы, пароль и совместимость драйвера. Список не заменён.", exception);
+            throw new OrderReadException(DataSourceAccessErrors.Describe(path, exception,
+                "Access не удалось прочитать Orders. Проверьте доступ к файлу, структуру базы, пароль и совместимость драйвера. Список не заменён."), exception);
         }
     }
 }

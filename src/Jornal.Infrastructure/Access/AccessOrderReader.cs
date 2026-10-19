@@ -30,7 +30,8 @@ public sealed class AccessOrderReader(string path) : IOrderReader
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            throw new OrderReadException("Файл базы недоступен. Проверьте путь, подключение к общей папке и права на чтение.", exception);
+            throw new OrderReadException(DataSourceAccessErrors.Describe(path, exception,
+                DataSourceAccessErrors.Unavailable(path)), exception);
         }
     }
 }

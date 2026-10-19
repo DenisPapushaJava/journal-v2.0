@@ -155,6 +155,10 @@
             BorderThickness="0,1,0,0" Padding="24,8">
       <Grid ColumnDefinitions="*,24,Auto" RowDefinitions="Auto,Auto">
         <StackPanel VerticalAlignment="Center" Spacing="4">
+          <StackPanel x:Name="SaveProgress" Orientation="Horizontal" Spacing="8" IsVisible="{Binding SaveCommand.IsRunning}">
+            <ProgressBar IsIndeterminate="True" Width="64" Height="4" VerticalAlignment="Center" />
+            <TextBlock Text="Сохранение…" Foreground="{DynamicResource JournalMuted}" VerticalAlignment="Center" />
+          </StackPanel>
           <TextBlock x:Name="ValidationSummary" Text="Проверьте отмеченные поля."
                      IsVisible="{Binding HasValidationErrors}" Foreground="{DynamicResource JournalDangerForeground}" />
           <TextBlock Text="{Binding SaveError}" IsVisible="{Binding HasSaveError}"
@@ -171,7 +175,7 @@
           <ui:JournalButton x:Name="CancelButton" Label="Отмена" Classes="outline" MinHeight="38"
                             Click="OnCancelClick" IsEnabled="{Binding !SaveCommand.IsRunning}" />
           <ui:JournalButton x:Name="SaveButton" Label="{Binding SaveLabel}" Classes="primary" MinHeight="38"
-                            Command="{Binding SaveCommand}" Click="OnSaveClick" IsDefault="True" />
+                            IsEnabled="{Binding !SaveCommand.IsRunning}" Command="{Binding SaveCommand}" Click="OnSaveClick" IsDefault="True" />
         </StackPanel>
         <ui:WindowsSecurityHelp x:Name="OrderSecurityHelp" Grid.Row="1" Grid.ColumnSpan="3" Margin="0,8,0,0"
                                 DataContext="{Binding AccessHostHelp}" />

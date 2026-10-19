@@ -31,7 +31,7 @@ public sealed class OleDbOrderBatchEditor(string path) : IOrderBatchEditor
         {
             token.ThrowIfCancellationRequested();
             if (!string.Equals(Path.GetExtension(path), ".mdb", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
-                throw new OrderWriteException(OrderWriteFailure.NotSaved, "Файл MDB недоступен. Проверьте путь и подключение к общей папке.");
+                throw new OrderWriteException(OrderWriteFailure.NotSaved, DataSourceAccessErrors.Unavailable(path));
             connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: true));
             DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             token.ThrowIfCancellationRequested();
@@ -73,7 +73,8 @@ public sealed class OleDbOrderBatchEditor(string path) : IOrderBatchEditor
         catch (Exception exception) when (exception is OleDbException or IOException or UnauthorizedAccessException or InvalidOperationException or OrderReadException)
         {
             throw new OrderWriteException(OrderWriteFailure.NotSaved,
-                "Не удалось сохранить пакет в MDB. Проверьте права на запись, подключение к общей папке и блокировки Access. Пакет не сохранён.", exception);
+                DataSourceAccessErrors.Describe(path, exception,
+                    "Не удалось сохранить пакет в MDB. Проверьте права на запись, подключение и блокировки Access. Пакет не сохранён."), exception);
         }
         finally
         {

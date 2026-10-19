@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Jornal.Core.Orders;
+using Jornal.Infrastructure.Local;
 
 namespace Jornal.Infrastructure.Diagnostics;
 
@@ -116,10 +117,17 @@ public static class AppDiagnostics
         return exception;
     }
     public static string WithCode(string message, string? code) => code is null ? message : message + "\nКод: " + code;
-    public static string Describe(DiagnosticOperation operation, Exception exception, string fallback) => WithCode(
-        exception is OrderWriteException or OrderReadException or Jornal.Core.Pricing.PriceReadException or
-            Jornal.Core.Pricing.PriceCalculationException or ArgumentException ? exception.Message : fallback,
-        Capture(operation, exception));
+    public static string Describe(DiagnosticOperation operation, Exception exception, string fallback)
+    {
+        var code = Capture(operation, exception);
+        if (LocalJournalBusyException.Contains(exception))
+            return operation is DiagnosticOperation.OrderCreate or DiagnosticOperation.OrderEdit
+                ? "База данных сейчас занята. Правки остались в форме. Повторите сохранение через несколько секунд."
+                : exception.Message;
+        return WithCode(exception is OrderWriteException or OrderReadException or Jornal.Core.Pricing.PriceReadException or
+            Jornal.Core.Pricing.PriceCalculationException or ArgumentException ? exception.Message : fallback, code);
+    }
+
     public static string AppVersion => typeof(AppDiagnostics).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "unknown";
     public static string? BuildCommit { get; } = Metadata("Journal.BuildCommit") is { } commit &&
         Regex.IsMatch(commit, "^([a-f0-9]{40}|[a-f0-9]{64})$") ? commit : null;

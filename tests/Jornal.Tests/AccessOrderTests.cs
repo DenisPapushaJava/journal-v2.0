@@ -148,7 +148,8 @@ public sealed class AccessOrderTests
         try
         {
             var path = Path.Combine(folder, "OrderDB.mdb");
-            Assert.Contains("недоступен", (await Assert.ThrowsAsync<OrderReadException>(() => new AccessOrderReader(path).ReadAsync(TestContext.Current.CancellationToken))).Message);
+            Assert.Equal("База данных «OrderDB.mdb» недоступна. Проверьте подключение и повторите попытку.",
+                (await Assert.ThrowsAsync<OrderReadException>(() => new AccessOrderReader(path).ReadAsync(TestContext.Current.CancellationToken))).Message);
             await File.WriteAllTextAsync(path, "Это не Access", TestContext.Current.CancellationToken);
             Assert.Contains("Jet MDB", (await Assert.ThrowsAsync<OrderReadException>(() => new AccessOrderReader(path).ReadAsync(TestContext.Current.CancellationToken))).Message);
             Assert.Contains("mdbtools", (await Assert.ThrowsAsync<OrderReadException>(() =>

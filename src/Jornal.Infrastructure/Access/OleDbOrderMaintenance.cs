@@ -33,7 +33,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             return result;
         }
         catch (Exception exception) when (exception is OleDbException or IOException or InvalidOperationException)
-        { throw new OrderReadException("Не удалось прочитать полную заявку из MDB. Проверьте доступ к базе.", exception); }
+        { throw new OrderReadException(DataSourceAccessErrors.Describe(path, exception, "Не удалось прочитать полную заявку из MDB. Проверьте доступ к базе."), exception); }
     }, cancellationToken);
 
     public Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
@@ -114,7 +114,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
         {
             deadline.Token.ThrowIfCancellationRequested();
             if (!File.Exists(path) || !string.Equals(Path.GetExtension(path), ".mdb", StringComparison.OrdinalIgnoreCase))
-                throw new IOException("MDB недоступна.");
+                throw new OrderWriteException(OrderWriteFailure.NotSaved, DataSourceAccessErrors.Unavailable(path));
             connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: true));
             DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             transaction = DiagnosticStages.Run(DiagnosticStage.BeginTransaction, () => connection.BeginTransaction(IsolationLevel.ReadCommitted));
@@ -140,7 +140,8 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
         catch (OrderWriteException) { throw; }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception exception) when (exception is OleDbException or IOException or UnauthorizedAccessException or InvalidOperationException or OrderReadException or OperationCanceledException)
-        { throw new OrderWriteException(OrderWriteFailure.NotSaved, "Не удалось изменить заявку. Проверьте доступ к MDB и блокировки. Ввод/архив сохранены.", exception); }
+        { throw new OrderWriteException(OrderWriteFailure.NotSaved, DataSourceAccessErrors.Describe(path, exception,
+            "Не удалось изменить заявку. Проверьте доступ к MDB и блокировки. Ввод/архив сохранены."), exception); }
         finally { Release(transaction); Release(connection); }
     }, cancellationToken);
 

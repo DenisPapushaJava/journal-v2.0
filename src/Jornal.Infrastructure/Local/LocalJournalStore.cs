@@ -18,11 +18,16 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
     };
     private readonly string _path;
+    private readonly TimeSpan _lockWaitTimeout;
 
-    public LocalJournalStore(string path)
+    public LocalJournalStore(string path) : this(path, TimeSpan.FromSeconds(10)) { }
+
+    internal LocalJournalStore(string path, TimeSpan lockWaitTimeout)
     {
         if (!IsLocalCopyPath(path)) throw new ArgumentException("Выберите файл локальной копии " + Extension + ".", nameof(path));
+        if (lockWaitTimeout < TimeSpan.Zero || lockWaitTimeout > TimeSpan.FromSeconds(10)) throw new ArgumentOutOfRangeException(nameof(lockWaitTimeout));
         _path = Path.GetFullPath(path);
+        _lockWaitTimeout = lockWaitTimeout;
     }
 
     public static bool IsLocalCopyPath(string? path) => path?.EndsWith(Extension, StringComparison.OrdinalIgnoreCase) == true;
@@ -110,9 +115,14 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
             cancellationToken.ThrowIfCancellationRequested();
             return result;
         }
+        catch (LocalJournalBusyException exception)
+        {
+            throw new OrderReadException(exception.Message, exception);
+        }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            throw new OrderReadException("Локальная копия недоступна. Проверьте путь и права доступа.", exception);
+            throw new OrderReadException(DataSourceAccessErrors.Describe(_path, exception,
+                "Локальная копия недоступна. Проверьте путь и права доступа."), exception);
         }
     }, cancellationToken);
 
@@ -126,10 +136,16 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
             Save(book, overwrite: true, cancellationToken);
             return result;
         }
+        catch (LocalJournalBusyException exception)
+        {
+            throw new OrderWriteException(OrderWriteFailure.NotSaved,
+                "Локальная база сейчас занята другой операцией. Изменения не сохранены. Повторите действие через несколько секунд.", exception);
+        }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or OrderReadException)
         {
             throw new OrderWriteException(OrderWriteFailure.NotSaved,
-                "Не удалось сохранить локальную копию. Ввод сохранён; проверьте файл и повторите действие.", exception);
+                DataSourceAccessErrors.Describe(_path, exception,
+                    "Не удалось сохранить локальную копию. Ввод сохранён; проверьте файл и повторите действие."), exception);
         }
     }, cancellationToken);
 
@@ -176,8 +192,9 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
         {
             cancellationToken.ThrowIfCancellationRequested();
             try { return OpenPrivateFile(_path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite); }
-            catch (IOException) when (timer.Elapsed < TimeSpan.FromSeconds(2))
+            catch (IOException exception) when (LocalJournalBusyException.IsSharingViolation(exception))
             {
+                if (timer.Elapsed >= _lockWaitTimeout) throw new LocalJournalBusyException(exception);
                 if (cancellationToken.WaitHandle.WaitOne(25)) cancellationToken.ThrowIfCancellationRequested();
             }
         }

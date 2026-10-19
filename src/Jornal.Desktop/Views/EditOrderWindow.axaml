@@ -133,6 +133,10 @@
           </Grid>
         </Border>
         <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="4">
+          <StackPanel x:Name="SaveProgress" Orientation="Horizontal" Spacing="8" IsVisible="{Binding SaveCommand.IsRunning}">
+            <ProgressBar IsIndeterminate="True" Width="64" Height="4" VerticalAlignment="Center" />
+            <TextBlock Text="Сохранение…" Foreground="{DynamicResource JournalMuted}" VerticalAlignment="Center" />
+          </StackPanel>
           <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
           <ui:JournalButton Label="Отменить чтение" Click="OnCancelFormImport" IsVisible="{Binding IsImporting}" HorizontalAlignment="Left" />
           <WrapPanel>

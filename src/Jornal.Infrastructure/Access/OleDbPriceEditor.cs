@@ -116,7 +116,8 @@ public sealed class OleDbPriceEditor(string path) : IPriceEditor, IMachineCreato
             throw new OrderWriteException(OrderWriteFailure.NotSaved,
                 change.HasAdditions
                     ? "Толщины не добавлены. Закройте Journal и старую программу на остальных ПК, проверьте доступ к MDB и её папке. Ввод сохранён."
-                    : "Прайс не сохранён. Проверьте доступ к общей папке, ограничения полей и блокировки MDB.", exception);
+                    : DataSourceAccessErrors.Describe(path, exception,
+                        "Прайс не сохранён. Проверьте подключение к базе, ограничения полей и блокировки MDB."), exception);
         }
         finally { Release(transaction); Release(connection); }
     }

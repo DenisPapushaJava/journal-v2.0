@@ -27,7 +27,8 @@ public static class OleDbPriceReader
         }
         catch (Exception exception) when (exception is OleDbException or InvalidOperationException)
         {
-            throw new PriceReadException("Не удалось прочитать первую строку прайса " + tableName + ". Проверьте наличие таблицы, доступ к MDB и драйвер.", exception);
+            throw new PriceReadException(DataSourceAccessErrors.Describe(path, exception,
+                "Не удалось прочитать первую строку прайса " + tableName + ". Проверьте наличие таблицы, доступ к MDB и драйвер."), exception);
         }
     }
 
