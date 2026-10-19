@@ -41,7 +41,7 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
         {
             token.ThrowIfCancellationRequested();
             if (!string.Equals(Path.GetExtension(path), ".mdb", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
-                throw new OrderWriteException(OrderWriteFailure.NotSaved, "Файл MDB недоступен. Проверьте путь и подключение к общей папке.");
+                throw new OrderWriteException(OrderWriteFailure.NotSaved, DataSourceAccessErrors.Unavailable(path));
             connection = DiagnosticStages.Run(DiagnosticStage.OpenDatabase, () => OleDbAccessConnection.Create(path, writable: true));
             DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             token.ThrowIfCancellationRequested();
@@ -108,7 +108,8 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
         catch (Exception exception) when (exception is OleDbException or IOException or UnauthorizedAccessException or InvalidOperationException or OrderReadException or OverflowException)
         {
             throw new OrderWriteException(OrderWriteFailure.NotSaved,
-                "Не удалось добавить заявку в MDB. Ввод сохранён. Проверьте права, подключение к общей папке и блокировки Access.", exception);
+                DataSourceAccessErrors.Describe(path, exception,
+                    "Не удалось добавить заявку в MDB. Ввод сохранён. Проверьте права, подключение и блокировки Access."), exception);
         }
         finally { Release(transaction); Release(connection); }
     }
