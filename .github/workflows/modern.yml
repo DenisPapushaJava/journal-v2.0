@@ -38,7 +38,7 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     needs: scope
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -96,6 +96,10 @@ jobs:
           lookup-only: ${{ needs.scope.outputs.packaging != 'true' }}
       - name: Warm default branch installer cache
         if: runner.os == 'Windows' && github.event_name == 'push' && needs.scope.outputs.packaging == 'false' && steps.installer-cache.outputs.cache-hit != 'true'
+        run: python scripts/windows_installer.py --download-only
+      - name: Verify installer downloads from PowerShell
+        if: runner.os == 'Windows' && needs.scope.outputs.packaging == 'true'
+        shell: pwsh
         run: python scripts/windows_installer.py --download-only
       - name: Package update artifacts
         if: needs.scope.outputs.packaging == 'true'

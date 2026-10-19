@@ -152,7 +152,7 @@ def main():
         event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text(encoding='utf-8'))
         scope = determine(os.environ['GITHUB_EVENT_NAME'], event)
         if os.environ['GITHUB_EVENT_NAME'] == 'push':
-            from ci_verified_merge import verify
+            from ci_verified_merge import verify_after_merge as verify
             verified, reason = verify(event, os.environ.get('GITHUB_REPOSITORY', ''), os.environ.get('GH_TOKEN', ''))
             scope = push_scope(verified, reason)
         with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as output:

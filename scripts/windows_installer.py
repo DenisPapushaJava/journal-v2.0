@@ -39,6 +39,8 @@ def fetch(asset, cache):
 def verify_signature(path, publisher):
     # Перед запуском скачанного компилятора/включением Runtime проверяем и подпись издателя.
     environment = dict(os.environ, JOURNAL_VERIFY_FILE=str(path), JOURNAL_VERIFY_PUBLISHER=publisher)
+    # pwsh добавляет модули PowerShell 7: дочернему Windows PowerShell нужны свои системные модули.
+    environment.pop("PSModulePath", None)
     subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
         "$ErrorActionPreference='Stop'; $s=Get-AuthenticodeSignature -LiteralPath $env:JOURNAL_VERIFY_FILE; "
         "if ($s.Status -ne 'Valid' -or -not $s.SignerCertificate.Subject.Contains($env:JOURNAL_VERIFY_PUBLISHER)) "

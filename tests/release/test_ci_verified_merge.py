@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import Mock, call, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('ci_verified_merge', ROOT / 'scripts/ci_verified_merge.py')
@@ -116,6 +117,29 @@ class VerifiedMergeTests(unittest.TestCase):
         self.assertFalse(self.verify(get=lambda path: None)[0])
         self.assertFalse(verified.verify(self.event, 'owner/repo', '', root=self.root)[0])
         self.assertFalse(verified.verify(self.event, 'bad/../repo', '', root=self.root, get=self.get)[0])
+
+    def test_post_merge_retry_waits_only_until_metadata_becomes_available(self):
+        sleep = Mock()
+        with patch.object(verified, 'verify', side_effect=[(False, verified.FALLBACK), (True, 'подтверждён')]) as check:
+            self.assertEqual(verified.verify_after_merge(self.event, 'owner/repo', 'test-token', sleep=sleep),
+                             (True, 'подтверждён'))
+            self.assertEqual(2, check.call_count)
+        sleep.assert_called_once_with(2)
+
+    def test_post_merge_retry_is_bounded_and_keeps_the_full_run_fallback(self):
+        sleep = Mock()
+        with patch.object(verified, 'verify', return_value=(False, verified.FALLBACK)) as check:
+            self.assertEqual(verified.verify_after_merge(self.event, 'owner/repo', 'test-token', sleep=sleep),
+                             (False, verified.FALLBACK))
+            self.assertEqual(4, check.call_count)
+        self.assertEqual([call(2), call(4), call(8)], sleep.call_args_list)
+
+    def test_available_metadata_does_not_delay_main_ci(self):
+        sleep = Mock()
+        with patch.object(verified, 'verify', return_value=(True, 'подтверждён')) as check:
+            self.assertTrue(verified.verify_after_merge(self.event, 'owner/repo', 'test-token', sleep=sleep)[0])
+            check.assert_called_once()
+        sleep.assert_not_called()
 
 
 if __name__ == '__main__': unittest.main()

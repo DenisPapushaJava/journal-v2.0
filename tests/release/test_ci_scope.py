@@ -54,6 +54,8 @@ class ScopeTests(unittest.TestCase):
         self.assertNotIn('paths-ignore:', workflow); self.assertNotIn('\n  paths:', workflow)
         build = workflow.split('\n  build:', 1)[1].split('\n  native:', 1)[0]
         self.assertIn('needs: scope', build)
+        self.assertIn('if: ${{ !cancelled() }}', build)
+        self.assertNotIn('if: ${{ always() }}\n    timeout-minutes:', build)
         self.assertNotIn('needs: [scope, native]', build)
         native = workflow.split('\n  native:', 1)[1].split('\n  checks:', 1)[0]
         self.assertIn("needs.scope.outputs.code == 'true'", native)
@@ -111,6 +113,9 @@ class ScopeTests(unittest.TestCase):
         self.assertIn("lookup-only: ${{ needs.scope.outputs.code != 'true' }}", text)
         self.assertIn("github.event_name == 'push' && steps.nuget.outputs.cache-hit != 'true'", text)
         self.assertIn('python scripts/windows_installer.py --download-only', text)
+        smoke = text.split('- name: Verify installer downloads from PowerShell', 1)[1].split('- name:', 1)[0]
+        self.assertIn('shell: pwsh', smoke)
+        self.assertIn("needs.scope.outputs.packaging == 'true'", smoke)
         self.assertIn("lookup-only: ${{ needs.scope.outputs.packaging != 'true' }}", text)
         build = text.split('run: dotnet build', 1)[0].rsplit('      - if:', 1)[1]
         self.assertIn("needs.scope.outputs.code == 'true'", build)

@@ -14,6 +14,17 @@ spec.loader.exec_module(installer)
 
 
 class InstallerDependenciesTests(unittest.TestCase):
+    def test_windows_powershell_does_not_inherit_incompatible_pwsh_modules(self):
+        with patch.dict(installer.os.environ, {'PSModulePath': 'PowerShell7-only'}), \
+                patch.object(installer.subprocess, 'run') as run:
+            installer.verify_signature(Path('runtime.exe'), 'Microsoft Corporation')
+            environment = run.call_args.kwargs['env']
+            self.assertNotIn('PSModulePath', environment)
+            self.assertEqual('runtime.exe', environment['JOURNAL_VERIFY_FILE'])
+            self.assertEqual('Microsoft Corporation', environment['JOURNAL_VERIFY_PUBLISHER'])
+            self.assertTrue(run.call_args.kwargs['check'])
+            self.assertIn('Get-AuthenticodeSignature', run.call_args.args[0][-1])
+
     def test_warming_downloads_rechecks_each_signature_without_running_the_compiler(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(installer, 'ROOT', Path(directory)), patch.object(installer, 'os', SimpleNamespace(name='nt')), \
