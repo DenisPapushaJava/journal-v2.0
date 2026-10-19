@@ -63,12 +63,13 @@ public partial class DeliveryNumberViewModel : ObservableObject
     }
 
     private bool CanRetry => _canRetry?.Invoke() != false;
-    private bool CanSave() => !IsSaved && CanRetry && (Number != _initial || _clearRequested && Number.Length == 0);
+    private bool CanSave() => !IsSaved && CanRetry &&
+        (HasDifferentNumbers ? Number.Length > 0 || _clearRequested : Number != _initial);
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
-        if (IsSaved || !CanRetry) return;
+        if (SaveCommand.IsRunning || !CanSave()) return;
         _submitted = true;
         if (!Validate()) return;
         try

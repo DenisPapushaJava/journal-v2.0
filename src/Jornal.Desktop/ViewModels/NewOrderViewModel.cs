@@ -163,6 +163,7 @@ public partial class NewOrderViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
+        if (SaveCommand.IsRunning || IsSaved || RequiresReload) return;
         AppDiagnostics.Current?.Mark(DiagnosticOperation.OrderCreate);
         await WaitForThicknessOptionsAsync();
         if (!CanSave()) return;

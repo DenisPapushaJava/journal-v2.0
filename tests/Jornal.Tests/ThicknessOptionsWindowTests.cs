@@ -77,7 +77,15 @@ public sealed class ThicknessOptionsWindowTests
             Assert.Equal("6", thickness.SelectedChoice); Assert.Null(thickness.ChoiceError);
             Assert.Equal(originalRows, await store.ReadAsync(token));
             Assert.Null(creation?.CreatedOrder); Assert.Null(editing?.SavedRecord);
-            Assert.True(creation?.SaveCommand.CanExecute(null) ?? editing!.CanSave);
+            if (creation is not null) Assert.True(creation.SaveCommand.CanExecute(null));
+            else
+            {
+                Assert.False(editing!.HasChanges);
+                Assert.False(editing.CanSave);
+                Assert.True(editing.CanCalculate);
+                await editing.CalculateCommand.ExecuteAsync(null);
+                Assert.True(editing.CanSave);
+            }
         }
         finally
         {
