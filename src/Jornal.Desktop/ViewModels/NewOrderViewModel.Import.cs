@@ -54,8 +54,8 @@ public partial class NewOrderViewModel
         Material.NeedsReview = preview.Report.Issues.Any(issue => issue.Code == "MaterialNeedsReview") && Material.Value.Length > 0;
         HasValidationErrors = false; SaveError = null; ImportError = null;
         ImportPreview = preview; _importSourcePath = sourcePath;
-        _quote = null; PriceText = "Не рассчитана"; PriceBreakdown = ""; PriceError = null;
-        ThicknessOptions.SourceChanged();
+        _quote = null; PriceText = "—"; PriceBreakdown = ""; PriceError = null;
+        InvalidateLivePrice(); ThicknessOptions.SourceChanged();
     }
 
     public async Task RequestImportAsync(string path, CancellationToken cancellationToken)

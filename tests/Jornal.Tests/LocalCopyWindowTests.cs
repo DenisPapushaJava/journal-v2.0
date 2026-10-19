@@ -80,7 +80,7 @@ public sealed class LocalCopyWindowTests
             Click(dialog, "CalculatePriceButton"); await form.CalculatePriceCommand.ExecutionTask!; Pump();
             Assert.False(form.HasPriceError, form.PriceError); Assert.Equal("977 ₽", form.PriceText);
             Screenshot(dialog, "local-new-" + (dark ? "dark" : "light"));
-            form.Coefficient.Value = "2"; Pump(); Assert.Equal("Не рассчитана", form.PriceText);
+            form.Coefficient.Value = "2"; Pump(); Assert.Equal("—", form.PriceText);
             form.Coefficient.Value = "2,3";
             Click(dialog, "SaveButton"); await form.SaveCommand.ExecutionTask!; Pump();
             Assert.True(form.IsSaved, form.SaveError); Assert.False(dialog.IsVisible);

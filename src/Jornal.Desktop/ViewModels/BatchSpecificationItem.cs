@@ -71,6 +71,7 @@ public sealed partial class BatchSpecificationItem : ObservableObject
     internal void Detach()
     {
         CancelRead();
+        Form.StopPricePreview();
         Form.ThicknessOptions.Stop();
         foreach (var field in Form.Fields) field.PropertyChanged -= FieldChanged;
         Form.PropertyChanged -= FormChanged;

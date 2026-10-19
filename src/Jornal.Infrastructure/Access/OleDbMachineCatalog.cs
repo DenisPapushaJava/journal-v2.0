@@ -8,7 +8,7 @@ using Jornal.Infrastructure.Diagnostics;
 namespace Jornal.Infrastructure.Access;
 
 [SupportedOSPlatform("windows")]
-public sealed class OleDbMachineCatalog(string path) : IMachineCatalogReader, IMachineCreator
+public sealed partial class OleDbMachineCatalog(string path) : IMachineCatalogReader, IMachineCreator, IMachineImportEditor
 {
     public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => Task.Run<IReadOnlyList<CuttingMachine>>(() =>
     {

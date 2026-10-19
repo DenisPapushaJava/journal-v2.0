@@ -168,7 +168,7 @@ public sealed class UiPreferencesTests
             Columns = [new("date", 1, true, false, 120), new("date", 2, false, false, 200),
                 new("bad", 0, true, false, 100), new("nan", 2, true, false, double.NaN)]
         }.Normalize();
-        Assert.Equal(138, layout.ResultHeight);
+        Assert.Equal(150, layout.ResultHeight);
         Assert.Equal(new[] { "orders", "clipboard" }, layout.PanelOrder);
         Assert.Equal(380, layout.PanelWidths["orders"]);
         Assert.Equal(600, layout.PanelWidths["clipboard"]);

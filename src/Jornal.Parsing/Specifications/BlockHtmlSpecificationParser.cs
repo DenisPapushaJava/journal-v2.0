@@ -8,7 +8,7 @@ public sealed partial class BlockHtmlSpecificationParser : ISpecificationProfile
 {
     public const string Profile = "block-html/v1";
     public string Id => Profile;
-    public string DisplayName => "БЛОК/Wintech";
+    public string DisplayName => "Vintech";
     public DocumentKind DocumentKind => DocumentKind.Html;
     public int NormalizeCutLengthMeters(decimal millimeters) => BlockSpecificationNormalizer.LegacyCutLengthMeters(millimeters);
     private sealed record Cell(int Table, int Row, int Column, string Raw, string Text);

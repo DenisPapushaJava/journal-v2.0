@@ -3,6 +3,8 @@ using Avalonia.Headless.XUnit;
 using Jornal.Core.Orders;
 using Jornal.Core.Pricing;
 using Jornal.Desktop.ViewModels;
+using Jornal.Desktop.Import;
+using Jornal.Parsing.Specifications;
 using Jornal.Infrastructure.Local;
 using Xunit;
 
@@ -106,7 +108,7 @@ public sealed class MissingTariffTests
         Assert.Null(edit.SavedRecord); Assert.Contains("6 мм", edit.Error);
         Assert.Equal("Правка сохранена в форме", edit.Annotations.Comment);
         await edit.CalculateCommand.ExecuteAsync(null);
-        Assert.Contains("6 мм", edit.Error); Assert.Equal("Не рассчитана", edit.PriceText);
+        Assert.Contains("6 мм", edit.PricePreviewError); Assert.Equal("—", edit.PriceText);
         Assert.Equal(before, await File.ReadAllBytesAsync(fixture.Path, Token));
         form.Thickness.Value = "10";
         Assert.False(form.HasPriceError); Assert.True(form.SaveCommand.CanExecute(null));
@@ -186,11 +188,12 @@ public sealed class MissingTariffTests
             await store.SaveAsync(new(original, original with { Rates = original.Rates.Select(rate => rate.ThicknessMillimeters == 80m ? rate with { RublesPerMeter = null } : rate).ToArray() }), Token);
         }
         var form = new NewOrderViewModel(decorate?.Invoke(store) ?? store, isLocalCopy: true)
-        { ImportReader = new BatchImportTests.Reader(await BatchImportTests.Preview()) };
+        { ImportReader = new BatchImportTests.Reader(SpecificationImportPreview.Create("spec.pdf", new WaterjetPdfSpecificationParser().Parse(WaterjetPdfParserTests.Document()))) };
         await form.ImportFilesAsync(["valid.pdf", "missing-tariff.pdf"], Token);
         form.Manager.Value = "Менеджер"; form.Customer.Value = "Заказчик";
         foreach (var item in form.BatchItems)
         {
+            item.Form.Material.NeedsReview = false;
             item.Form.CuttingType.Value = machine.Name; item.Form.Thickness.Value = "70"; item.Form.Coefficient.Value = "1";
             item.Form.Annotations.HasBending = true; item.Form.Annotations.Comment = "Сохранить ввод";
         }

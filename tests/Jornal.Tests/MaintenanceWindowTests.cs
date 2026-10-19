@@ -116,7 +116,7 @@ public sealed class MaintenanceWindowTests
     }
 
     [AvaloniaFact]
-    public async Task EditPreservesNullsTimeAndMetadataAndCalculatesPriceOnFirstSave()
+    public async Task EditPreservesNullsTimeMetadataAndHistoricalPriceOnFirstSave()
     {
         var backend = new OrderMaintenanceTests.Backend();
         var original = backend.Current!;
@@ -126,7 +126,7 @@ public sealed class MaintenanceWindowTests
         Assert.Equal(original with { Customer = "Исправлено 'А'" }, change.Values);
         await form.SaveCommand.ExecuteAsync(null);
         Assert.False(form.HasError);
-        Assert.Equal(original with { Customer = "Исправлено 'А'", Price = 659m }, form.SavedRecord);
+        Assert.Equal(original with { Customer = "Исправлено 'А'" }, form.SavedRecord);
         Assert.Equal(1, backend.Updates);
         await form.SaveCommand.ExecuteAsync(null); Assert.Equal(1, backend.Updates);
     }

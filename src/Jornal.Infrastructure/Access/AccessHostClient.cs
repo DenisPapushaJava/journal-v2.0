@@ -8,7 +8,7 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 /// <summary>Читает и изменяет MDB через поставляемый x86-процесс, независимо от разрядности Office.</summary>
-public sealed partial class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IPriceEditor, IPriceImpactReader, IOrderMaintenance, IOrderDurationInitializer, IOrderAnnotationsInitializer, IMachineCatalogReader, IMachineCreator
+public sealed partial class AccessHostClient(string path, string? executable = null) : IOrderReader, IOrderBatchEditor, IManualOrderCreator, IManualOrderBatchCreator, IPriceReader, IPriceEditor, IPriceImpactReader, IOrderMaintenance, IOrderDurationInitializer, IOrderAnnotationsInitializer, IMachineCatalogReader, IMachineCreator, IMachineImportEditor
 {
     private readonly Action<Process> _start = static process => { process.Start(); };
     private readonly Action<Process> _stop = static process => process.Kill();
@@ -141,7 +141,7 @@ public sealed partial class AccessHostClient(string path, string? executable = n
         request = request with { DiagnosticSessionId = AppDiagnostics.Current?.SessionId ?? Guid.NewGuid().ToString("N"), DiagnosticEventId = Guid.NewGuid().ToString("N") };
         cancellationToken.ThrowIfCancellationRequested();
         var write = request.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or
-            AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.PrepareCuttingTime or AccessHostOperation.UpdatePriceTable or AccessHostOperation.CreateMachine or AccessHostOperation.PrepareAnnotations;
+            AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.PrepareCuttingTime or AccessHostOperation.UpdatePriceTable or AccessHostOperation.CreateMachine or AccessHostOperation.UpdateMachineImport or AccessHostOperation.PrepareAnnotations;
         var dispatched = false;
         var stage = DiagnosticStage.LaunchAccessHost;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -245,7 +245,7 @@ public sealed partial class AccessHostClient(string path, string? executable = n
                 return response;
             }
             if (response.AnnotationsPrepared is not null) throw new InvalidDataException("Пометки переданы для другой операции.");
-            if (request.Operation is AccessHostOperation.ReadMachines or AccessHostOperation.CreateMachine)
+            if (request.Operation is AccessHostOperation.ReadMachines or AccessHostOperation.CreateMachine or AccessHostOperation.UpdateMachineImport)
             {
                 if (response.Orders is not null || response.Record is not null || response.MaintenanceCompleted is not null || response.CuttingTimePrepared is not null)
                     throw new InvalidDataException("Посторонние данные в ответе каталога.");
@@ -254,6 +254,11 @@ public sealed partial class AccessHostClient(string path, string? executable = n
                     if (response.Machines is null || response.Machine is not null || response.PriceTable is not null) throw new InvalidDataException("Каталог не передан.");
                     try { _ = CuttingMachine.Snapshot(response.Machines); }
                     catch (ArgumentException exception) { throw new InvalidDataException("Некорректный каталог станков.", exception); }
+                }
+                else if (request.Operation == AccessHostOperation.UpdateMachineImport)
+                {
+                    if (response.Machine != request.MachineImportChange!.Values || response.Machines is not null || response.PriceTable is not null)
+                        throw new InvalidDataException("Изменение импорта станка не подтверждено.");
                 }
                 else
                 {
@@ -285,7 +290,8 @@ public sealed partial class AccessHostClient(string path, string? executable = n
                 if (request.Operation == AccessHostOperation.ReadOrder && response.Record is { } record && record.Id != request.OrderId ||
                     request.Operation == AccessHostOperation.DeleteOrder && response.Record is not null ||
                     request.Operation == AccessHostOperation.RestoreOrder && response.Record != request.Record ||
-                    request.Operation == AccessHostOperation.UpdateOrder && (response.Record is not { Price: >= 0 } updated || updated != request.Edit!.Values with { Price = updated.Price }))
+                    request.Operation == AccessHostOperation.UpdateOrder && (response.Record is not { } updated || updated != request.Edit!.Values with { Price = updated.Price } ||
+                        (request.Edit.RequiresPriceCalculation ? updated.Price is not >= 0 : updated.Price != request.Edit.Values.Price)))
                     throw new InvalidDataException("Поля изменённой/восстановленной заявки не соответствуют запросу.");
                 if (request.Operation == AccessHostOperation.UpdateOrder && request.Edit?.ExpectedQuote is { } expectedQuote && response.Record!.Price != expectedQuote.StoredPrice)
                     throw new InvalidDataException("Подтверждённая цена не соответствует просмотренной.");

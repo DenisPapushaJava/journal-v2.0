@@ -67,7 +67,7 @@ public sealed class MachineCatalogTests
     {
         var store = new DemoOrderStore(); var prices = new PriceEditorViewModel(store.Prices, store.Prices, "Демо", "Демо", PriceStorageKind.Session);
         await prices.RefreshCommand.ExecuteAsync(null); var form = prices.CreateMachineForm()!;
-        form.Name = "Гидроабразивная"; form.Profile = form.Profiles[1]; form.Thickness = "70"; form.Rate = "600";
+        form.Name = "Гидроабразивная"; form.Profile = form.Profiles.Single(choice => choice.Id == CuttingMachine.WaterjetProfile); form.Thickness = "70"; form.Rate = "600";
         form.AddRateCommand.Execute(null); Assert.Empty(await store.ReadMachinesAsync(TestContext.Current.CancellationToken));
         await form.SaveCommand.ExecuteAsync(null); Assert.False(form.HasError, form.Error);
         Assert.False(form.SaveCommand.CanExecute(null));

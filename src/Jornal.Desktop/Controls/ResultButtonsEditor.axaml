@@ -11,7 +11,7 @@
             <Button x:Name="DecreaseResultButtonsButton" Grid.Column="1" Classes="command outline" Content="−"
                     Width="32" Height="32" Padding="0" FontSize="18" Click="OnDecrease"
                     AutomationProperties.Name="Уменьшить размер кнопок результата" />
-            <TextBlock x:Name="ResultButtonsSizeValue" Grid.Column="3" Text="36 px" TextAlignment="Center" VerticalAlignment="Center" />
+            <TextBlock x:Name="ResultButtonsSizeValue" Grid.Column="3" Text="40 px" TextAlignment="Center" VerticalAlignment="Center" />
             <Button x:Name="IncreaseResultButtonsButton" Grid.Column="5" Classes="command outline" Content="+"
                     Width="32" Height="32" Padding="0" FontSize="18" Click="OnIncrease"
                     AutomationProperties.Name="Увеличить размер кнопок результата" />

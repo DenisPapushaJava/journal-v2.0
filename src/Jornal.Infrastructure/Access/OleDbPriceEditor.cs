@@ -8,8 +8,10 @@ using Jornal.Infrastructure.Diagnostics;
 namespace Jornal.Infrastructure.Access;
 
 [SupportedOSPlatform("windows")]
-public sealed class OleDbPriceEditor(string path) : IPriceEditor, IMachineCreator, IPriceImpactReader
+public sealed class OleDbPriceEditor(string path) : IPriceEditor, IMachineCreator, IMachineImportEditor, IPriceImpactReader
 {
+    public Task<CuttingMachine> UpdateMachineImportAsync(MachineImportChange change, CancellationToken cancellationToken = default) =>
+        new OleDbMachineCatalog(path).UpdateMachineImportAsync(change, cancellationToken);
     public Task<IReadOnlyList<PriceThicknessUsage>> ReadThicknessUsageAsync(PriceTableChange change, CancellationToken cancellationToken = default) =>
         new OleDbPriceImpactReader(path).ReadThicknessUsageAsync(change, cancellationToken);
     public Task<CuttingMachine> CreateMachineAsync(MachineCreation creation, CancellationToken cancellationToken = default) =>

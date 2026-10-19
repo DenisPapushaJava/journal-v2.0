@@ -203,7 +203,7 @@ public sealed class OrderMaintenanceTests
             await store.RestoreAsync(original, TestContext.Current.CancellationToken);
             Assert.Equal(original, await new LocalJournalStore(path).ReadRecordAsync(original.Id, TestContext.Current.CancellationToken));
             var updated = await store.UpdateAsync(new(original, original with { Customer = "Исправлено 'А'" }), TestContext.Current.CancellationToken);
-            Assert.Equal(original with { Customer = "Исправлено 'А'", Price = 659m }, updated);
+            Assert.Equal(original with { Customer = "Исправлено 'А'" }, updated);
             await store.SetColorAsync([updated.ToSummary()], OrderColors.Ready, TestContext.Current.CancellationToken);
             await Assert.ThrowsAsync<OrderWriteException>(() => store.DeleteAsync(updated, TestContext.Current.CancellationToken));
             updated = (await store.ReadRecordAsync(original.Id, TestContext.Current.CancellationToken))!;

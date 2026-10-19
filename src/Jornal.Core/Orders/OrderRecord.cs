@@ -53,6 +53,17 @@ public sealed record OrderRecord(int Id, DateTime? Date, string? Manager, string
 public sealed record OrderEditChange(OrderRecord Expected, OrderRecord Values, CuttingPriceQuote? ExpectedQuote = null)
 {
     public CuttingMachine? Machine { get; init; }
+    [JsonIgnore] public bool PriceParametersChanged
+    {
+        get
+        {
+            var before = Expected.ToSummary(); var after = Values.ToSummary();
+            return before.CuttingType != after.CuttingType || before.ThicknessMillimeters != after.ThicknessMillimeters ||
+                before.CutLengthMeters != after.CutLengthMeters || before.Coefficient != after.Coefficient ||
+                after.CuttingType == "HansLaser" && before.MaterialId != after.MaterialId;
+        }
+    }
+    [JsonIgnore] public bool RequiresPriceCalculation => PriceParametersChanged || ExpectedQuote is not null;
     public void Validate()
     {
         Expected.Validate(); Values.Validate();
@@ -81,9 +92,11 @@ public sealed record OrderEditChange(OrderRecord Expected, OrderRecord Values, C
         }
     }
 
-    public OrderRecord Calculate(PriceTable table, CuttingMachine? machine = null)
+    public OrderRecord Calculate(PriceTable? table, CuttingMachine? machine = null)
     {
         Validate();
+        if (!RequiresPriceCalculation) return Values;
+        ArgumentNullException.ThrowIfNull(table);
         var quote = CuttingPriceCalculator.Calculate(PriceRequest, table, machine ?? Machine);
         if (ExpectedQuote is not null && ExpectedQuote != quote) throw new OrderEditPriceChangedException(quote);
         return Values with { Price = quote.StoredPrice };

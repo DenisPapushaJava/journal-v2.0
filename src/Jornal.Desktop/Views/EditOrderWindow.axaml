@@ -78,11 +78,18 @@
       <Border Grid.Column="2" Classes="panel" Padding="20">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="12">
-          <TextBlock Text="Стоимость" Classes="section" />
-          <TextBlock Text="Прежняя цена" Classes="muted" />
-          <TextBlock Text="{Binding StoredPriceText}" FontSize="18" FontWeight="Medium" TextWrapping="Wrap" />
-          <TextBlock Text="После сохранения" Classes="muted" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Стоимость" Classes="section" VerticalAlignment="Center" />
+            <ui:JournalButton Grid.Column="1" x:Name="CalculatePriceButton" Label="Обновить тарифы" Icon="refresh-cw" IconOnly="True" Width="30" Height="30" Padding="0"
+                              Command="{Binding CalculateCommand}" IsEnabled="{Binding CanCalculate}" ToolTip.Tip="Обновить тарифы" />
+          </Grid>
           <TextBlock Text="{Binding PriceText}" FontSize="18" FontWeight="Medium" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding PriceBreakdown}" Classes="muted" TextWrapping="Wrap" />
+          <StackPanel IsVisible="{Binding ShowStoredPrice}" Spacing="4">
+            <TextBlock Text="Прежняя цена" Classes="muted" />
+            <TextBlock Text="{Binding StoredPriceText}" Classes="muted" TextWrapping="Wrap" />
+          </StackPanel>
+          <TextBlock Text="{Binding PricePreviewError}" IsVisible="{Binding HasPricePreviewError}" TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" />
           <TextBlock Text="{Binding CuttingTimeNotice}" IsVisible="{Binding HasCuttingTimeNotice}" Classes="muted" TextWrapping="Wrap" FontSize="12" />
           <TextBlock Text="{Binding MetadataText}" IsVisible="{Binding HasMetadata}" Classes="muted" TextWrapping="Wrap" />
           <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsImporting}" Height="3" />
@@ -145,7 +152,6 @@
           </WrapPanel>
         </StackPanel>
         <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <ui:JournalButton x:Name="CalculatePriceButton" Label="Рассчитать" Icon="refresh-cw" Command="{Binding CalculateCommand}" IsEnabled="{Binding CanCalculate}" MinHeight="38" />
           <ui:JournalButton x:Name="CancelButton" Label="Отмена" Classes="outline" MinHeight="38"
                             Click="OnCancelClick" IsEnabled="{Binding !SaveCommand.IsRunning}" />
           <ui:JournalButton x:Name="SaveButton" Label="Сохранить" Classes="primary" MinHeight="38"

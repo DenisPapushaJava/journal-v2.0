@@ -43,7 +43,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
         {
             if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, change.Expected.Id)) != change.Expected) throw Conflict();
             var machine = OleDbMachineCatalog.Verify(connection, transaction, change.PriceRequest.CuttingType, change.Machine, token);
-            var table = OleDbPriceReader.Read(connection, transaction, CuttingPriceCalculator.SelectTable(change.PriceRequest, machine), token);
+            var table = change.RequiresPriceCalculation ? OleDbPriceReader.Read(connection, transaction, CuttingPriceCalculator.SelectTable(change.PriceRequest, machine), token) : null;
             var values = DiagnosticStages.Run(DiagnosticStage.CalculatePrice, () => change.Calculate(table, machine));
             using var command = Command(connection, transaction);
             command.CommandText = "UPDATE [Orders] SET " + string.Join(", ", Names.Skip(1).Select(name => $"[{name}] = ?"));

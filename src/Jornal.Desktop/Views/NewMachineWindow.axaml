@@ -6,9 +6,9 @@
     <StackPanel Margin="24,20,24,16" Spacing="12">
       <TextBlock Text="Новый станок" FontSize="20" FontWeight="SemiBold" />
       <Grid ColumnDefinitions="*,16,*" RowDefinitions="Auto,6,Auto" IsEnabled="{Binding CanEdit}">
-        <TextBlock Text="Название" /><TextBlock Grid.Column="2" Text="Спецификации" />
+        <TextBlock Text="Название" /><TextBlock Grid.Column="2" Text="Импорт спецификаций" />
         <TextBox Grid.Row="2" x:Name="MachineNameInput" Text="{Binding Name, Mode=TwoWay}" MaxLength="255" AutomationProperties.Name="Название станка" />
-        <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding Profiles}" SelectedItem="{Binding Profile, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.Name="Формат спецификаций">
+        <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding Profiles}" SelectedItem="{Binding Profile, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.Name="Импорт спецификаций">
           <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:MachineProfileChoice"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
         </ComboBox>
       </Grid>

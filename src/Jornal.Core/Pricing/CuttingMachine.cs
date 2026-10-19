@@ -8,6 +8,17 @@ public sealed record CuttingMachine(string Name, string TableName, string? Speci
 {
     public const string CatalogTable = "JournalMachines";
     public const string WaterjetProfile = "waterjet-awjc/v1";
+    public const string VintechProfile = "block-html/v1";
+    public const string HansProfile = "hans-pdf/v1";
+    public static bool IsSupportedProfile(string? profile) => profile is null or WaterjetProfile or VintechProfile or HansProfile;
+    public static bool SupportsImport(string profile, string name, CuttingMachine? machine) => machine is not null
+        ? machine.Name == name && machine.SpecificationProfileId == profile
+        : profile switch
+        {
+            VintechProfile => name is "Лазер" or "Плазма" or "Газо-кислородная",
+            HansProfile => name == "HansLaser",
+            _ => false
+        };
     public static IReadOnlyList<string> LegacyNames { get; } = ["Лазер", "Плазма", "Газо-кислородная", "HansLaser"];
     public static bool IsCustomTable(string? name) => name is { Length: 45 } && name.StartsWith("PriceMachine_", StringComparison.Ordinal) &&
         name.AsSpan(13).ToString().All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
@@ -15,7 +26,7 @@ public sealed record CuttingMachine(string Name, string TableName, string? Speci
     {
         if (string.IsNullOrWhiteSpace(Name) || Name != Name.Trim() || Name.Length > 255 || Name.Any(char.IsControl) ||
             LegacyNames.Contains(Name, StringComparer.OrdinalIgnoreCase) || Name.Equals("Прочие прайсы", StringComparison.OrdinalIgnoreCase) || !IsCustomTable(TableName) ||
-            SpecificationProfileId is not (null or WaterjetProfile))
+            !IsSupportedProfile(SpecificationProfileId))
             throw new ArgumentException("Проверьте название станка и привязку к прайсу/спецификациям.");
     }
     public static CuttingMachine[] Snapshot(IEnumerable<CuttingMachine> machines)
@@ -49,6 +60,24 @@ public interface IMachineCatalogReader
 public interface IMachineCreator
 {
     Task<CuttingMachine> CreateMachineAsync(MachineCreation creation, CancellationToken cancellationToken = default);
+}
+public interface IMachineImportEditor
+{
+    Task<CuttingMachine> UpdateMachineImportAsync(MachineImportChange change, CancellationToken cancellationToken = default);
+}
+
+// Имя и таблица — прежняя связь с Orders/старой программой; изменяется только импорт.
+public sealed record MachineImportChange(CuttingMachine Expected, string? SpecificationProfileId)
+{
+    [System.Text.Json.Serialization.JsonIgnore] public CuttingMachine Values => Expected with { SpecificationProfileId = SpecificationProfileId };
+    [System.Text.Json.Serialization.JsonIgnore] public bool HasChanges => Expected != Values;
+    public MachineImportChange Snapshot()
+    {
+        ArgumentNullException.ThrowIfNull(Expected);
+        Expected.Validate(); Values.Validate(); return this;
+    }
+    public void Verify(CuttingMachine? current)
+    { if (current != Expected) throw MachineCreation.Conflict(); }
 }
 public sealed record MachineCreation(CuttingMachine Machine, IReadOnlyList<PriceRate> Rates, IReadOnlyList<CuttingMachine> ExpectedMachines)
 {

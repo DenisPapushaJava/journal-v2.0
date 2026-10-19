@@ -20,9 +20,9 @@ public partial class NewOrderWindow : Window
         AddHandler(OrderEntryControl.PricesRequestedEvent, OnThicknessPricesRequested);
         DataContextChanged += (_, _) =>
         {
-            if (_viewModel is not null) _viewModel.Saved -= OnSaved;
+            if (_viewModel is not null) { _viewModel.Saved -= OnSaved; _viewModel.StopPricePreview(); }
             _viewModel = DataContext as NewOrderViewModel;
-            if (_viewModel is not null) _viewModel.Saved += OnSaved;
+            if (_viewModel is not null) { _viewModel.Saved += OnSaved; if (IsVisible) _viewModel.StartThicknessOptions(); }
         };
     }
 

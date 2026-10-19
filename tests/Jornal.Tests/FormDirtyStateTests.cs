@@ -81,7 +81,7 @@ public sealed class FormDirtyStateTests
     }
 
     [Fact]
-    public async Task FirstChangedSaveStillCalculatesAndWritesOnce()
+    public async Task MetadataSavePreservesHistoricalPriceWithoutReadingTariffs()
     {
         var store = new Maintenance();
         var before = store.Current;
@@ -89,11 +89,11 @@ public sealed class FormDirtyStateTests
         form.Customer.Value = "Исправлено";
         await form.SaveCommand.ExecuteAsync(null);
         Assert.False(form.HasError, form.Error);
-        Assert.Equal(before with { Customer = "Исправлено", Price = 659m }, form.SavedRecord);
-        Assert.Equal(1, store.PriceReads);
+        Assert.Equal(before with { Customer = "Исправлено" }, form.SavedRecord);
+        Assert.Equal(0, store.PriceReads);
         Assert.Equal(1, store.Updates);
         await form.SaveCommand.ExecuteAsync(null);
-        Assert.Equal(1, store.PriceReads);
+        Assert.Equal(0, store.PriceReads);
         Assert.Equal(1, store.Updates);
     }
 

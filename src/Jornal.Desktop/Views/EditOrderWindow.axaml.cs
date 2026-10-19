@@ -20,9 +20,9 @@ public partial class EditOrderWindow : Window
         AddHandler(OrderEntryControl.PricesRequestedEvent, OnThicknessPricesRequested);
         DataContextChanged += (_, _) =>
         {
-            if (_viewModel is not null) { _viewModel.Saved -= OnSaved; _viewModel.PropertyChanged -= OnImportStateChanged; }
+            if (_viewModel is not null) { _viewModel.Saved -= OnSaved; _viewModel.PropertyChanged -= OnImportStateChanged; _viewModel.StopPricePreview(); }
             _viewModel = DataContext as EditOrderViewModel;
-            if (_viewModel is not null) { _viewModel.Saved += OnSaved; _viewModel.PropertyChanged += OnImportStateChanged; }
+            if (_viewModel is not null) { _viewModel.Saved += OnSaved; _viewModel.PropertyChanged += OnImportStateChanged; if (IsVisible) _viewModel.StartThicknessOptions(); }
         };
     }
 

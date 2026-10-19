@@ -8,7 +8,12 @@ using Jornal.Infrastructure.Diagnostics;
 
 namespace Jornal.Desktop.ViewModels;
 
-public sealed record MachineProfileChoice(string Name, string? Id);
+public sealed record MachineProfileChoice(string Name, string? Id)
+{
+    public static IReadOnlyList<MachineProfileChoice> Available { get; } = Array.AsReadOnly<MachineProfileChoice>(
+        [new("Без импорта", null), new("Vintech · HTML", CuttingMachine.VintechProfile),
+         new("HansLaser · PDF", CuttingMachine.HansProfile), new("Гидроабразив AWJC · PDF", CuttingMachine.WaterjetProfile)]);
+}
 public sealed partial class NewMachineViewModel(IMachineCreator creator, IMachineCatalogReader catalog,
     IReadOnlyList<CuttingMachine> machines, PriceStorageKind storage) : ObservableObject
 {
@@ -16,8 +21,8 @@ public sealed partial class NewMachineViewModel(IMachineCreator creator, IMachin
     private CuttingMachine[] _expected = CuttingMachine.Snapshot(machines);
     private MachineCreation? _attempt;
     public ObservableCollection<PriceRowViewModel> Rates { get; } = [];
-    public IReadOnlyList<MachineProfileChoice> Profiles { get; } = [new("Ручной ввод", null), new("Гидроабразив · AWJC PDF", CuttingMachine.WaterjetProfile)];
-    [ObservableProperty] private MachineProfileChoice _profile = new("Ручной ввод", null);
+    public IReadOnlyList<MachineProfileChoice> Profiles => MachineProfileChoice.Available;
+    [ObservableProperty] private MachineProfileChoice _profile = MachineProfileChoice.Available[0];
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _thickness = "";
     [ObservableProperty] private string _rate = "";
@@ -30,12 +35,13 @@ public sealed partial class NewMachineViewModel(IMachineCreator creator, IMachin
     public bool IsBusy => IsSaving || IsReading;
     public bool CanEdit => !IsBusy && !RequiresReload;
     public bool ShowDatabaseNotice => storage == PriceStorageKind.SharedDatabase;
-    public bool HasChanges => Name.Length > 0 || Rates.Count > 0 || Thickness.Length > 0 || Rate.Length > 0;
-    public bool CanSave => CreatedMachine is null && CanEdit && !string.IsNullOrWhiteSpace(Name) && Rates.Count > 0 && Rates.All(row => !row.HasError) && Thickness.Length == 0 && Rate.Length == 0;
+    public bool HasChanges => Name.Length > 0 || Rates.Count > 0 || Thickness.Length > 0 || Rate.Length > 0 || Profile != Profiles[0];
+    public bool CanSave => CreatedMachine is null && CanEdit && Profiles.Contains(Profile) && !string.IsNullOrWhiteSpace(Name) && Rates.Count > 0 && Rates.All(row => !row.HasError) && Thickness.Length == 0 && Rate.Length == 0;
     public CuttingMachine? CreatedMachine { get; private set; }
     public event EventHandler? Saved;
     public event EventHandler? SavingChanged;
     partial void OnNameChanged(string value) { Error = null; Notify(); }
+    partial void OnProfileChanged(MachineProfileChoice value) { Error = null; Notify(); }
     partial void OnThicknessChanged(string value) { Error = null; Notify(); }
     partial void OnRateChanged(string value) { Error = null; Notify(); }
     partial void OnIsSavingChanged(bool value) { Notify(); SavingChanged?.Invoke(this, EventArgs.Empty); }
