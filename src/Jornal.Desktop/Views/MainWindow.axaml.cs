@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly CancellationTokenSource _updateChecksLifetime = new();
     private Task? _initialOrdersLoad;
     private bool _updateDraftRestored;
+    private bool _restoringSelection;
 
     private readonly MainWindowCustomization _customization;
     private readonly JournalTableSorting _sorting;
@@ -243,9 +244,9 @@ public partial class MainWindow : Window
         if (e.PropertyName is nameof(MainWindowViewModel.IsImportingSpecification) or nameof(MainWindowViewModel.HasSpecificationImportError)) UpdateSpecificationFocus();
         if (e.PropertyName == nameof(MainWindowViewModel.IsDarkTheme))
         { UpdateTheme(); _customization.AppearanceChanged(); }
-        if (e.PropertyName is nameof(MainWindowViewModel.ResultFontSizePoints) or nameof(MainWindowViewModel.ResultTextColor) or
+        if (e.PropertyName is nameof(MainWindowViewModel.ResultFontSizePoints) or nameof(MainWindowViewModel.ResultTextColor) or nameof(MainWindowViewModel.ResultRowOrder) or
             nameof(MainWindowViewModel.UseResultMinimumPrice) or nameof(MainWindowViewModel.ResultMinimumPrice) or nameof(MainWindowViewModel.ShowTodayOnStartup) or
-            nameof(MainWindowViewModel.AutomaticJournalRefresh) or nameof(MainWindowViewModel.TrashRetentionDays) or nameof(MainWindowViewModel.RowHighlightStrength) or
+            nameof(MainWindowViewModel.AutomaticJournalRefresh) or nameof(MainWindowViewModel.TrashRetentionDays) or nameof(MainWindowViewModel.LockOrderDate) or nameof(MainWindowViewModel.RowHighlightStrength) or
             nameof(MainWindowViewModel.UseTechnologistColor) or nameof(MainWindowViewModel.TechnologistColorArgb) or nameof(MainWindowViewModel.EntrySuggestionsSummary))
             _customization.AppearanceChanged();
     }
@@ -320,7 +321,7 @@ public partial class MainWindow : Window
     private void OnCurrentCellChanged(object? sender, EventArgs e) => UpdateSelection();
     private void UpdateSelection()
     {
-        if (_viewModel?.IsApplyingReadSnapshot != true)
+        if (!_restoringSelection && _viewModel?.IsApplyingReadSnapshot != true)
         {
             if (_viewModel?.IsRefreshingOrders == true) ClearReadRefreshAppearance();
             _viewModel?.UpdateSelection(OrdersGrid.SelectedItems.Cast<OrderRowViewModel>(),
@@ -378,13 +379,18 @@ public partial class MainWindow : Window
 
     private void OnSelectionRestore(object? sender, SelectionRestoreRequest request)
     {
-        var ids = request.Ids.ToHashSet();
-        OrdersGrid.CollectionView.Refresh();
-        var rows = _viewModel!.Orders.Where(row => ids.Contains(row.Id)).ToArray();
-        OrdersGrid.SelectedItems.Clear();
-        OrdersGrid.SelectedItem = rows.FirstOrDefault(row => row.Id == request.ActiveId) ?? rows.FirstOrDefault();
-        foreach (var row in rows)
-            if (!OrdersGrid.SelectedItems.Contains(row)) OrdersGrid.SelectedItems.Add(row);
+        _restoringSelection = true;
+        try
+        {
+            var ids = request.Ids.ToHashSet();
+            OrdersGrid.CollectionView.Refresh();
+            var rows = _viewModel!.Orders.Where(row => ids.Contains(row.Id)).ToArray();
+            OrdersGrid.SelectedItems.Clear();
+            OrdersGrid.SelectedItem = rows.FirstOrDefault(row => row.Id == request.ActiveId) ?? rows.FirstOrDefault();
+            foreach (var row in rows)
+                if (!OrdersGrid.SelectedItems.Contains(row)) OrdersGrid.SelectedItems.Add(row);
+        }
+        finally { _restoringSelection = false; }
         UpdateSelection();
     }
 

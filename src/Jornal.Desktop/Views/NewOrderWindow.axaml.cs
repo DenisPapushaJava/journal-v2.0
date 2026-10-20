@@ -30,7 +30,8 @@ public partial class NewOrderWindow : Window
     {
         base.OnOpened(e);
         WindowSizing.FitToWorkingArea(this);
-        this.GetVisualDescendants().OfType<OrderEntryControl>().FirstOrDefault(control => control.IsEffectivelyVisible)?.FocusInput();
+        this.GetVisualDescendants().OfType<OrderEntryControl>()
+            .FirstOrDefault(control => control.IsEffectivelyVisible && control.DataContext == _viewModel?.Manager)?.FocusInput();
         var token = _importLifetime.Token;
         _viewModel?.StartThicknessOptions();
         try
@@ -78,5 +79,5 @@ public partial class NewOrderWindow : Window
     private void OnCancelClick(object? sender, RoutedEventArgs e) => Close();
     private void OnSaveClick(object? sender, RoutedEventArgs e) => Dispatcher.UIThread.Post(() =>
         this.GetVisualDescendants().OfType<OrderEntryControl>()
-            .FirstOrDefault(field => field.DataContext is OrderEntryField { HasError: true })?.FocusInput());
+            .FirstOrDefault(field => field.IsEffectivelyVisible && field.IsEffectivelyEnabled && field.DataContext is OrderEntryField { HasError: true })?.FocusInput());
 }

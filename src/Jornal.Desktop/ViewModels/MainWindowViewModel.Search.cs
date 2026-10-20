@@ -98,7 +98,7 @@ public partial class MainWindowViewModel
 
     private void ApplyLoadedOrders(bool preserveSelection = false)
     {
-        var selected = preserveSelection ? _selectedOrderIds.ToHashSet() : [];
+        var selected = preserveSelection ? _selectionOrder.ToArray() : [];
         var active = preserveSelection ? _activeOrderId : null;
         if (!ReferenceEquals(_cachedSource, _allOrders))
         {
@@ -116,7 +116,7 @@ public partial class MainWindowViewModel
         _visibleRows.ReplaceWith(rows);
         if (preserveSelection)
         {
-            var chosen = Orders.Where(row => selected.Contains(row.Id)).ToArray();
+            var chosen = SelectedRowsInOrder(selected);
             UpdateSelection(chosen, chosen.FirstOrDefault(row => row.Id == active));
             SelectionRestoreRequested?.Invoke(this, new(chosen.Select(row => row.Id).ToArray(), _activeOrderId));
         }

@@ -122,7 +122,8 @@ public sealed class NewOrderWindowTests
             Assert.True(form.HasValidationErrors);
             Assert.True(dialog.IsVisible);
             Assert.Equal(3, (await store.ReadAsync()).Count);
-            var first = dialog.GetVisualDescendants().OfType<OrderEntryControl>().First();
+            var first = dialog.GetVisualDescendants().OfType<OrderEntryControl>()
+                .First(control => control.IsEffectivelyEnabled && control.DataContext is OrderEntryField { HasError: true });
             Assert.True(first.FindControl<TextBox>("Input")!.IsFocused);
             var valid = ManualOrderTests.ValidForm(store);
             foreach (var control in dialog.GetVisualDescendants().OfType<OrderEntryControl>())

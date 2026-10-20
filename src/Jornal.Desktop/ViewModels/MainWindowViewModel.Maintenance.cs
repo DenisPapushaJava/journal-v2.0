@@ -42,6 +42,7 @@ public partial class MainWindowViewModel
             pending.Manager.Suggestions = _entrySuggestions.Managers;
             pending.Customer.Suggestions = _entrySuggestions.Customers;
             pending.Material.Suggestions = _entrySuggestions.Materials;
+            pending.OrderDate.IsInputEnabled = !LockOrderDate;
             return pending;
         }
         var form = new EditOrderViewModel(original, backend, SourceDetails, async token =>
@@ -52,6 +53,7 @@ public partial class MainWindowViewModel
             return await backend.ReadRecordAsync(original.Id, token);
         });
         form.BusyChanged += (_, _) => IsUpdatingOrders = form.SaveCommand.IsRunning;
+        form.OrderDate.IsInputEnabled = !LockOrderDate;
         form.PriceEditorFactory = CreatePriceEditor;
         form.Manager.Suggestions = _entrySuggestions.Managers;
         form.Customer.Suggestions = _entrySuggestions.Customers;
@@ -155,11 +157,11 @@ public partial class MainWindowViewModel
     private void AcceptMaintenance(HashSet<int> ids, OrderRecord? replacement)
     {
         CancelOrderLoading();
-        var selected = _selectedOrderIds.ToHashSet();
+        var selected = _selectionOrder.ToArray();
         _allOrders = replacement is null ? _allOrders.Where(row => !ids.Contains(row.Id)).ToArray()
             : _allOrders.Where(row => !ids.Contains(row.Id)).Append(replacement.ToSummary()).OrderByDescending(row => row.OrderDate).ThenByDescending(row => row.Id).ToArray();
         ApplySearch();
-        var rows = Orders.Where(row => selected.Contains(row.Id) || replacement is not null && row.Id == replacement.Id).ToArray();
+        var rows = SelectedRowsInOrder(replacement is null ? selected : selected.Append(replacement.Id).Distinct());
         var active = rows.FirstOrDefault(row => ids.Contains(row.Id)) ?? rows.FirstOrDefault();
         UpdateSelection(rows, active);
         SelectionRestoreRequested?.Invoke(this, new(rows.Select(row => row.Id).ToArray(), active?.Id));

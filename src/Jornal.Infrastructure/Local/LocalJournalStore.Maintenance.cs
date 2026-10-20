@@ -1,12 +1,14 @@
 using Jornal.Core.Orders;
 using Jornal.Core.Pricing;
+using Jornal.Infrastructure.Diagnostics;
 
 namespace Jornal.Infrastructure.Local;
 
 public sealed partial class LocalJournalStore
 {
     public Task<OrderRecord?> ReadRecordAsync(int id, CancellationToken cancellationToken = default) =>
-        ReadAsync(book => Find(book, id), cancellationToken);
+        DiagnosticReads.ObserveAsync(DiagnosticOperation.OrderRead, DiagnosticReadAction.ReadOrder, _path,
+            () => ReadAsync(book => Find(book, id), cancellationToken));
 
     public Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
     {

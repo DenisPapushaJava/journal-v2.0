@@ -79,7 +79,7 @@ public partial class NewOrderViewModel : ObservableObject
         IsDatabase ? "MDB" : "Деморежим · без сохранения";
     public string SaveLabel => IsBatchMode ? "Добавить " + IncludedCount + " " + (IncludedCount % 100 is >= 11 and <= 14 ? "заявок" : IncludedCount % 10 == 1 ? "заявку" : IncludedCount % 10 is >= 2 and <= 4 ? "заявки" : "заявок") : IsLocalCopy || IsDatabase ? "Добавить заявку" : "Добавить в деможурнал";
 
-    public OrderEntryField OrderDate { get; } = new("Дата *");
+    public OrderEntryField OrderDate { get; } = new("Дата *") { IsInputEnabled = false };
     public OrderEntryField SpecificationNumber { get; } = new("№ спецификации *");
     public OrderEntryField Manager { get; } = new("Менеджер *");
     public OrderEntryField Customer { get; } = new("Заказчик *");

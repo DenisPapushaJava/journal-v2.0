@@ -71,6 +71,7 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public string ThemeActionLabel => IsDarkTheme ? "Включить светлую тему" : "Включить тёмную тему";
     public ObservableCollection<OrderRowViewModel> Orders => _visibleRows;
     private NewOrderViewModel? _pendingCreationForm;
+    [ObservableProperty] private bool _lockOrderDate = true;
     public bool CanCreateOrder => orderCreator is not null && CanUseJournal && !RequiresReload;
     public NewOrderViewModel? CreateOrderForm(bool forImport = false)
     {
@@ -83,11 +84,14 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
             pending.ExistingOrdersForDate = ReadExistingOrdersForDateAsync;
             pending.ResumeAfterReload();
             pending.SetEntrySuggestions(_entrySuggestions);
+            pending.OrderDate.IsInputEnabled = !LockOrderDate;
+            foreach (var item in pending.BatchItems) item.Form.OrderDate.IsInputEnabled = !LockOrderDate;
             return pending;
         }
         var form = new NewOrderViewModel(orderCreator!, _source?.IsLocalCopy == true,
             isDatabase: _source?.Path is not null && _source.IsLocalCopy == false, initialColor: EffectiveNewOrderColor);
         form.ExistingOrders = _allOrders;
+        form.OrderDate.IsInputEnabled = !LockOrderDate;
         form.ExistingOrdersForDate = ReadExistingOrdersForDateAsync;
         form.PriceEditorFactory = CreatePriceEditor;
         form.SetEntrySuggestions(_entrySuggestions);
@@ -142,7 +146,11 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     {
         if (!IsApplyingReadSnapshot) ClearReadSelectionNotice();
         var visibleIds = Orders.Select(row => row.Id).ToHashSet();
-        _selectedOrderIds = selected.Select(row => row.Id).Where(visibleIds.Contains).ToHashSet();
+        var ids = selected.Select(row => row.Id).Where(visibleIds.Contains).Distinct().ToArray();
+        var next = ids.ToHashSet();
+        _selectionOrder.RemoveAll(id => !next.Contains(id));
+        foreach (var id in ids) if (!_selectedOrderIds.Contains(id)) _selectionOrder.Add(id);
+        _selectedOrderIds = next;
         RefreshSelectionNotice();
         var count = _selectedOrderIds.Count;
         _selectedCount = count;

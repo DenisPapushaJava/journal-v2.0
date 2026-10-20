@@ -1,11 +1,13 @@
 using Jornal.Core.Orders;
 using Jornal.Core.Pricing;
+using Jornal.Infrastructure.Diagnostics;
 
 namespace Jornal.Infrastructure.Access;
 
 public sealed class AccessPriceReader(string path) : IPriceReader, IMachineCatalogReader
 {
-    public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => Task.Run(async () =>
+    public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) =>
+        DiagnosticReads.ObserveAsync(DiagnosticOperation.PriceRead, DiagnosticReadAction.ReadMachineCatalog, path, () => Task.Run(async () =>
     {
         try
         {
@@ -16,13 +18,13 @@ public sealed class AccessPriceReader(string path) : IPriceReader, IMachineCatal
             throw new PriceReadException("Чтение каталога реализовано для Windows и Linux.");
         }
         catch (Exception exception) when (exception is OrderReadException or IOException or UnauthorizedAccessException or ArgumentException)
-        { throw new PriceReadException("Не удалось прочитать каталог станков.", exception); }
+        { throw new PriceReadException(DataSourceAccessErrors.Describe(path, exception, "Не удалось прочитать каталог станков."), exception); }
 
-    }, cancellationToken);
+    }, cancellationToken));
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default)
     {
         PriceTables.ValidateName(tableName);
-        return Task.Run(async () =>
+        return DiagnosticReads.ObserveAsync(DiagnosticOperation.PriceRead, DiagnosticReadAction.ReadPriceTable, path, () => Task.Run(async () =>
         {
             try
             {
@@ -34,8 +36,9 @@ public sealed class AccessPriceReader(string path) : IPriceReader, IMachineCatal
             }
             catch (Exception exception) when (exception is OrderReadException or IOException or UnauthorizedAccessException)
             {
-                throw new PriceReadException("Не удалось прочитать прайс " + tableName + ". " + exception.Message, exception);
+                throw new PriceReadException(DataSourceAccessErrors.Describe(path, exception,
+                    "Не удалось прочитать прайс " + tableName + ". " + exception.Message), exception);
             }
-        }, cancellationToken);
+        }, cancellationToken));
     }
 }

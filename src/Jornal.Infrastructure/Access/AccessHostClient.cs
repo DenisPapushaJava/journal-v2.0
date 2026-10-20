@@ -41,7 +41,8 @@ public sealed partial class AccessHostClient(string path, string? executable = n
     public async Task<OrderRecord?> ReadRecordAsync(int id, CancellationToken cancellationToken = default)
     {
         if (id <= 0) throw new ArgumentOutOfRangeException(nameof(id));
-        return (await SendAsync(new(1, AccessHostOperation.ReadOrder, System.IO.Path.GetFullPath(path), OrderId: id), cancellationToken)).Record;
+        return await DiagnosticReads.ObserveAsync(DiagnosticOperation.OrderRead, DiagnosticReadAction.ReadOrder, path,
+            async () => (await SendAsync(new(1, AccessHostOperation.ReadOrder, System.IO.Path.GetFullPath(path), OrderId: id), cancellationToken)).Record);
     }
 
     public async Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
@@ -191,6 +192,8 @@ public sealed partial class AccessHostClient(string path, string? executable = n
                     diagnostic.Component != DiagnosticComponent.AccessHost || diagnostic.Operation != AccessHostDiagnostics.Operation(request.Operation) ||
                     diagnostic.WriteFailure != response.Failure)
                     throw new InvalidDataException("Некорректная диагностика модуля Access.");
+                diagnostic = DiagnosticReads.EnrichHostReport(diagnostic);
+                response = response with { Diagnostic = diagnostic };
                 AppDiagnostics.Current?.Record(diagnostic);
             }
             if (response.Error is not null)

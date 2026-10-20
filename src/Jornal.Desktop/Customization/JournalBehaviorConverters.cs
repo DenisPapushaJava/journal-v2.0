@@ -5,7 +5,7 @@ using Jornal.Desktop.Tables;
 
 namespace Jornal.Desktop.Customization;
 
-internal sealed class AutomaticJournalRefreshConverter : JsonConverter<bool>
+internal sealed class DefaultTrueBooleanConverter : JsonConverter<bool>
 {
     public override bool Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
     {

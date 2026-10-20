@@ -77,7 +77,7 @@ public partial class EditOrderViewModel : ObservableObject
         { if (!_populating && e.PropertyName == nameof(OrderEntryField.Value)) ThicknessOptions.SourceChanged(); };
     }
 
-    public OrderEntryField OrderDate { get; } = new("Дата");
+    public OrderEntryField OrderDate { get; } = new("Дата") { IsInputEnabled = false };
     public OrderEntryField SpecificationNumber { get; } = new("№ спецификации");
     public OrderEntryField Manager { get; } = new("Менеджер");
     public OrderEntryField Customer { get; } = new("Заказчик");

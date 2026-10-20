@@ -7,6 +7,14 @@ namespace Jornal.Desktop.ViewModels;
 
 public partial class MainWindowViewModel
 {
+    private ResultRowOrder _resultRowOrder;
+    public ResultRowOrder ResultRowOrder
+    {
+        get => _resultRowOrder;
+        set { if (SetProperty(ref _resultRowOrder, Enum.IsDefined(value) ? value : default)) OnPropertyChanged(nameof(ResultRowOrderIndex)); }
+    }
+    public IReadOnlyList<string> ResultRowOrders { get; } = ["По толщине и материалу", "По порядку выбора"];
+    public int ResultRowOrderIndex { get => (int)ResultRowOrder; set => ResultRowOrder = value == 1 ? ResultRowOrder.SelectionOrder : ResultRowOrder.ThicknessAndMaterial; }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ResultFontSizePixels))]
     private decimal _resultFontSizePoints = ResultTextStyle.DefaultSize;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ResultTextBrush))]

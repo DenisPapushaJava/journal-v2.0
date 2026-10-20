@@ -9,9 +9,23 @@ namespace Jornal.Desktop.ViewModels;
 public partial class MainWindowViewModel
 {
     private int _technologistColorArgb = NewOrderColorSettings.DefaultColor;
+    private HsvColor _technologistSpectrumColor = new(Color.FromUInt32(unchecked((uint)NewOrderColorSettings.DefaultColor)));
+    private bool _synchronizingTechnologistSpectrum;
     public int TechnologistColorArgb => _technologistColorArgb;
     public string TechnologistColorHex => "#" + (unchecked((uint)TechnologistColorArgb) & 0xFFFFFF).ToString("X6", CultureInfo.InvariantCulture);
     public int EffectiveNewOrderColor => CaptureNewOrderColor().EffectiveColor;
+    public HsvColor TechnologistSpectrumColor
+    {
+        get => _technologistSpectrumColor;
+        set
+        {
+            var opaque = new HsvColor(1, value.H, value.S, value.V);
+            if (!SetProperty(ref _technologistSpectrumColor, opaque) || _synchronizingTechnologistSpectrum) return;
+            _synchronizingTechnologistSpectrum = true;
+            try { TechnologistColorCode = unchecked((int)opaque.ToRgb().ToUInt32()).ToString(CultureInfo.InvariantCulture); }
+            finally { _synchronizingTechnologistSpectrum = false; }
+        }
+    }
     public string NewOrderColorPreviewText => "Пример заявки" + (UseTechnologistColor ? " · " + TechnologistColorHex : "");
     [ObservableProperty, NotifyPropertyChangedFor(nameof(EffectiveNewOrderColor)), NotifyPropertyChangedFor(nameof(NewOrderColorPreviewText)),
         NotifyPropertyChangedFor(nameof(TechnologistColorError)), NotifyPropertyChangedFor(nameof(HasTechnologistColorError))]
@@ -19,7 +33,9 @@ public partial class MainWindowViewModel
     [ObservableProperty, NotifyPropertyChangedFor(nameof(TechnologistColorError)), NotifyPropertyChangedFor(nameof(HasTechnologistColorError))]
     private string _technologistColorCode = NewOrderColorSettings.DefaultColor.ToString(CultureInfo.InvariantCulture);
     public string? TechnologistColorError => UseTechnologistColor && TechnologistColorCode is { Length: > 0 } && !TryColor(TechnologistColorCode, out _)
-        ? "Укажите непрозрачный ARGB-цвет. Цвета статусов и −1 зарезервированы." : null;
+        ? int.TryParse(TechnologistColorCode.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var code) && (unchecked((uint)code) >> 24) == 255
+            ? "Этот цвет зарезервирован. Выберите другой." : "Укажите непрозрачный ARGB-цвет."
+        : null;
     public bool HasTechnologistColorError => TechnologistColorError is not null;
     public NewOrderColorSettings CaptureNewOrderColor() => new() { Enabled = UseTechnologistColor, ColorArgb = TechnologistColorArgb };
     public void ApplyNewOrderColor(NewOrderColorSettings settings)
@@ -33,7 +49,16 @@ public partial class MainWindowViewModel
     { if (NewOrderColorSettings.IsAllowed(argb)) TechnologistColorCode = argb.ToString(CultureInfo.InvariantCulture); }
     partial void OnTechnologistColorCodeChanged(string value)
     {
-        if (!TryColor(value, out var argb) || argb == _technologistColorArgb) return;
+        if (!TryColor(value, out var argb)) return;
+        if (!_synchronizingTechnologistSpectrum)
+        {
+            var hsv = new HsvColor(Color.FromUInt32(unchecked((uint)argb)));
+            if (hsv.S == 0) hsv = new(1, TechnologistSpectrumColor.H, hsv.S, hsv.V);
+            _synchronizingTechnologistSpectrum = true;
+            try { TechnologistSpectrumColor = hsv; }
+            finally { _synchronizingTechnologistSpectrum = false; }
+        }
+        if (argb == _technologistColorArgb) return;
         _technologistColorArgb = argb;
         OnStatusFilterColorChanged();
         foreach (var option in FrequentTechnologistColors.Concat(OtherTechnologistColors)) option.IsSelected = option.Argb == argb;

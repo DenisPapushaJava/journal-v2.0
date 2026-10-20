@@ -62,7 +62,7 @@ public partial class NewOrderViewModel
     {
         if (IsBatchMode) { await AddBatchFilesAsync([path], cancellationToken); return; }
         if (IsBusy || IsSaved || RequiresReload) return;
-        if (ImportFields.Any(pair => pair.Value.Value.Length > 0 && (pair.Key != nameof(Coefficient) || pair.Value.Value != "1")))
+        if (HasCurrentParameters)
         { PendingImportPath = path; return; }
         await ImportFileAsync(path, cancellationToken);
     }

@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:Jornal.Desktop.ViewModels"
+             xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
              x:Class="Jornal.Desktop.Controls.Settings.NewOrderColorPanel" x:DataType="vm:MainWindowViewModel">
   <UserControl.Resources>
     <DataTemplate x:Key="ColorSwatchTemplate" x:DataType="vm:TechnologistColorOption">
@@ -16,24 +16,42 @@
     <TextBlock Text="Цвет новых заявок" Classes="muted" />
     <CheckBox x:Name="UseTechnologistColorCheckBox" Content="Использовать свой цвет" IsChecked="{Binding UseTechnologistColor, Mode=TwoWay}" />
     <Grid ColumnDefinitions="Auto,*,Auto,12,140" IsEnabled="{Binding UseTechnologistColor}">
-      <Button x:Name="TechnologistColorButton" Classes="command outline" MinHeight="36" Padding="8,4" ToolTip.Tip="Выбрать цвет" AutomationProperties.Name="Выбрать цвет новых заявок">
-        <TextBlock Text="Палитра" />
-        <Button.Flyout>
-          <Flyout Placement="BottomEdgeAlignedLeft">
-            <StackPanel Width="240" Spacing="10">
-              <TextBlock Text="Частые цвета" FontWeight="SemiBold" />
-              <ItemsControl x:Name="FrequentTechnologistColors" ItemsSource="{Binding FrequentTechnologistColors}" ItemTemplate="{StaticResource ColorSwatchTemplate}">
-                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-              </ItemsControl>
-              <TextBlock Text="Другие цвета" FontWeight="SemiBold" />
-              <ItemsControl x:Name="OtherTechnologistColors" ItemsSource="{Binding OtherTechnologistColors}" ItemTemplate="{StaticResource ColorSwatchTemplate}">
-                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-              </ItemsControl>
-            </StackPanel>
-          </Flyout>
-        </Button.Flyout>
-      </Button>
-      <TextBlock Grid.Column="2" Text="Код ARGB" VerticalAlignment="Center" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="TechnologistColorButton" Classes="command outline" MinHeight="36" Padding="8,4" ToolTip.Tip="Выбрать цвет" AutomationProperties.Name="Выбрать цвет новых заявок">
+          <TextBlock Text="Палитра" />
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <StackPanel Width="240" Spacing="10">
+                <TextBlock Text="Частые цвета" FontWeight="SemiBold" />
+                <ItemsControl x:Name="FrequentTechnologistColors" ItemsSource="{Binding FrequentTechnologistColors}" ItemTemplate="{StaticResource ColorSwatchTemplate}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <TextBlock Text="Другие цвета" FontWeight="SemiBold" />
+                <ItemsControl x:Name="OtherTechnologistColors" ItemsSource="{Binding OtherTechnologistColors}" ItemTemplate="{StaticResource ColorSwatchTemplate}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+        <Button x:Name="MoreTechnologistColors" Classes="command outline" MinHeight="36" Padding="8,4"
+                Content="Больше цветов" AutomationProperties.Name="Точный выбор цвета новых заявок">
+          <Button.Flyout>
+            <Flyout Placement="TopEdgeAlignedLeft" Opened="OnColorWheelOpened" Closed="OnColorWheelClosed">
+              <StackPanel Width="244" Spacing="10" IsEnabled="{Binding UseTechnologistColor}" KeyDown="OnColorWheelKeyDown">
+                <ui:ColorWheel x:Name="TechnologistColorWheel" Width="244" Height="244" HsvColor="{Binding TechnologistSpectrumColor, Mode=TwoWay}"
+                               AutomationProperties.Name="Цветовой круг"
+                               AutomationProperties.HelpText="Стрелки влево и вправо — оттенок, вверх и вниз — яркость. Shift и стрелки влево и вправо — насыщенность."
+                               ToolTip.Tip="←/→ — оттенок · ↑/↓ — яркость · Shift+←/→ — насыщенность" />
+                <TextBlock Text="{Binding TechnologistColorHex}" />
+                <TextBlock Text="{Binding TechnologistColorError}" IsVisible="{Binding HasTechnologistColorError}"
+                           Foreground="{DynamicResource JournalDangerForeground}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+      </StackPanel>
+      <TextBlock Grid.Column="2" Text="Код ARGB" Margin="12,0,0,0" VerticalAlignment="Center" />
       <TextBox x:Name="TechnologistColorCodeInput" Grid.Column="4" Text="{Binding TechnologistColorCode, Mode=TwoWay}" TextAlignment="Right"
                MinHeight="36" MaxLength="11" LostFocus="OnCodeLostFocus" AutomationProperties.Name="Код цвета новых заявок ARGB" />
     </Grid>

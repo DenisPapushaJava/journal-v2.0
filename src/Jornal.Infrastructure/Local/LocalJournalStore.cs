@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Jornal.Core.Orders;
 using Jornal.Core.Pricing;
+using Jornal.Infrastructure.Diagnostics;
 
 namespace Jornal.Infrastructure.Local;
 
@@ -33,14 +34,16 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
     public static bool IsLocalCopyPath(string? path) => path?.EndsWith(Extension, StringComparison.OrdinalIgnoreCase) == true;
 
     public Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
-        ReadAsync<IReadOnlyList<OrderSummary>>(book => book.Orders.OrderByDescending(row => row.OrderDate)
-            .ThenByDescending(row => row.Id).ToArray(), cancellationToken);
+        DiagnosticReads.ObserveAsync(DiagnosticOperation.OrderRead, DiagnosticReadAction.ReadOrders, _path,
+            () => ReadAsync<IReadOnlyList<OrderSummary>>(book => book.Orders.OrderByDescending(row => row.OrderDate)
+                .ThenByDescending(row => row.Id).ToArray(), cancellationToken));
 
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default)
     {
         PriceTables.ValidateName(tableName);
-        return ReadAsync(book => book.Prices.SingleOrDefault(table => table.Name == tableName) ??
-            throw new PriceReadException("В локальной копии этого прайса нет."), cancellationToken);
+        return DiagnosticReads.ObserveAsync(DiagnosticOperation.PriceRead, DiagnosticReadAction.ReadPriceTable, _path,
+            () => ReadAsync(book => book.Prices.SingleOrDefault(table => table.Name == tableName) ??
+                throw new PriceReadException("В локальной копии этого прайса нет."), cancellationToken));
     }
 
     public Task<OrderSummary> CreateAsync(ManualOrderDraft draft, CancellationToken cancellationToken = default) =>

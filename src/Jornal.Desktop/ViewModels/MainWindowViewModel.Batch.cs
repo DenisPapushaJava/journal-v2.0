@@ -11,6 +11,12 @@ public sealed record SelectionRestoreRequest(IReadOnlyCollection<int> Ids, int? 
 public partial class MainWindowViewModel
 {
     private HashSet<int> _selectedOrderIds = [];
+    private readonly List<int> _selectionOrder = [];
+    private OrderRowViewModel[] SelectedRowsInOrder(IEnumerable<int> ids)
+    {
+        var visible = Orders.ToDictionary(row => row.Id);
+        return ids.Where(visible.ContainsKey).Select(id => visible[id]).ToArray();
+    }
     private int? _activeOrderId;
     [ObservableProperty] private bool _requiresReload;
     partial void OnRequiresReloadChanged(bool value) => NotifyJournalAvailability();
@@ -46,7 +52,7 @@ public partial class MainWindowViewModel
         Func<Task<IReadOnlyList<OrderSummary>>> update, string message)
     {
         if (!CanUseJournal || orderEditor is null || RequiresReload) return false;
-        var selectedIds = _selectedOrderIds.ToHashSet();
+        var selectedIds = _selectionOrder.ToArray();
         var activeId = _activeOrderId;
         IsUpdatingOrders = true;
         var previousUpdate = UpdatedText;
@@ -72,7 +78,7 @@ public partial class MainWindowViewModel
             HasNoOrders = Orders.Count == 0;
             CountText = $"Заявок: {Orders.Count} из {_allOrders.Count}";
             NotifyFilterContextChanged();
-            var surviving = Orders.Where(row => selectedIds.Contains(row.Id)).ToArray();
+            var surviving = SelectedRowsInOrder(selectedIds);
             var active = surviving.FirstOrDefault(row => row.Id == activeId) ?? surviving.FirstOrDefault();
             UpdateSelection(surviving, active);
             SelectionRestoreRequested?.Invoke(this, new(surviving.Select(row => row.Id).ToArray(), active?.Id));

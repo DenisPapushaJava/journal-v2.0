@@ -10,6 +10,8 @@ using Avalonia.VisualTree;
 using Jornal.Desktop.Controls;
 using Jornal.Desktop.ViewModels;
 using Jornal.Desktop.Views;
+using Jornal.Core.Results;
+using Jornal.Core.Orders;
 using Jornal.Infrastructure.Demo;
 using Xunit;
 
@@ -133,9 +135,44 @@ public sealed class TableSelectionTests
         Assert.Null(await model.CreateEditFormAsync(TestContext.Current.CancellationToken));
     }
 
-    private static (MainWindow Window, MainWindowViewModel Model, DataGrid Grid) Open(bool dark)
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ResultFollowsClicksAcrossSortingRefreshAndColorChanges(bool dark)
     {
         var store = new DemoOrderStore();
+        var (window, model, grid) = Open(dark, store);
+        try
+        {
+            model.ResultRowOrder = ResultRowOrder.SelectionOrder;
+            void Build(params int[] ids)
+            {
+                Click(window, window.FindControl<JournalButton>("AddResultButton")!);
+                Assert.Equal(OrderResultFormatter.Format(ids.Select(id => model.Orders.Single(row => row.Id == id).Source).ToArray(),
+                    model.CaptureResultPricing(), ResultRowOrder.SelectionOrder), model.ResultText);
+            }
+            Click(window, Box(grid, 3)); Click(window, Box(grid, 1)); Click(window, Box(grid, 2)); Build(3, 1, 2);
+            var header = grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(item => item.Content is "Дата");
+            Click(window, header); Build(3, 1, 2);
+            Click(window, Box(grid, 1)); Click(window, Box(grid, 1)); Build(3, 2, 1);
+            await store.SetColorAsync([(await store.ReadAsync())[0]], OrderColors.Ready);
+            await model.ReloadCommand.ExecuteAsync(null); Pump(); Build(3, 2, 1);
+            await model.SetOrderColorCommand.ExecuteAsync(OrderColors.Work); Pump(); Build(3, 2, 1);
+            Click(window, window.FindControl<JournalButton>("ClearSelectionButton")!);
+            Click(window, Cell(grid, 2)); Click(window, Cell(grid, 3), RawInputModifiers.Control); Build(2, 3);
+            Click(window, window.FindControl<JournalButton>("ClearSelectionButton")!);
+            var range = grid.CollectionView.Cast<OrderRowViewModel>().Select(row => row.Id).ToArray();
+            Click(window, Cell(grid, range[0])); Click(window, Cell(grid, range[^1]), RawInputModifiers.Shift); Build(range);
+            model.SearchText = "нет совпадений"; Pump();
+            Assert.False(model.CanAddResult);
+            model.ResetFiltersCommand.Execute(null); Pump(); Click(window, Box(grid, 1)); Build(1);
+        }
+        finally { Close(window); }
+    }
+
+    private static (MainWindow Window, MainWindowViewModel Model, DataGrid Grid) Open(bool dark, DemoOrderStore? source = null)
+    {
+        var store = source ?? new DemoOrderStore();
         var model = new MainWindowViewModel(store, store, store) { IsDarkTheme = dark };
         var window = new MainWindow { DataContext = model, Width = 1366, Height = 768 };
         window.Show(); Pump();

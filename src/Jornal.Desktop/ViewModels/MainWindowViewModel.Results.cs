@@ -58,7 +58,13 @@ public partial class MainWindowViewModel
             ResultMessage = "Выберите заявки";
             return;
         }
-        var result = OrderResultFormatter.Format(orders, CaptureResultPricing());
+        if (ResultRowOrder == ResultRowOrder.SelectionOrder)
+        {
+            var selectedOrders = orders.ToDictionary(order => order.Id);
+            orders = _selectionOrder.Where(selectedOrders.ContainsKey).Select(id => selectedOrders[id])
+                .Concat(orders.Where(order => !_selectedOrderIds.Contains(order.Id))).ToArray();
+        }
+        var result = OrderResultFormatter.Format(orders, CaptureResultPricing(), ResultRowOrder);
         ResultText = result;
         _resultOrderIds.Clear();
         foreach (var order in orders) _resultOrderIds.Add(order.Id);

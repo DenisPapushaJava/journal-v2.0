@@ -81,12 +81,16 @@ public sealed record UiPreferences
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? RowHighlightStrength { get; init; }
     public bool ShowTodayOnStartup { get; init; } = true;
-    [JsonConverter(typeof(AutomaticJournalRefreshConverter))]
+    [JsonConverter(typeof(DefaultTrueBooleanConverter))]
     public bool AutomaticJournalRefresh { get; init; } = true;
+    [JsonConverter(typeof(DefaultTrueBooleanConverter))]
+    public bool LockOrderDate { get; init; } = true;
     [JsonConverter(typeof(TrashRetentionDaysConverter))]
     public int TrashRetentionDays { get; init; } = 30;
     public ScreenLayout Layout { get; init; } = new();
     public ResultTextStyle ResultFormatting { get; init; } = new();
+    [JsonConverter(typeof(ResultRowOrderConverter))]
+    public ResultRowOrder ResultRowOrder { get; init; }
     [JsonConverter(typeof(ResultPriceSettingsConverter))]
     public ResultPriceSettings ResultPricing { get; init; } = new();
     [JsonConverter(typeof(NewOrderColorSettingsConverter))]

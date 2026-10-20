@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
-             x:Class="Jornal.Desktop.Controls.OrderEntryControl" x:DataType="vm:OrderEntryField">
+             x:Class="Jornal.Desktop.Controls.OrderEntryControl" x:DataType="vm:OrderEntryField"
+             IsEnabled="{Binding IsInputEnabled}">
   <Grid ColumnDefinitions="144,8,*" RowDefinitions="Auto,Auto,Auto">
     <TextBlock Text="{Binding Label}" Foreground="{DynamicResource JournalMuted}" FontWeight="Medium" FontSize="13"
                VerticalAlignment="Center" TextWrapping="Wrap" />

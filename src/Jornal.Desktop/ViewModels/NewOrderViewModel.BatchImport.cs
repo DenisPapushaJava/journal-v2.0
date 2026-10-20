@@ -99,6 +99,7 @@ public partial class NewOrderViewModel
     private NewOrderViewModel NewBatchForm()
     {
         var form = new NewOrderViewModel(_creator, IsLocalCopy, IsDatabase, InitialColor, _priceTimeProvider) { ImportReader = ImportReader, ExistingOrders = ExistingOrders };
+        form.OrderDate.IsInputEnabled = OrderDate.IsInputEnabled;
         form._thicknessSource.Stop(); form._thicknessSource = _thicknessSource; form.ThicknessOptions.UseSource(_thicknessSource);
         form.ThicknessOptions.ReloadAll = () => CalculatePriceCommand.ExecuteAsync(null);
         form.PriceEditorFactory = PriceEditorFactory;
