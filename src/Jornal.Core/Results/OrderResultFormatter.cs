@@ -44,7 +44,7 @@ public static class OrderResultFormatter
                 result.Append("     Время резки: ").Append(CuttingDuration.Format(minutes));
             result.Append("\t   резка ").Append(row[5]).Append('\n');
         }
-        // Дополнительная пустая строка для продолжения письма после вставленного результата.
-        return result.Append('\n').ToString();
+        // Последний LF переводит ввод на строку сразу под результатом.
+        return result.ToString();
     }
 }

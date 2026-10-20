@@ -97,7 +97,7 @@ public sealed class ResultOutputTests
     public void SingleLinePreservesLegacyFieldsSeparatorsAndWeight()
     {
         var text = OrderResultFormatter.Format([Order()]);
-        Assert.Equal("Лист 2,5x1250x2500,\t   Материал: Амг3,\t   2 шт.\t   Вес 38,5 кг.\t   Резка 1250 ₽.\t   резка Лазер\n\n", text);
+        Assert.Equal("Лист 2,5x1250x2500,\t   Материал: Амг3,\t   2 шт.\t   Вес 38,5 кг.\t   Резка 1250 ₽.\t   резка Лазер\n", text);
     }
 
     [Theory]
@@ -125,7 +125,7 @@ public sealed class ResultOutputTests
             SheetCount = "22", WeightKilograms = "2", StoredCuttingPrice = 4850, CuttingType = "HansLaser" };
         var text = OrderResultFormatter.Format([first, second]);
         Assert.Equal("Лист 2,5x1250x2500,\t   Материал:         Амг3,\t     1 шт.\t   Вес 38,5 кг.\t   Резка   500 ₽.\t   резка         Лазер\n" +
-            "Лист   16x1250x2500,\t   Материал: 5083H111,\t   22 шт.\t   Вес       2 кг.\t   Резка 4850 ₽.\t   резка HansLaser\n\n", text);
+            "Лист   16x1250x2500,\t   Материал: 5083H111,\t   22 шт.\t   Вес       2 кг.\t   Резка 4850 ₽.\t   резка HansLaser\n", text);
         var longMaterial = new string('М', 350) + "_неизвестная";
         Assert.Contains(longMaterial, OrderResultFormatter.Format([Order() with { MaterialName = longMaterial }, second]));
     }
@@ -149,7 +149,7 @@ public sealed class ResultOutputTests
         Assert.Equal("Лист 0,8x1000x2000,\t   Материал: Aisi-430,\t   253 шт.\t   Вес 4477,4 кг.\t   Резка 76012 ₽.\t   резка Лазер\n" +
             "Лист 1,5x1250x2500,\t   Материал:     оцинк.,\t       7 шт.\t   Вес   260,9 кг.\t   Резка   2941 ₽.\t   резка Лазер\n" +
             "Лист     3x1250x2500,\t   Материал:     оцинк.,\t       3 шт.\t   Вес   177,6 кг.\t   Резка   4385 ₽.\t   резка Лазер\n" +
-            "Лист   10x1500x6000,\t   Материал:           Cт3,\t       6 шт.\t   Вес 2554,6 кг.\t   Резка   7841 ₽.\t   резка Лазер\n\n",
+            "Лист   10x1500x6000,\t   Материал:           Cт3,\t       6 шт.\t   Вес 2554,6 кг.\t   Резка   7841 ₽.\t   резка Лазер\n",
             OrderResultFormatter.Format(orders));
         Assert.Equal(original, orders);
     }

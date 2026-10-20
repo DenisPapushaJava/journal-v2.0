@@ -37,10 +37,10 @@ public sealed class ResultWindowTests
             table.SelectAll();
             Pump();
             Click(window, "AddResultButton");
-            Assert.Equal(4, model.ResultText.Count(character => character == '\n'));
+            Assert.Equal(3, model.ResultText.Count(character => character == '\n'));
             Assert.Equal(model.ResultText, text.Text);
             Click(window, "AddResultButton");
-            Assert.Equal(4, model.ResultText.Count(character => character == '\n'));
+            Assert.Equal(3, model.ResultText.Count(character => character == '\n'));
             text.Text = "Комментарий для письма\n" + text.Text;
             Pump();
             Click(window, "CopyResultButton");
@@ -73,7 +73,7 @@ public sealed class ResultWindowTests
             Assert.Empty(model.ResultText);
             Assert.Equal(3, table.SelectedItems.Count);
             Click(window, "AddResultButton");
-            Assert.Equal(4, model.ResultText.Count(character => character == '\n'));
+            Assert.Equal(3, model.ResultText.Count(character => character == '\n'));
         }
         finally { window.Close(); }
     }
@@ -110,7 +110,7 @@ public sealed class ResultWindowTests
             Pump();
             Assert.Equal("", model.ResultText);
             Click(window, "AddResultButton");
-            Assert.Equal(4, model.ResultText.Count(character => character == '\n'));
+            Assert.Equal(3, model.ResultText.Count(character => character == '\n'));
         }
         finally { window.Close(); }
     }
