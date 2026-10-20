@@ -1,7 +1,10 @@
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Jornal.Desktop.Controls;
 namespace Jornal.Desktop.Views;
 public partial class NewOrderWindow
 {
@@ -32,9 +35,27 @@ public partial class NewOrderWindow
     {
         if (FormDroppedFiles(e) is not { } paths) return;
         _fileDragGeneration++; e.Handled = true; e.DragEffects = DragDropEffects.None;
-        if (IsVisible && OwnedWindows.Count == 0 && _viewModel is { } model && model.CheckFileDrop(paths) is null)
-            Activate();
+        var model = _viewModel;
+        var accepted = IsVisible && OwnedWindows.Count == 0 && model is not null && model.CheckFileDrop(paths) is null;
+        if (accepted) Activate();
+        var cancellation = _importLifetime.Token;
         await ImportSpecificationsAsync(paths);
+        if (!accepted || model is null) return;
+        // Import temporarily disables the single form (or hides it when switching to a batch).
+        // Restore input only after bindings settle, without taking focus from another control/window.
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (cancellation.IsCancellationRequested || !IsVisible || !IsActive || WindowState == WindowState.Minimized ||
+                OwnedWindows.Count != 0 || !ReferenceEquals(model, _viewModel) || model.IsReadingSpecifications ||
+                model.HasPendingImport || model.HasImportError ||
+                !(model.IsBatchMode ? model.BatchItems.Any(item => item.HasParameters) : model.HasImport)) return;
+            var manager = this.GetVisualDescendants().OfType<OrderEntryControl>().FirstOrDefault(control =>
+                control.IsEffectivelyVisible && control.IsEffectivelyEnabled && control.DataContext == model.Manager);
+            if (manager is null || manager.IsKeyboardFocusWithin) return;
+            if (FocusManager?.GetFocusedElement() is Control focused && focused != this &&
+                focused.IsEffectivelyVisible && focused.IsEffectivelyEnabled) return;
+            manager.FocusInput();
+        }, DispatcherPriority.Background);
     }
     public async Task ImportSpecificationsAsync(IReadOnlyList<string> paths)
     {

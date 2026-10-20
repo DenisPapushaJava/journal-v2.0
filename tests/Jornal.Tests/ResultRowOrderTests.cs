@@ -16,7 +16,7 @@ namespace Jornal.Tests;
 public sealed class ResultRowOrderTests
 {
     [Fact]
-    public void SelectionOrderChangesOnlyRowsAndAllFormatsKeepOneExtraTrailingLine()
+    public void SelectionOrderChangesOnlyRowsAndAllFormatsKeepASingleTrailingNewline()
     {
         var orders = new[] { ResultOutputTests.Order() with { Id = 5, ThicknessMillimeters = 8 },
             ResultOutputTests.Order() with { Id = 2, ThicknessMillimeters = 1 },
@@ -25,14 +25,15 @@ public sealed class ResultRowOrderTests
         var chosen = OrderResultFormatter.Format(orders, rowOrder: ResultRowOrder.SelectionOrder);
         Assert.StartsWith("Лист 1x", sorted); Assert.StartsWith("Лист 8x", chosen);
         Assert.Equal(Lines(sorted).Order(), Lines(chosen).Order());
-        Assert.EndsWith("\n\n", chosen); Assert.False(chosen.EndsWith("\n\n\n", StringComparison.Ordinal));
+        foreach (var text in new[] { sorted, chosen })
+        { Assert.EndsWith("\n", text); Assert.False(text.EndsWith("\n\n", StringComparison.Ordinal)); }
         var content = ResultClipboardContent.FromText(chosen);
         Assert.Equal(chosen, content.Text);
-        Assert.Equal(4, Regex.Matches(content.Rtf, @"\\par ").Count);
+        Assert.Equal(3, Regex.Matches(content.Rtf, @"\\par ").Count);
         var root = Assert.Single(new HtmlParser().ParseDocument(content.Html).Body!.Children);
-        Assert.Equal(5, root.Children.Length);
+        Assert.Equal(4, root.Children.Length);
         Assert.Equal("\u00a0", root.LastElementChild!.TextContent);
-        Assert.Single(root.Children[^2].QuerySelectorAll("br"));
+        Assert.Empty(root.QuerySelectorAll("br"));
         Assert.Equal(chosen, ResultClipboardContent.FromText(content.Text).Text);
         Assert.Equal(sorted, OrderResultFormatter.Format(orders, rowOrder: (ResultRowOrder)99));
         Assert.Empty(OrderResultFormatter.Format([], rowOrder: ResultRowOrder.SelectionOrder));
