@@ -76,6 +76,8 @@ public sealed partial class SpecificationDropWindowTests
             await Until(() => window.OwnedWindows.OfType<NewOrderWindow>().Any());
             var dialog = Assert.Single(window.OwnedWindows.OfType<NewOrderWindow>());
             var form = Assert.IsType<NewOrderViewModel>(dialog.DataContext);
+            Assert.True(dialog.GetVisualDescendants().OfType<OrderEntryControl>()
+                .Single(control => control.IsEffectivelyVisible && control.DataContext == form.Manager).IsKeyboardFocusWithin);
             Assert.True(form.IsBatchMode); Assert.Equal(3, form.BatchItems.Count); Assert.True(form.IsBatchReading);
             Assert.True(dialog.FindControl<JournalButton>("BrowseSpecificationButton")!.IsEnabled);
             AssertVisibleActions(dialog); Screenshot(dialog, "batch-reading", dark);

@@ -1,4 +1,5 @@
 using Jornal.Core.Orders;
+using Jornal.Infrastructure.Diagnostics;
 
 namespace Jornal.Infrastructure.Access;
 
@@ -6,10 +7,12 @@ public sealed class AccessOrderReader(string path) : IOrderReader
 {
     public Task<IReadOnlyList<OrderSummary>> ReadAsync(CancellationToken cancellationToken = default) =>
         // Само открытие сетевого файла тоже может ждать SMB, поэтому оно не выполняется в потоке UI.
-        Task.Run(() => ReadCoreAsync(null, cancellationToken), cancellationToken);
+        DiagnosticReads.ObserveAsync(DiagnosticOperation.OrderRead, DiagnosticReadAction.ReadOrders, path,
+            () => Task.Run(() => ReadCoreAsync(null, cancellationToken), cancellationToken));
 
     public Task<IReadOnlyList<OrderSummary>> ReadDayAsync(DateOnly date, CancellationToken cancellationToken = default) =>
-        Task.Run(() => ReadCoreAsync(date, cancellationToken), cancellationToken);
+        DiagnosticReads.ObserveAsync(DiagnosticOperation.OrderRead, DiagnosticReadAction.ReadDay, path,
+            () => Task.Run(() => ReadCoreAsync(date, cancellationToken), cancellationToken));
 
     private async Task<IReadOnlyList<OrderSummary>> ReadCoreAsync(DateOnly? date, CancellationToken cancellationToken)
     {

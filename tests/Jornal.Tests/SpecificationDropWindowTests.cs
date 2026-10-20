@@ -59,6 +59,8 @@ public sealed partial class SpecificationDropWindowTests
             await Until(() => window.OwnedWindows.OfType<NewOrderWindow>().Any());
             var dialog = Assert.Single(window.OwnedWindows.OfType<NewOrderWindow>());
             var form = (NewOrderViewModel)dialog.DataContext!;
+            Assert.True(dialog.GetVisualDescendants().OfType<OrderEntryControl>()
+                .Single(control => control.IsEffectivelyVisible && control.DataContext == form.Manager).IsKeyboardFocusWithin);
             Assert.False(overlay.IsVisible); Assert.Equal("0514-0078", form.SpecificationNumber.Value);
             Assert.Equal("1500x4000, 1000x3000", form.SheetSize.Value); Assert.Equal("1.1", form.Coefficient.Value);
             if (hans)

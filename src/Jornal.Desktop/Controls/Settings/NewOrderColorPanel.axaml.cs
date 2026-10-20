@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Jornal.Desktop.ViewModels;
 
@@ -13,5 +15,17 @@ public partial class NewOrderColorPanel : UserControl
         if (DataContext is MainWindowViewModel { UseTechnologistColor: true } model && sender is Button { DataContext: TechnologistColorOption option })
             model.SelectTechnologistColor(option.Argb);
         TechnologistColorButton.Flyout?.Hide();
+    }
+    private void OnColorWheelOpened(object? sender, EventArgs e) => TechnologistColorWheel.Focus();
+    private void OnColorWheelClosed(object? sender, EventArgs e) => (DataContext as MainWindowViewModel)?.CommitTechnologistColorCode();
+    private void OnColorWheelKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        MoreTechnologistColors.Flyout?.Hide(); MoreTechnologistColors.Focus(); e.Handled = true;
+    }
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        TechnologistColorButton.Flyout?.Hide(); MoreTechnologistColors.Flyout?.Hide();
+        base.OnDetachedFromVisualTree(e);
     }
 }

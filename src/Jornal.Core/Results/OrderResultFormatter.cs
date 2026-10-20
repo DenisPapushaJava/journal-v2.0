@@ -9,14 +9,15 @@ public static class OrderResultFormatter
     private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("ru-RU");
     private static readonly StringComparer MaterialComparer = StringComparer.Create(Culture, ignoreCase: true);
 
-    public static string Format(IReadOnlyList<OrderSummary> orders, ResultPriceSettings? pricing = null)
+    public static string Format(IReadOnlyList<OrderSummary> orders, ResultPriceSettings? pricing = null,
+        ResultRowOrder rowOrder = ResultRowOrder.ThicknessAndMaterial)
     {
         if (orders.Any(order => order.StoredCuttingPrice is null))
             throw new ArgumentException("Для результата нужна рассчитанная стоимость каждой заявки.", nameof(orders));
         if (orders.Count == 0) return string.Empty;
         pricing = (pricing ?? new()).Normalize();
         // Сортируем весь выбранный набор; формат строк и исходный список сохраняются.
-        orders = orders.OrderBy(order => order.ThicknessMillimeters is null)
+        if (rowOrder != ResultRowOrder.SelectionOrder) orders = orders.OrderBy(order => order.ThicknessMillimeters is null)
             .ThenBy(order => order.ThicknessMillimeters)
             .ThenBy(order => order.MaterialName, MaterialComparer).ToArray();
         var rows = orders.Select(order => new[]
@@ -43,6 +44,7 @@ public static class OrderResultFormatter
                 result.Append("     Время резки: ").Append(CuttingDuration.Format(minutes));
             result.Append("\t   резка ").Append(row[5]).Append('\n');
         }
-        return result.ToString();
+        // Дополнительная пустая строка для продолжения письма после вставленного результата.
+        return result.Append('\n').ToString();
     }
 }

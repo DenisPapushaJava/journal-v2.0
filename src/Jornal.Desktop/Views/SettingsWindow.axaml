@@ -79,6 +79,8 @@
             <Border Classes="settings-group">
               <StackPanel Spacing="12">
                 <TextBlock Text="Заявки" Classes="settings-group-title" />
+                <CheckBox x:Name="LockOrderDateCheckBox" Content="Блокировать изменение даты"
+                          IsChecked="{Binding Journal.LockOrderDate, Mode=TwoWay}" />
                 <settings:NewOrderColorPanel DataContext="{Binding Journal}" />
                 <StackPanel Spacing="8" Margin="0,4,0,0">
                   <ui:JournalButton x:Name="EntrySuggestionsButton" Label="Данные для выпадающих списков" Icon="list-plus" Click="OnEntrySuggestionsClick" HorizontalAlignment="Left" IsEnabled="{Binding CanNavigate}" />
@@ -89,6 +91,12 @@
             <Border Classes="settings-group">
               <StackPanel Spacing="12">
                 <TextBlock Text="Результат для письма" Classes="settings-group-title" />
+                <Grid ColumnDefinitions="*,16,240">
+                  <TextBlock Text="Порядок строк" VerticalAlignment="Center" />
+                  <ComboBox x:Name="ResultRowOrderSelector" Grid.Column="2" ItemsSource="{Binding Journal.ResultRowOrders}"
+                            SelectedIndex="{Binding Journal.ResultRowOrderIndex, Mode=TwoWay}" HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="Порядок строк результата для письма" />
+                </Grid>
                 <CheckBox x:Name="UseResultMinimumPriceCheckBox" Content="Использовать минимальную цену"
                           IsChecked="{Binding Journal.UseResultMinimumPrice, Mode=TwoWay}" />
                 <Grid ColumnDefinitions="*,16,180" IsEnabled="{Binding Journal.UseResultMinimumPrice}">

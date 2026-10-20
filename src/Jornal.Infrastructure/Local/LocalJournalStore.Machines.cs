@@ -1,4 +1,5 @@
 using Jornal.Core.Pricing;
+using Jornal.Infrastructure.Diagnostics;
 
 namespace Jornal.Infrastructure.Local;
 
@@ -16,7 +17,8 @@ public sealed partial class LocalJournalStore : IMachineCatalogReader, IMachineC
         }, cancellationToken);
     }
     public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) =>
-        ReadAsync<IReadOnlyList<CuttingMachine>>(book => CuttingMachine.Snapshot(book.Machines ?? []), cancellationToken);
+        DiagnosticReads.ObserveAsync(DiagnosticOperation.PriceRead, DiagnosticReadAction.ReadMachineCatalog, _path,
+            () => ReadAsync<IReadOnlyList<CuttingMachine>>(book => CuttingMachine.Snapshot(book.Machines ?? []), cancellationToken));
     public Task<CuttingMachine> CreateMachineAsync(MachineCreation creation, CancellationToken cancellationToken = default)
     {
         var snapshot = creation.Snapshot();

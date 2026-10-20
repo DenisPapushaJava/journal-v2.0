@@ -19,7 +19,10 @@ public enum DiagnosticOperation
 public enum DiagnosticComponent { Desktop, AccessHost }
 public enum DiagnosticSeverity { Warning, Error, Fatal }
 public sealed record DiagnosticException(string Type, int HResult, string[] Frames, int? NativeCode = null);
-public sealed record DiagnosticBreadcrumb(DiagnosticOperation Operation, DateTimeOffset At);
+public sealed record DiagnosticBreadcrumb(DiagnosticOperation Operation, DateTimeOffset At,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] DiagnosticReadAction Action = DiagnosticReadAction.Unknown,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] DiagnosticReadOutcome Outcome = DiagnosticReadOutcome.Unknown,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? DurationMilliseconds = null);
 
 // Только разрешённые поля. Message, Data, пути, исходные документы и параметры операций сюда не передаются.
 public sealed record DiagnosticReport(int Schema, string EventId, string SessionId, DateTimeOffset CreatedUtc,
@@ -28,7 +31,8 @@ public sealed record DiagnosticReport(int Schema, string EventId, string Session
     OrderWriteFailure? WriteFailure, DiagnosticException[] Exceptions, DiagnosticBreadcrumb[] Recent,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? BuildCommit = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? BuildDirty = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] DiagnosticStage Stage = DiagnosticStage.Unknown)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] DiagnosticStage Stage = DiagnosticStage.Unknown,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticReadContext? ReadContext = null)
 {
     public const int MaximumBytes = 32 * 1024;
     public static JsonSerializerOptions Json { get; } = new(JsonSerializerDefaults.Web)
@@ -55,13 +59,14 @@ public sealed record DiagnosticReport(int Schema, string EventId, string Session
                 .Select(method => SafeSymbol(method!.DeclaringType!.FullName + "." + method.Name))
                 .OfType<string>().Take(12).ToArray();
             errors.Add(new(type, current.HResult, frames, current is Access.AccessHostBlockedException blocked ? blocked.Code :
-                current is System.ComponentModel.Win32Exception native ? native.NativeErrorCode : null));
+                current is System.ComponentModel.Win32Exception native ? native.NativeErrorCode :
+                (uint)current.HResult >> 16 == 0x8007 ? current.HResult & 0xffff : null));
         }
         return new(1, eventId ?? Guid.NewGuid().ToString("N"), sessionId, DateTimeOffset.UtcNow,
             IsVersion(version) ? version : "unknown", OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsLinux() ? "Linux" : "Other",
             Environment.OSVersion.Version.ToString(), RuntimeInformation.ProcessArchitecture.ToString(), Environment.Version.ToString(),
             component, operation, severity, (exception as OrderWriteException)?.Failure, errors.ToArray(), recent?.TakeLast(16).ToArray() ?? [],
-            AppDiagnostics.BuildCommit, AppDiagnostics.BuildDirty, DiagnosticStages.Of(exception));
+            AppDiagnostics.BuildCommit, AppDiagnostics.BuildDirty, DiagnosticStages.Of(exception), DiagnosticReads.ContextOf(exception));
     }
 
     public void Validate()
@@ -78,8 +83,14 @@ public sealed record DiagnosticReport(int Schema, string EventId, string Session
         foreach (var item in Exceptions)
             if (item is null || SafeSymbol(item.Type) is null || item.Frames is not { Length: <= 12 } || item.Frames.Any(frame => SafeSymbol(frame) is null))
                 throw new InvalidDataException("Недопустимые технические сведения.");
-        if (Recent.Any(item => item is null || !Enum.IsDefined(item.Operation))) throw new InvalidDataException("Недопустимая история операций.");
+        ReadContext?.Validate();
+        if (Recent.Any(item => item is null || !Enum.IsDefined(item.Operation) || !DiagnosticReads.ValidBreadcrumb(item)))
+            throw new InvalidDataException("Недопустимая история операций.");
     }
+
+    [JsonIgnore] internal bool HasReadDetails => ReadContext is not null || Recent.Any(item => item.Action != DiagnosticReadAction.Unknown || item.Outcome != DiagnosticReadOutcome.Unknown || item.DurationMilliseconds is not null);
+    internal DiagnosticReport WithoutReadDetails() => this with { ReadContext = null,
+        Recent = Recent.Select(item => new DiagnosticBreadcrumb(item.Operation, item.At)).ToArray() };
 
     private static bool IsVersion(string? value) => value is not null && Regex.IsMatch(value, "^[a-zA-Z0-9.+-]{1,100}$");
     private static string? SafeSymbol(string? value) => value is { Length: > 0 and <= 240 } &&

@@ -90,6 +90,45 @@ test("event id reuse with a different operation is rejected", async () => {
   assert.equal((await receiver.accept({ ...first, operation: "OrderCreate" }, "client")).status, 409);
 });
 
+test("read details are optional, bounded, private and do not split existing groups", async () => {
+  const first = report(); first.exceptions[0].hResult = -2147024894;
+  const enriched = { ...first, eventId: randomUUID().replaceAll("-", ""),
+    readContext: { action: "ReadMachineCatalog", pathKind: "DrivePath", durationMilliseconds: 37, lastSuccessfulReadUtc: first.createdUtc },
+    recent: [{ operation: "OrderRead", at: first.createdUtc, action: "ReadDay", outcome: "Succeeded", durationMilliseconds: 125 },
+      { operation: "PriceRead", at: first.createdUtc, action: "ReadMachineCatalog", outcome: "Failed", durationMilliseconds: 37 }] };
+  validateReport(first); validateReport(enriched);
+  assert.equal(await fingerprint(first), await fingerprint(enriched));
+  const github = new GitHub(), receiver = new ReportReceiver(new Storage(), github);
+  assert.equal((await receiver.accept(first, "client")).status, 200);
+  assert.match(github.issues[0].body, /0x80070002.*Системный код 2 — файл не найден/);
+  assert.equal((await receiver.accept(enriched, "client")).status, 200);
+  assert.equal(github.issues.length, 1);
+  const body = github.issues[0].body;
+  assert.match(body, /Повторений: 2/);
+  assert.match(body, /Уточнение: Загрузка каталога станков \(ReadMachineCatalog\)/);
+  assert.match(body, /путь с буквой диска \(тип диска неизвестен\)/);
+  assert.match(body, /Длительность чтения: 37 мс/);
+  assert.match(body, /Последнее успешное чтение этой БД в сеансе:/);
+  assert.match(body, /Загрузка выбранного дня: успешно, 125 мс/);
+  assert.match(body, /Загрузка каталога станков: ошибка, 37 мс/);
+  assert.doesNotMatch(body, new RegExp(enriched.sessionId));
+  for (const context of [{ ...enriched.readContext, sourcePath: "SECRET" }, { ...enriched.readContext, action: "SECRET" },
+    { ...enriched.readContext, pathKind: "SECRET" }, { ...enriched.readContext, durationMilliseconds: -1 },
+    { ...enriched.readContext, durationMilliseconds: 86400001 }, { ...enriched.readContext, lastSuccessfulReadUtc: "SECRET" },
+    { ...enriched.readContext, lastSuccessfulReadUtc: "2026-10-20 (SECRET)" }, []]) {
+    assert.throws(() => validateReport({ ...enriched, readContext: context }));
+  }
+  for (const item of [{ ...enriched.recent[0], customer: "SECRET" }, { ...enriched.recent[0], action: "SECRET" },
+    { ...enriched.recent[0], outcome: "SECRET" }, { ...enriched.recent[0], durationMilliseconds: 1.5 },
+    { ...enriched.recent[0], outcome: "Started" }]) {
+    assert.throws(() => validateReport({ ...enriched, recent: [item] }));
+  }
+  validateReport({ ...enriched, readContext: null, recent: first.recent });
+  validateReport({ ...enriched, recent: [{ operation: "OrderRead", at: first.createdUtc, action: "ReadOrders", outcome: "Started" }] });
+  assert.throws(() => validateReport({ ...first, createdUtc: "2026-10-20 (SECRET)" }));
+  assert.throws(() => validateReport({ ...first, recent: [{ operation: "OrderRead", at: "2026-10-20 (SECRET)" }] }));
+});
+
 test("Russian subject and accompanying report keep technical identifiers and safe write guidance", async () => {
   const r = { ...report(), operation: "OrderCreate", component: "AccessHost", severity: "Fatal",
     stage: "CommitTransaction", writeFailure: "OutcomeUnknown" };

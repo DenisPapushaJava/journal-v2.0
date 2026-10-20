@@ -51,10 +51,32 @@ public sealed class ResultOutputTests
         var root = Assert.Single(html.Body!.Children);
         Assert.Equal("DIV", root.TagName);
         var lines = text.ReplaceLineEndings("\n").Split('\n');
-        var expected = lines.Take(lines.Length - (lines[^1].Length == 0 ? 1 : 0))
-            .Select(line => line.Replace("\t", " \u00a0 "));
+        var expected = lines.Take(text.Length == 0 ? 0 : lines.Length)
+            .Select((line, index) => line.Length == 0 && index == lines.Length - 1
+                ? "\u00a0" : line.Replace("\t", " \u00a0 "));
         Assert.Equal(expected, root.Children.Select(block => block.TextContent));
         Assert.All(root.Children, block => Assert.Equal("DIV", block.TagName));
+    }
+
+    [Theory]
+    [InlineData("Последняя строка\n")]
+    [InlineData("Последняя строка\n\n")]
+    [InlineData("Последняя строка\r\n\r\n")]
+    [InlineData("Последняя строка\n\n\n")]
+    public void HtmlKeepsTheLastBlankParagraphAsAnEditableCaretTargetWithoutChangingTextOrRtf(string text)
+    {
+        var content = ResultClipboardContent.FromText(text);
+        Assert.Equal(text, content.Text);
+        var lines = text.ReplaceLineEndings("\n").Split('\n');
+        var root = Assert.Single(new HtmlParser().ParseDocument(content.Html).Body!.Children);
+        Assert.Equal(lines.Length, root.Children.Length);
+        Assert.Equal("\u00a0", root.LastElementChild!.TextContent);
+        Assert.Equal("Последняя строка", root.FirstElementChild!.TextContent);
+        Assert.Equal(lines.Length - 1, Regex.Matches(content.Rtf, @"\\par ").Count);
+        Assert.DoesNotContain("\\u160", content.Rtf);
+        Assert.DoesNotContain('\u200b', content.Html);
+        Assert.DoesNotContain('\ufeff', content.Html);
+        Assert.Equal(content, ResultClipboardContent.FromText(content.Text));
     }
 
     [Fact]
@@ -75,7 +97,7 @@ public sealed class ResultOutputTests
     public void SingleLinePreservesLegacyFieldsSeparatorsAndWeight()
     {
         var text = OrderResultFormatter.Format([Order()]);
-        Assert.Equal("Лист 2,5x1250x2500,\t   Материал: Амг3,\t   2 шт.\t   Вес 38,5 кг.\t   Резка 1250 ₽.\t   резка Лазер\n", text);
+        Assert.Equal("Лист 2,5x1250x2500,\t   Материал: Амг3,\t   2 шт.\t   Вес 38,5 кг.\t   Резка 1250 ₽.\t   резка Лазер\n\n", text);
     }
 
     [Theory]
@@ -103,7 +125,7 @@ public sealed class ResultOutputTests
             SheetCount = "22", WeightKilograms = "2", StoredCuttingPrice = 4850, CuttingType = "HansLaser" };
         var text = OrderResultFormatter.Format([first, second]);
         Assert.Equal("Лист 2,5x1250x2500,\t   Материал:         Амг3,\t     1 шт.\t   Вес 38,5 кг.\t   Резка   500 ₽.\t   резка         Лазер\n" +
-            "Лист   16x1250x2500,\t   Материал: 5083H111,\t   22 шт.\t   Вес       2 кг.\t   Резка 4850 ₽.\t   резка HansLaser\n", text);
+            "Лист   16x1250x2500,\t   Материал: 5083H111,\t   22 шт.\t   Вес       2 кг.\t   Резка 4850 ₽.\t   резка HansLaser\n\n", text);
         var longMaterial = new string('М', 350) + "_неизвестная";
         Assert.Contains(longMaterial, OrderResultFormatter.Format([Order() with { MaterialName = longMaterial }, second]));
     }
@@ -127,7 +149,7 @@ public sealed class ResultOutputTests
         Assert.Equal("Лист 0,8x1000x2000,\t   Материал: Aisi-430,\t   253 шт.\t   Вес 4477,4 кг.\t   Резка 76012 ₽.\t   резка Лазер\n" +
             "Лист 1,5x1250x2500,\t   Материал:     оцинк.,\t       7 шт.\t   Вес   260,9 кг.\t   Резка   2941 ₽.\t   резка Лазер\n" +
             "Лист     3x1250x2500,\t   Материал:     оцинк.,\t       3 шт.\t   Вес   177,6 кг.\t   Резка   4385 ₽.\t   резка Лазер\n" +
-            "Лист   10x1500x6000,\t   Материал:           Cт3,\t       6 шт.\t   Вес 2554,6 кг.\t   Резка   7841 ₽.\t   резка Лазер\n",
+            "Лист   10x1500x6000,\t   Материал:           Cт3,\t       6 шт.\t   Вес 2554,6 кг.\t   Резка   7841 ₽.\t   резка Лазер\n\n",
             OrderResultFormatter.Format(orders));
         Assert.Equal(original, orders);
     }
@@ -182,7 +204,8 @@ public sealed class ResultOutputTests
         Assert.Equal(text, content.Text);
         Assert.Empty(html.QuerySelectorAll("script"));
         var rows = Assert.Single(html.Body!.Children).Children;
-        Assert.Equal(2, rows.Length);
+        Assert.Equal(3, rows.Length);
+        Assert.Equal("\u00a0", rows[2].TextContent);
         Assert.Equal("Примечание <script>alert('x')</script> & {правка} 😀", rows[0].TextContent);
         Assert.Empty(html.QuerySelectorAll("table,td,img"));
         Assert.Equal(text.Split('\n')[1].Replace("\t", " \u00a0 "), rows[1].TextContent);

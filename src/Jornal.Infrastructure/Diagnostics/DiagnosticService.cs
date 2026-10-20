@@ -19,7 +19,9 @@ public sealed class DiagnosticService : IDisposable
     private volatile AutomaticChoice _choice = new(true, 0);
     private readonly Channel<QueuedRecord> _records = Channel.CreateBounded<QueuedRecord>(new BoundedChannelOptions(64)
         { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
-    private readonly Queue<DiagnosticBreadcrumb> _recent = new();
+    private readonly LinkedList<DiagnosticBreadcrumb> _recent = new();
+    private readonly Dictionary<string, DateTimeOffset> _successfulReads = new(StringComparer.Ordinal);
+    internal TimeProvider ReadClock { get; }
     private readonly object _recentGate = new();
     private readonly object _gate = new();
     private readonly SemaphoreSlim _sendGate = new(1);
@@ -42,12 +44,12 @@ public sealed class DiagnosticService : IDisposable
     public DiagnosticStore Store => _store;
     public string SessionId => _session;
 
-    public DiagnosticService(DiagnosticStore store, HttpClient http, Uri? endpoint, string version)
+    public DiagnosticService(DiagnosticStore store, HttpClient http, Uri? endpoint, string version, TimeProvider? timeProvider = null)
     {
         if (endpoint is not null && (endpoint.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(endpoint.UserInfo) ||
             !string.IsNullOrEmpty(endpoint.Query) || !string.IsNullOrEmpty(endpoint.Fragment)))
             throw new ArgumentException("Нужен HTTPS-адрес приёмника без учётных данных.", nameof(endpoint));
-        _store = store; _http = http; _endpoint = endpoint; _version = version;
+        _store = store; _http = http; _endpoint = endpoint; _version = version; ReadClock = timeProvider ?? TimeProvider.System;
         _enabled = store.LoadAutomatic(); PreferencesSaved = !store.SettingsUnreadable;
         _choice = new(_enabled, 0);
         if (!_enabled) store.ClearQueue();
@@ -77,8 +79,38 @@ public sealed class DiagnosticService : IDisposable
     {
         lock (_recentGate)
         {
-            if (_recent.Count == 16) _recent.Dequeue();
-            _recent.Enqueue(new(operation, DateTimeOffset.UtcNow));
+            if (_recent.Count == 16) _recent.RemoveFirst();
+            _recent.AddLast(new DiagnosticBreadcrumb(operation, ReadClock.GetUtcNow()));
+        }
+    }
+    internal LinkedListNode<DiagnosticBreadcrumb>? StartRead(DiagnosticBreadcrumb entry)
+    {
+        lock (_recentGate)
+        {
+            if (_disposed) return null;
+            if (_recent.Count == 16) _recent.RemoveFirst();
+            return _recent.AddLast(entry);
+        }
+    }
+    internal DateTimeOffset? LastSuccessfulRead(string source)
+    { lock (_recentGate) return _successfulReads.TryGetValue(source, out var at) ? at : null; }
+    internal DiagnosticBreadcrumb[] ReadHistoryAtFailure(LinkedListNode<DiagnosticBreadcrumb>? entry, long duration)
+    {
+        lock (_recentGate)
+            return _recent.Select(item => entry?.List == _recent && ReferenceEquals(item, entry.Value)
+                ? item with { Outcome = DiagnosticReadOutcome.Failed, DurationMilliseconds = duration } : item).ToArray();
+    }
+    internal void FinishRead(LinkedListNode<DiagnosticBreadcrumb>? entry, string source, DiagnosticReadOutcome outcome, long duration, DateTimeOffset at)
+    {
+        lock (_recentGate)
+        {
+            if (_disposed) return;
+            if (entry?.List == _recent) entry.Value = entry.Value with { Outcome = outcome, DurationMilliseconds = duration };
+            // Ключи остаются только в памяти этого сеанса, не входят в отчёт и ограничены 16 источниками.
+            if (outcome != DiagnosticReadOutcome.Succeeded || source.Length > 4096) return;
+            if (!_successfulReads.ContainsKey(source) && _successfulReads.Count == 16)
+                _successfulReads.Remove(_successfulReads.MinBy(pair => pair.Value).Key);
+            _successfulReads[source] = at;
         }
     }
     private DiagnosticBreadcrumb[] Recent() { lock (_recentGate) return _recent.ToArray(); }
@@ -146,22 +178,11 @@ public sealed class DiagnosticService : IDisposable
                 timeout.CancelAfter(TimeSpan.FromSeconds(8));
                 try
                 {
-                    using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
-                    { Content = JsonContent.Create(item.Report, options: DiagnosticReport.Json) };
-                    request.Headers.UserAgent.ParseAdd("Journal-Diagnostics/1");
-                    using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-                    var accepted = false;
-                    if (response.IsSuccessStatusCode)
-                    {
-                        // Не читаем произвольно большой ответ сервера и не удаляем отчёт по одному HTTP 200.
-                        var bytes = await ReadLimitedAsync(response.Content, 4096, timeout.Token);
-                        var receipt = JsonSerializer.Deserialize<DiagnosticReceipt>(bytes, DiagnosticReport.Json);
-                        accepted = receipt is { Schema: 1, Accepted: true } && receipt.EventId == item.Report.EventId;
-                    }
+                    var response = await SendReportAsync(item.Report, timeout.Token);
                     lock (_gate)
                     {
                         if (!_enabled || _generation != generation) return;
-                        if (accepted)
+                        if (response.Accepted)
                         {
                             _store.Complete(item.Report.EventId); LastAcceptedUtc = DateTimeOffset.UtcNow;
                         }
@@ -170,7 +191,7 @@ public sealed class DiagnosticService : IDisposable
                         else
                         {
                             var now = DateTimeOffset.UtcNow;
-                            _store.Retry(item, now, response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date - now));
+                            _store.Retry(item, now, response.RetryAfter);
                             return; // При недоступности не перебираем всю очередь.
                         }
                     }
@@ -184,6 +205,30 @@ public sealed class DiagnosticService : IDisposable
         }
         catch (Exception) { }
         finally { if (acquired) _sendGate.Release(); }
+    }
+    private sealed record SendResult(HttpStatusCode StatusCode, bool Accepted, TimeSpan? RetryAfter);
+    private async Task<SendResult> SendReportAsync(DiagnosticReport original, CancellationToken token)
+    {
+        var report = original;
+        for (var attempt = 0; ; attempt++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
+            { Content = JsonContent.Create(report, options: DiagnosticReport.Json) };
+            request.Headers.UserAgent.ParseAdd("Journal-Diagnostics/1");
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+            // Старый приёмник отклоняет новые поля до записи Issue. Один повтор прежнего
+            // формата с тем же EventId, в пределах общего 8-секундного срока; локальный отчёт полон.
+            if (attempt == 0 && report.HasReadDetails && response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity)
+            { report = original.WithoutReadDetails(); continue; }
+            var accepted = false;
+            if (response.IsSuccessStatusCode)
+            {
+                var bytes = await ReadLimitedAsync(response.Content, 4096, token);
+                var receipt = JsonSerializer.Deserialize<DiagnosticReceipt>(bytes, DiagnosticReport.Json);
+                accepted = receipt is { Schema: 1, Accepted: true } && receipt.EventId == original.EventId;
+            }
+            return new(response.StatusCode, accepted, response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow));
+        }
     }
     private static async Task<byte[]> ReadLimitedAsync(HttpContent content, int maximum, CancellationToken token)
     {

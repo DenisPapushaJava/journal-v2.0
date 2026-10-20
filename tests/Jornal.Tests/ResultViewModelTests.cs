@@ -53,7 +53,7 @@ public sealed class ResultViewModelTests
         Assert.True(model.CanAddResult);
         model.AddOrdersToResult(rows.Concat(rows));
         var original = model.ResultText;
-        Assert.Equal(3, original.Count(character => character == '\n'));
+        Assert.Equal(4, original.Count(character => character == '\n'));
         model.AddOrdersToResult(rows);
         Assert.Equal(original, model.ResultText);
         await model.ReloadCommand.ExecuteAsync(null);

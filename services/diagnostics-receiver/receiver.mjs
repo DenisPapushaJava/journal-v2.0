@@ -17,13 +17,20 @@ const stageLabels = {
 };
 const operations = new Set(Object.keys(operationLabels));
 const stages = new Set(Object.keys(stageLabels));
+const readActions = { ReadOrders: "Загрузка списка заявок", ReadDay: "Загрузка выбранного дня", ReadOrder: "Чтение одной заявки",
+  ReadMachineCatalog: "Загрузка каталога станков", ReadPriceTable: "Чтение таблицы прайса" };
+const readOutcomes = { Started: "начато", Succeeded: "успешно", Failed: "ошибка", Cancelled: "отменено" };
+const pathKinds = { Unknown: "не установлен", UncPath: "сетевой путь UNC", DrivePath: "путь с буквой диска (тип диска неизвестен)",
+  AbsolutePath: "абсолютный путь", RelativePath: "относительный путь" };
+const duration = value => Number.isInteger(value) && value >= 0 && value <= 86400000;
 const symbol = /^(System\.|Jornal\.|Avalonia\.|Microsoft\.|AngleSharp\.|UglyToad\.PdfPig\.)[A-Za-z0-9_.+<>`]{1,230}$/;
 const id = /^[a-f0-9]{32}$/;
 const number = value => Number.isInteger(value) && value >= -2147483648 && value <= 2147483647;
 const keys = (value, expected, optional = "") => value && typeof value === "object" && !Array.isArray(value) &&
   expected.split(",").every(key => Object.hasOwn(value, key)) &&
   Object.keys(value).every(key => expected.split(",").includes(key) || optional.split(",").includes(key));
-const date = value => typeof value === "string" && value.length <= 40 && Number.isFinite(Date.parse(value));
+const date = value => typeof value === "string" && value.length <= 40 &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value));
 export const json = (status, value, extra = {}) => new Response(JSON.stringify(value), {
   status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...extra }
 });
@@ -47,7 +54,7 @@ export async function readReport(request) {
   validateReport(report); return report;
 }
 export function validateReport(r) {
-  if (!keys(r, "schema,eventId,sessionId,createdUtc,version,platform,osVersion,architecture,runtimeVersion,component,operation,severity,writeFailure,exceptions,recent", "buildCommit,buildDirty,stage") ||
+  if (!keys(r, "schema,eventId,sessionId,createdUtc,version,platform,osVersion,architecture,runtimeVersion,component,operation,severity,writeFailure,exceptions,recent", "buildCommit,buildDirty,stage,readContext") ||
       r.schema !== 1 || !id.test(r.eventId) || !id.test(r.sessionId) || !date(r.createdUtc) ||
       Date.parse(r.createdUtc) < Date.now() - 14 * 86400000 || Date.parse(r.createdUtc) > Date.now() + 86400000 ||
       typeof r.version !== "string" || !/^[a-zA-Z0-9.+-]{1,100}$/.test(r.version) ||
@@ -65,7 +72,18 @@ export function validateReport(r) {
         !number(item.hResult) || item.nativeCode !== null && !number(item.nativeCode) || !Array.isArray(item.frames) || item.frames.length > 12 ||
         item.frames.some(frame => typeof frame !== "string" || frame.length > 240 || !symbol.test(frame))) throw new Error("exception");
   }
-  for (const item of r.recent) if (!keys(item, "operation,at") || !operations.has(item.operation) || !date(item.at)) throw new Error("recent");
+  if (r.readContext != null && (!keys(r.readContext, "action,pathKind,durationMilliseconds", "lastSuccessfulReadUtc") ||
+      !Object.hasOwn(readActions, r.readContext.action) || !Object.hasOwn(pathKinds, r.readContext.pathKind) ||
+      !duration(r.readContext.durationMilliseconds) || r.readContext.lastSuccessfulReadUtc != null && !date(r.readContext.lastSuccessfulReadUtc)))
+    throw new Error("read-context");
+  for (const item of r.recent) {
+    if (!keys(item, "operation,at", "action,outcome,durationMilliseconds") || !operations.has(item.operation) || !date(item.at)) throw new Error("recent");
+    const action = Object.hasOwn(item, "action") ? item.action : "Unknown";
+    const outcome = Object.hasOwn(item, "outcome") ? item.outcome : "Unknown";
+    if (action === "Unknown" && outcome === "Unknown" && item.durationMilliseconds == null) continue;
+    if (!Object.hasOwn(readActions, action) || !Object.hasOwn(readOutcomes, outcome) ||
+        (outcome === "Started" ? item.durationMilliseconds != null : !duration(item.durationMilliseconds))) throw new Error("recent-details");
+  }
 }
 export async function hash(value) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -76,6 +94,23 @@ export async function fingerprint(r) {
 }
 const esc = value => String(value).replaceAll("`", "'").replace(/[<>]/g, "");
 const label = (labels, value) => `${labels[value]} (${value})`;
+function readContextText(context) {
+  if (context == null) return "";
+  return `Уточнение: ${label(readActions, context.action)}\nТип пути: ${pathKinds[context.pathKind]}\n` +
+    `Длительность чтения: ${context.durationMilliseconds} мс\nПоследнее успешное чтение этой БД в сеансе: ${context.lastSuccessfulReadUtc ?? "не зафиксировано"}\n`;
+}
+const systemErrors = { 2: "файл не найден", 3: "путь не найден", 5: "отказано в доступе", 32: "файл занят другой операцией",
+  33: "участок файла заблокирован", 53: "сетевой путь не найден", 64: "сетевое имя больше недоступно", 67: "сетевое имя не найдено" };
+function exceptionCodeText(item) {
+  const code = item.nativeCode ?? (item.hResult >>> 16 === 0x8007 ? item.hResult & 0xffff : null);
+  return `HResult ${item.hResult} (0x${(item.hResult >>> 0).toString(16).toUpperCase().padStart(8, "0")})` +
+    (code !== null ? ` · Системный код ${code}${Object.hasOwn(systemErrors, code) ? " — " + systemErrors[code] : ""}` : "");
+}
+function breadcrumbText(item) {
+  return `- ${item.at}: ${label(operationLabels, item.operation)}` +
+    (Object.hasOwn(readActions, item.action) ? ` · ${readActions[item.action]}: ${readOutcomes[item.outcome]}` +
+      (item.durationMilliseconds != null ? `, ${item.durationMilliseconds} мс` : "") : "");
+}
 function issueTitle(r, fp) {
   return `[Journal] ${operationLabels[r.operation]} · ${r.exceptions[0].type.split(".").at(-1).slice(0, 120)} [${fp.slice(0, 12)}]`;
 }
@@ -86,12 +121,12 @@ function issueBody(group, r, fp) {
     `Версии: ${group.versions.join(", ")}\nКомпонент: ${label({ Desktop: "Основное приложение", AccessHost: "Модуль MDB" }, r.component)}\nДействие: ${label(operationLabels, r.operation)}\nУровень: ${label({ Warning: "Предупреждение", Error: "Ошибка", Fatal: "Аварийное завершение" }, r.severity)}\n` +
     `Коммит последнего события: ${r.buildCommit ?? "неизвестен"}\n` +
     `Изменения после коммита: ${r.buildDirty === true ? "есть" : r.buildDirty === false ? "нет" : "неизвестно"}\nЭтап: ${label(stageLabels, r.stage ?? "Unknown")}\n` +
+    readContextText(r.readContext) +
     `Результат записи: ${r.writeFailure == null ? "—" : label({ NotSaved: "Не сохранено", Conflict: "Конфликт изменений", OutcomeUnknown: "Сохранение не подтверждено" }, r.writeFailure)}\nСреда: ${r.platform} ${r.osVersion}, ${r.architecture}, .NET ${r.runtimeVersion}\n` +
     `Последний код: JR-${r.eventId.slice(0, 8).toUpperCase()}\n\n` +
     (r.writeFailure === "OutcomeUnknown" ? "Изменения могли примениться. Перед повтором записи обновите список (F5) и проверьте заявку.\n\n" : "") +
-    r.exceptions.map(item => `**${esc(item.type)}** · HResult ${item.hResult}` +
-      (item.nativeCode !== null ? ` · NativeCode ${item.nativeCode}` : "") + `\n\n\`\`\`text\n${item.frames.map(esc).join("\n")}\n\`\`\``).join("\n\n") +
-    (r.recent.length ? "\n\nПоследние действия:\n" + r.recent.map(item => `- ${item.at}: ${label(operationLabels, item.operation)}`).join("\n") : "");
+    r.exceptions.map(item => `**${esc(item.type)}** · ${exceptionCodeText(item)}\n\n\`\`\`text\n${item.frames.map(esc).join("\n")}\n\`\`\``).join("\n\n") +
+    (r.recent.length ? "\n\nПоследние действия:\n" + r.recent.map(breadcrumbText).join("\n") : "");
 }
 class ReceiverFailure extends Error { constructor(code) { super("receiver"); this.code = code; } }
 

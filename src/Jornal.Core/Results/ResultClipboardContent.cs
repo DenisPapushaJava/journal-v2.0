@@ -21,14 +21,17 @@ public sealed record ResultClipboardContent(string Text, string Html, string Rtf
         var font = FontStyle(style);
         var html = new StringBuilder("<div style=\"").Append(font).Append("line-height:1.4;\">");
         var lines = text.ReplaceLineEndings("\n").Split('\n');
-        var count = lines.Length - (lines[^1].Length == 0 ? 1 : 0);
+        var count = text.Length == 0 ? 0 : lines.Length;
         for (var index = 0; index < count; index++)
         {
             html.Append("<div style=\"margin:0;\"><span style=\"").Append(font).Append("\">");
             // Короткий промежуток между полями; обычные пробелы позволяют перенос строк.
             // Исходные табуляции и выравнивание остаются в text/RTF без изменений.
             var encoded = WebUtility.HtmlEncode(lines[index].Replace("\t", " \u00a0 "));
-            html.Append(encoded.Length == 0 ? "<br>" : encoded);
+            if (encoded.Length > 0) html.Append(encoded);
+            // Mailspring удаляет завершающие пустые блоки. Обычный NBSP удерживает
+            // последнюю пустую строку и точку ввода; text/RTF не меняются.
+            else html.Append(index == count - 1 ? "&nbsp;" : "<br>");
             html.Append("</span></div>");
         }
         return html.Append("</div>").ToString();

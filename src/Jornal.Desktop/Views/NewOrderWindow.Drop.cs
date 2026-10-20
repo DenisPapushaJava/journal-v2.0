@@ -32,6 +32,8 @@ public partial class NewOrderWindow
     {
         if (FormDroppedFiles(e) is not { } paths) return;
         _fileDragGeneration++; e.Handled = true; e.DragEffects = DragDropEffects.None;
+        if (IsVisible && OwnedWindows.Count == 0 && _viewModel is { } model && model.CheckFileDrop(paths) is null)
+            Activate();
         await ImportSpecificationsAsync(paths);
     }
     public async Task ImportSpecificationsAsync(IReadOnlyList<string> paths)

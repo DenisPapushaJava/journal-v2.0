@@ -111,8 +111,10 @@ public sealed partial class MainWindowCustomization
                 model.RowHighlightStrength = profile.RowHighlightStrength ?? (profile.EnhancedRowContrast ? 100 : Tables.RowHighlightSettings.Default);
                 model.ShowTodayOnStartup = profile.ShowTodayOnStartup;
                 model.AutomaticJournalRefresh = profile.AutomaticJournalRefresh;
+                model.LockOrderDate = profile.LockOrderDate;
                 model.TrashRetentionDays = profile.TrashRetentionDays;
                 model.ApplyResultStyle(profile.ResultFormatting ?? new());
+                model.ResultRowOrder = profile.ResultRowOrder;
                 model.ApplyResultPricing(profile.ResultPricing ?? new());
                 model.ApplyNewOrderColor(profile.NewOrderColor ?? new());
             }
@@ -228,6 +230,8 @@ public sealed partial class MainWindowCustomization
         {
             _store.Save(new UiPreferences { DarkTheme = Model?.IsDarkTheme == true, RowHighlightStrength = Model?.RowHighlightStrength ?? Tables.RowHighlightSettings.Default, ShowTodayOnStartup = Model?.ShowTodayOnStartup ?? true,
                 AutomaticJournalRefresh = Model?.AutomaticJournalRefresh ?? true, TrashRetentionDays = Model?.TrashRetentionDays ?? 30,
+                LockOrderDate = Model?.LockOrderDate ?? true,
+                ResultRowOrder = Model?.ResultRowOrder ?? default,
                 Layout = layout with { CompactPanelsPresetApplied = true },
                 ResultFormatting = Model?.CaptureResultStyle() ?? new(), ResultPricing = Model?.CaptureResultPricing() ?? new(), NewOrderColor = Model?.CaptureNewOrderColor() ?? new(),
                 EntrySuggestions = Model?.CaptureEntrySuggestions() ?? new() });
