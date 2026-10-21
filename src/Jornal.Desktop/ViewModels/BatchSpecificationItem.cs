@@ -17,7 +17,7 @@ public sealed partial class BatchSpecificationItem : ObservableObject
         form.Annotations.PropertyChanged += AnnotationsChanged;
     }
     public string FileName { get; }
-    public string DisplayName => (_owner.BatchItems.IndexOf(this) + 1) + ". " + FileName;
+    public string PositionLabel => "№ " + (_owner.BatchItems.IndexOf(this) + 1);
     internal string? Path { get; }
     internal bool DuplicateCheckFailed { get; set; }
     internal CancellationToken ReadCancellation => _readCancellation.Token;
@@ -66,7 +66,7 @@ public sealed partial class BatchSpecificationItem : ObservableObject
         OnPropertyChanged(nameof(IsReady)); OnPropertyChanged(nameof(Status)); OnPropertyChanged(nameof(Details));
         _owner.NotifyBatchState();
     }
-    internal void NotifyOwnerState() { OnPropertyChanged(nameof(DisplayName)); OnPropertyChanged(nameof(CanEdit)); RemoveCommand.NotifyCanExecuteChanged(); }
+    internal void NotifyOwnerState() { OnPropertyChanged(nameof(PositionLabel)); OnPropertyChanged(nameof(CanEdit)); RemoveCommand.NotifyCanExecuteChanged(); }
     internal void CancelRead() { _readCancellation.Cancel(); Form.CalculatePriceCommand.Cancel(); }
     internal void Detach()
     {
