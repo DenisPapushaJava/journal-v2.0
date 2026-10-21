@@ -98,27 +98,26 @@ public sealed class DailyToolsWindowTests
     [AvaloniaTheory]
     [InlineData(false, "Менеджер")] [InlineData(true, "Менеджер")]
     [InlineData(false, "Заказчик")] [InlineData(true, "Заказчик")]
-    public async Task AutocompleteMatchesOnlyTheBeginningAndKeepsFreeInput(bool dark, string label)
+    public async Task EditableComboboxMatchesOnlyTheBeginningAndKeepsFreeInput(bool dark, string label)
     {
         var field = new OrderEntryField(label) { Suggestions = new[] { "Роман", "Руслан", "Пётр", "Артём", "Иван" } };
         var entry = new OrderEntryControl { DataContext = field };
         var window = new Window { Content = entry, Width = 640, Height = 120, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
         try
         {
-            window.Show(); Pump(); var autocomplete = entry.FindControl<AutoCompleteBox>("SuggestionsInput")!;
+            window.Show(); Pump(); var autocomplete = entry.FindControl<EntrySuggestionComboBox>("SuggestionsInput")!;
             Assert.True(autocomplete.IsVisible); Assert.False(entry.FindControl<TextBox>("Input")!.IsVisible);
-            Assert.False(autocomplete.IsTextCompletionEnabled);
-            IReadOnlyList<string> candidates = [];
-            autocomplete.Populated += (_, e) => candidates = e.Data.Cast<string>().ToArray();
+            Assert.True(autocomplete.IsEditable); Assert.False(autocomplete.IsTextSearchEnabled);
             var text = Assert.Single(autocomplete.GetVisualDescendants().OfType<TextBox>());
             entry.FocusInput(); Pump(); Assert.True(autocomplete.IsKeyboardFocusWithin);
             Assert.Equal(14, text.FontSize);
-            Assert.Equal(((ISolidColorBrush)Application.Current!.FindResource(window.ActualThemeVariant, "JournalInput")!).Color, ((ISolidColorBrush)text.Background!).Color);
+            var background = autocomplete.GetVisualDescendants().OfType<Border>().Single(control => control.Name == "Background");
+            Assert.Equal(((ISolidColorBrush)Application.Current!.FindResource(window.ActualThemeVariant, "JournalInput")!).Color, ((ISolidColorBrush)background.Background!).Color);
             text.Focus(); text.Text = "Р"; Pump(); await Task.Delay(30, TestContext.Current.CancellationToken); Pump();
             Assert.True(autocomplete.IsDropDownOpen);
-            Assert.Equal(new[] { "Роман", "Руслан" }, candidates); Assert.Equal("Р", field.Value);
+            Assert.Equal(new[] { "Роман", "Руслан" }, autocomplete.ItemsView.Cast<string>()); Assert.Equal("Р", field.Value);
             text.Text = "рО"; Pump(); await Task.Delay(30, TestContext.Current.CancellationToken); Pump();
-            Assert.Equal(new[] { "Роман" }, candidates); Assert.Equal("рО", field.Value);
+            Assert.Equal(new[] { "Роман" }, autocomplete.ItemsView.Cast<string>()); Assert.Equal("рО", field.Value);
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null); window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null); Pump();
             window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null); window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null); Pump();
             Assert.Equal("Роман", field.Value);
@@ -142,9 +141,9 @@ public sealed class DailyToolsWindowTests
         try
         {
             window.Show(); Pump();
-            var combo = entry.FindControl<ComboBox>("EditableSuggestionsInput")!;
+            var combo = entry.FindControl<EntrySuggestionComboBox>("EditableSuggestionsInput")!;
             Assert.True(combo.IsVisible); Assert.True(combo.IsEditable); Assert.Equal(initial, field.Value); Assert.Equal(initial, combo.Text);
-            Assert.False(entry.FindControl<AutoCompleteBox>("SuggestionsInput")!.IsVisible);
+            Assert.False(entry.FindControl<EntrySuggestionComboBox>("SuggestionsInput")!.IsVisible);
             Assert.True(field.NeedsReview); entry.FocusInput(); Pump(); Assert.True(combo.IsKeyboardFocusWithin);
             var text = combo.GetVisualDescendants().OfType<TextBox>().Single();
             text.Text = "Ст"; Pump(); Assert.Equal("Ст", field.Value); Assert.False(field.NeedsReview);
@@ -153,7 +152,8 @@ public sealed class DailyToolsWindowTests
             Assert.Equal(((ISolidColorBrush)Application.Current!.FindResource(window.ActualThemeVariant, "JournalAccent")!).Color, ((ISolidColorBrush)border.BorderBrush!).Color);
             window.MouseMove(text.TranslatePoint(new Point(20, text.Bounds.Height / 2), window)!.Value); Pump();
             Save(window, "material-focused-" + initial + "-" + dark);
-            Assert.Equal(new[] { "Ст3", "09Г2С", "Амг3" }, combo.Items.Cast<string>());
+            Assert.Equal(new[] { "Ст3" }, combo.ItemsView.Cast<string>());
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); Pump();
             Click(combo.GetVisualDescendants().OfType<PathIcon>().Single(icon => icon.Name == "DropDownGlyph")); Pump();
             Assert.True(combo.IsDropDownOpen); Assert.Equal("Ст", field.Value);
             var chosen = combo.ContainerFromIndex(2)!; Assert.NotNull(chosen);
@@ -161,6 +161,10 @@ public sealed class DailyToolsWindowTests
             Click(chosen); Pump(); Assert.False(combo.IsDropDownOpen); Assert.Equal("Амг3", field.Value);
             combo.Focus(); Pump();
             window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null); window.KeyRelease(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null); Pump();
+            Assert.Equal("Амг3", field.Value);
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null); window.KeyRelease(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null); Pump();
+            Assert.Equal("Амг3", field.Value);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null); window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null); Pump();
             Assert.Equal("09Г2С", field.Value);
             text.Text = "Своя_марка"; Pump(); Assert.Equal("Своя_марка", field.Value);
             field.Suggestions = new[] { "Ст3", "Aisi-304" }; Pump(); Assert.Equal("Своя_марка", field.Value);
