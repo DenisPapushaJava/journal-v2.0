@@ -7,6 +7,25 @@ namespace Jornal.Tests;
 public sealed class SchemaContentionTests
 {
     [Theory]
+    [InlineData(-67044352, "3045", true)]
+    [InlineData(-67044352, "3051", false)]
+    [InlineData(-67044352, "3031", false)]
+    [InlineData(-67044352, "HY000", false)]
+    [InlineData(-67044352, "40001", false)]
+    [InlineData(-67044352, " 3045", false)]
+    [InlineData(3045, "3045", true)]
+    [InlineData(3031, "3045", false)]
+    [InlineData(3045, "3031", false)]
+    public void RecognizesJetDaoCodeInSqlStateWithoutHidingPermanentErrors(int native, string state, bool busy)
+    {
+        var records = new[] { (native, (string?)state) };
+        Assert.Equal(busy, AccessSchemaContention.IsProviderLock(unchecked((int)0x80004005), records));
+        Assert.False(AccessSchemaContention.IsProviderLock(unchecked((int)0x80070005), records));
+        Assert.False(AccessSchemaContention.IsProviderLock(unchecked((int)0x80004005),
+            new[] { (-67044352, (string?)"3045"), (-1, (string?)"3031") }));
+    }
+
+    [Theory]
     [InlineData(3008)] [InlineData(3045)] [InlineData(3046)] [InlineData(3188)]
     [InlineData(3211)] [InlineData(3218)] [InlineData(3260)] [InlineData(3261)] [InlineData(3262)]
     public void RecognizesExplicitProviderLocks(int code) =>
