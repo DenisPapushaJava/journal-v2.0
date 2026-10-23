@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Data.OleDb;
 using Jornal.Core.Orders;
 using Jornal.Core.Pricing;
 using Jornal.Infrastructure.Access;
@@ -8,6 +9,18 @@ namespace Jornal.Access.Tests;
 
 public sealed partial class NativeAccessTests
 {
+    [Fact]
+    public void ExclusiveFileLockHasARecognizableProviderCode()
+    {
+        using var database = Database.Create();
+        using var holder = new FileStream(database.Path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        using var connection = database.Connection();
+        var error = Assert.Throws<OleDbException>(connection.Open);
+        Assert.True(AccessSchemaContention.IsBusy(error),
+            $"HResult=0x{error.HResult:X8}; provider records: " +
+            string.Join("; ", error.Errors.Cast<OleDbError>().Select(record => $"{record.NativeError}/{record.SQLState}")));
+    }
+
     [Fact]
     public async Task MachineLabelsPreparationIsRepeatableAndPreservesLegacySchemaAndBytesInBackup()
     {
