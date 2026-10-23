@@ -19,9 +19,9 @@ internal static class SharedSchemaPreparation
             }
             catch (Exception exception) when (busy(exception))
             {
-                // Другой компьютер мог закончить подготовку после нашей проверки.
-                try { if (ready()) return; }
-                catch (Exception check) when (busy(check)) { }
+                // После блокировки сначала даём другому клиенту закончить DDL.
+                // Следующая итерация проверит готовое; немедленный probe может
+                // попасть в ещё изменяемый каталог Jet и не даёт полезной паузы.
                 if (attempt >= 5) throw;
                 await delay(TimeSpan.FromMilliseconds(Math.Min(2000, 250 * (1 << attempt))), token).ConfigureAwait(false);
             }

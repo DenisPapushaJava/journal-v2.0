@@ -6,6 +6,25 @@ namespace Jornal.Tests;
 
 public sealed class SchemaContentionTests
 {
+    [Fact]
+    public async Task RechecksReadinessOnlyAfterTheLockBackoff()
+    {
+        var reads = 0; var writes = 0; var waited = false;
+        await SharedSchemaPreparation.EnsureAsync(
+            () =>
+            {
+                reads++;
+                if (reads == 1) return false;
+                Assert.True(waited, "Не читать каталог во время подготовки другим клиентом.");
+                return true;
+            },
+            () => { writes++; throw new IOException("Synthetic lock"); },
+            exception => exception is IOException, TestContext.Current.CancellationToken,
+            (_, _) => { waited = true; return Task.CompletedTask; });
+        Assert.Equal(2, reads);
+        Assert.Equal(1, writes);
+    }
+
     [Theory]
     [InlineData(-67044352, "3045", true)]
     [InlineData(-67044352, "3051", false)]
