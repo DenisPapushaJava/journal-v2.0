@@ -28,7 +28,8 @@ public sealed class OrderSearchQuery
             CultureInfo.InvariantCulture, out var thickness) ? (decimal?)thickness : null)).ToArray();
     }
 
-    public bool Matches(OrderSummary order)
+    public bool Matches(OrderSummary order) => Matches(order, null);
+    public bool Matches(OrderSummary order, string? machineName)
     {
         if (IsExactMatch && Text.Length > 0)
             return string.Equals(FieldValue(order)?.Trim(), Text, StringComparison.OrdinalIgnoreCase);
@@ -38,7 +39,7 @@ public sealed class OrderSearchQuery
             var matches = Field != OrderSearchField.All ? Contains(FieldValue(order)) :
                     Contains(order.SpecificationNumber) || Contains(order.DeliveryNumber) || Contains(order.CustomerName)
                     || Contains(order.ManagerName) || Contains(order.MaterialName) || Contains(order.CuttingType)
-                    || Contains(order.Comment) || term.Thickness is { } value && order.ThicknessMillimeters == value;
+                    || Contains(order.Comment) || Contains(machineName) || term.Thickness is { } value && order.ThicknessMillimeters == value;
             if (!matches) return false;
         }
         return true;

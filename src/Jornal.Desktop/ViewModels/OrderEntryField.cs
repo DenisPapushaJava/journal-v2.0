@@ -9,6 +9,16 @@ public partial class OrderEntryField(string label, string value = "",
     IReadOnlyList<string>? choices = null) : ObservableObject
 {
     public string Label { get; } = label;
+    private IReadOnlyDictionary<string, string> _choiceNames = new Dictionary<string, string>();
+    public Avalonia.Controls.Templates.IDataTemplate? ChoiceTemplate { get; private set; }
+    internal void SetChoiceNames(IReadOnlyDictionary<string, string> names)
+    {
+        _choiceNames = names;
+        ChoiceTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<string>((value, _) =>
+            new Avalonia.Controls.TextBlock { Text = ChoiceName(value), TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis });
+        OnPropertyChanged(nameof(ChoiceTemplate)); OnPropertyChanged(nameof(InputHint));
+    }
+    internal string ChoiceName(string? value) => value is null ? "" : _choiceNames.GetValueOrDefault(value) ?? value;
     [ObservableProperty] private bool _isInputEnabled = true;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasChoices)), NotifyPropertyChangedFor(nameof(HasSuggestions)), NotifyPropertyChangedFor(nameof(HasEditableSuggestions)), NotifyPropertyChangedFor(nameof(EditableSuggestions)), NotifyPropertyChangedFor(nameof(HasPlainInput)), NotifyPropertyChangedFor(nameof(SelectedChoice)), NotifyPropertyChangedFor(nameof(UnlistedChoice))] private IReadOnlyList<string>? _choices = choices;
     public bool HasChoices => Choices is not null;

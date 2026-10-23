@@ -13,7 +13,7 @@ public partial class MachineImportWindow : Window
     public MachineImportWindow() => InitializeComponent();
     protected override void OnOpened(EventArgs e)
     {
-        base.OnOpened(e); WindowSizing.FitToWorkingArea(this); MachineImportProfileInput.Focus();
+        base.OnOpened(e); WindowSizing.FitToWorkingArea(this); MachineDisplayNameInput.Focus();
         if (Model is { } model) model.Saved += OnSaved;
     }
     protected override void OnClosing(WindowClosingEventArgs e)

@@ -39,7 +39,7 @@
                IsEnabled="{Binding CanNavigate}" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Вид резки">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="pricing:PriceGroup">
-            <TextBlock Text="{Binding Name}" Margin="4,6" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+            <TextBlock Text="{Binding DisplayName}" Margin="4,6" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DisplayName}" />
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
@@ -56,7 +56,7 @@
           </ComboBox.ItemTemplate>
         </ComboBox>
         <TextBlock Text="{Binding Usage}" IsVisible="{Binding !HasProfiles}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Usage}" />
-        <ui:JournalButton Grid.Column="2" x:Name="EditMachineImportButton" Label="Импорт спецификаций" Icon="settings-2" IsVisible="{Binding IsCustomMachine}" IsEnabled="{Binding CanEditMachineImport}" Click="OnMachineImportClick" />
+        <ui:JournalButton Grid.Column="2" x:Name="EditMachineImportButton" Label="Настроить станок…" Icon="settings-2" IsVisible="{Binding ShowMachineSettings}" IsEnabled="{Binding CanEditMachineImport}" Click="OnMachineImportClick" />
         <ui:JournalButton Grid.Column="4" x:Name="RefreshPricesButton" Label="Обновить" Icon="refresh-cw" Command="{Binding RefreshCommand}" ToolTip.Tip="Обновить прайс · F5" />
       </Grid>
       <StackPanel Grid.Row="1" Margin="0,0,0,12" Spacing="4">

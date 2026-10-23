@@ -28,6 +28,7 @@ public sealed partial class DemoOrderStore
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!_machines.OrderBy(machine => machine.TableName).SequenceEqual(snapshot.ExpectedMachines.OrderBy(machine => machine.TableName))) throw MachineCreation.Conflict();
+            MachineSettings.Validate(MachineSettings.Build(_machines.Append(snapshot.Machine), _machineLabels));
             _prices.Add(snapshot.Machine.TableName, new(snapshot.Machine.TableName, true, snapshot.Rates));
             _machines.Add(snapshot.Machine); return Task.FromResult(snapshot.Machine);
         }

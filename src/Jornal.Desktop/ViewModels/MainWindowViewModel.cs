@@ -113,7 +113,6 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
     public void AcceptCreatedOrder(OrderSummary order) => AcceptCreatedOrders([order]);
     public void AcceptCreatedOrders(IReadOnlyList<OrderSummary> orders)
     {
-        var order = orders[0];
         _pendingCreationForm = null;
         try
         {
@@ -127,12 +126,19 @@ public partial class MainWindowViewModel(IOrderReader orderReader, IManualOrderC
         }
         catch (Exception exception)
         {
-            AppDiagnostics.Capture(DiagnosticOperation.OrderRead, exception);
-            RequiresReload = true;
-            ErrorMessage = orders.Count > 1
-                ? $"Пакет из {orders.Count} заявок сохранён, но не удалось обновить экран. Обновите список (F5); повторно добавлять пакет не нужно."
-                : $"Заявка сохранена, код {order.Id}, но не удалось обновить экран. Обновите список (F5); повторно добавлять её не нужно.";
+            ReportCreatedOrdersDisplayFailure(orders, exception);
         }
+    }
+
+    internal void ReportCreatedOrdersDisplayFailure(IReadOnlyList<OrderSummary> orders, Exception exception)
+    {
+        // Это сбой показа подтверждённой записи, а не ошибка чтения MDB или ввода.
+        AppDiagnostics.Capture(DiagnosticOperation.Unexpected,
+            new InvalidOperationException("Не удалось показать сохранённые заявки.", exception));
+        RequiresReload = true;
+        ErrorMessage = orders.Count > 1
+            ? $"Пакет из {orders.Count} заявок сохранён, но не удалось обновить экран. Обновите список (F5); повторно добавлять пакет не нужно."
+            : $"Заявка сохранена, код {orders[0].Id}, но не удалось обновить экран. Обновите список (F5); повторно добавлять её не нужно.";
     }
     partial void OnFilterDateChanged(DateTime? value)
     {

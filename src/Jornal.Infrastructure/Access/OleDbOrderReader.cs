@@ -55,12 +55,22 @@ public static class OleDbOrderReader
             try
             {
                 var annotations = OleDbOrderAnnotations.ReadAll(connection, date: date);
-                return rows.Select(row => row with { Annotations = annotations.GetValueOrDefault(row.Id) }).ToArray();
+                rows = rows.Select(row => row with { Annotations = annotations.GetValueOrDefault(row.Id) }).ToArray();
             }
             catch (Exception exception) when (exception is OleDbException or OrderReadException or InvalidOperationException)
             {
                 AppDiagnostics.Capture(DiagnosticOperation.OrderRead, exception);
-                return rows.Select(row => row with { AnnotationsUnavailable = true }).ToArray();
+                rows = rows.Select(row => row with { AnnotationsUnavailable = true }).ToArray();
+            }
+            try
+            {
+                var operations = OleDbOrderOperations.ReadAll(connection, date: date);
+                return rows.Select(row => row with { Operations = operations.GetValueOrDefault(row.Id) }).ToArray();
+            }
+            catch (Exception exception) when (exception is OleDbException or OrderReadException or InvalidOperationException)
+            {
+                AppDiagnostics.Capture(DiagnosticOperation.OrderRead, exception);
+                return rows.Select(row => row with { OperationsUnavailable = true }).ToArray();
             }
         }
         catch (Exception exception) when (exception is OleDbException or InvalidOperationException)

@@ -24,6 +24,7 @@ public sealed record ManualOrderDraft(
     public CuttingMachine? Machine { get; init; }
     public long? CuttingDurationMinutes { get; init; }
     public bool HasBending { get; init; }
+    public bool HasChamfer { get; init; }
     public string Comment { get; init; } = "";
     public int InitialColor { get; init; } = OrderColors.None;
     public int? PartCount { get; init; }
@@ -69,7 +70,7 @@ public sealed record ManualOrderDraft(
         StoredOrderDateTime = OrderDate.ToDateTime(TimeOnly.MinValue), StoredCoefficient = StoredCoefficient
         };
         return row with { CuttingTime = CuttingDurationMinutes is { } minutes ? OrderCuttingTime.For(row, minutes) : null,
-            Annotations = OrderAnnotations.For(row, HasBending, Comment) };
+            Annotations = OrderAnnotations.For(row, HasBending, Comment), Operations = OrderOperations.For(row, HasChamfer) };
     }
 }
 

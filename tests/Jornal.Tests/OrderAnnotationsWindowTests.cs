@@ -31,11 +31,15 @@ public sealed class OrderAnnotationsWindowTests
             newWindow.Show(); Dispatcher.UIThread.RunJobs();
             var bending = newWindow.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "HasBendingCheckBox" && c.IsEffectivelyVisible);
             var comment = newWindow.GetVisualDescendants().OfType<TextBox>().Single(c => c.Name == "OrderCommentInput" && c.IsEffectivelyVisible);
+            var chamfer = newWindow.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "HasChamferCheckBox" && c.IsEffectivelyVisible);
+            chamfer.IsChecked = true;
             bending.IsChecked = true; comment.Text = "По чертежу №2\nНужна проверка";
             Dispatcher.UIThread.RunJobs();
             Assert.True(form.Annotations.HasBending); Assert.Equal(comment.Text, form.Annotations.Comment);
             Assert.Equal(255, comment.MaxLength);
-            AssertInside(newWindow, bending); AssertInside(newWindow, comment);
+            AssertInside(newWindow, bending); AssertInside(newWindow, chamfer); AssertInside(newWindow, comment);
+            Assert.True(form.Annotations.HasChamfer);
+            Assert.Equal(bending.TranslatePoint(default, newWindow)!.Value.Y, chamfer.TranslatePoint(default, newWindow)!.Value.Y);
             AssertBendingPosition(newWindow, bending, comment);
             var scroll = newWindow.FindControl<ScrollViewer>("FormScroll")!;
             Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 1);
@@ -51,7 +55,7 @@ public sealed class OrderAnnotationsWindowTests
         finally { newWindow.Close(); }
 
         var record = OrderMaintenanceTests.Record();
-        record = record with { Annotations = OrderAnnotations.For(record.ToSummary(), true, "По чертежу №2") };
+        record = record with { Annotations = OrderAnnotations.For(record.ToSummary(), true, "По чертежу №2"), Operations = OrderOperations.For(record.ToSummary(), true) };
         var edit = new EditOrderViewModel(record, store.Maintenance, "synthetic", _ => Task.FromResult<OrderRecord?>(record));
         var editWindow = new EditOrderWindow { DataContext = edit, Width = 1060, Height = 600,
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
@@ -59,8 +63,10 @@ public sealed class OrderAnnotationsWindowTests
         {
             editWindow.Show(); Dispatcher.UIThread.RunJobs();
             var bending = editWindow.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "HasBendingCheckBox");
+            var chamfer = editWindow.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "HasChamferCheckBox");
+            Assert.True(chamfer.IsChecked); chamfer.IsChecked = false;
             Assert.True(bending.IsChecked); bending.IsChecked = false;
-            Dispatcher.UIThread.RunJobs(); Assert.Contains(edit.Changes, c => c.Label == "Гибка");
+            Dispatcher.UIThread.RunJobs(); Assert.Contains(edit.Changes, c => c.Label == "Гибка"); Assert.Contains(edit.Changes, c => c.Label == "Фаска");
             var comment = editWindow.GetVisualDescendants().OfType<TextBox>().Single(c => c.Name == "OrderCommentInput");
             AssertInside(editWindow, comment);
             AssertBendingPosition(editWindow, bending, comment);
@@ -81,6 +87,7 @@ public sealed class OrderAnnotationsWindowTests
             main.Show(); Dispatcher.UIThread.RunJobs();
             var grid = main.FindControl<DataGrid>("OrdersGrid")!;
             var bending = grid.Columns.Single(c => Equals(c.Header, "Гибка"));
+            var chamfer = grid.Columns.Single(c => Equals(c.Header, "Фаска")); Assert.True(chamfer.IsReadOnly);
             var comment = grid.Columns.Single(c => Equals(c.Header, "Комментарий"));
             Assert.True(grid.IsReadOnly); Assert.True(bending.IsReadOnly); Assert.True(comment.IsReadOnly);
             grid.ScrollIntoView(model.Orders[0], bending); Dispatcher.UIThread.RunJobs();
@@ -94,6 +101,7 @@ public sealed class OrderAnnotationsWindowTests
         finally { main.Close(); }
         Assert.False(preferences.Value!.Layout.Columns.Single(c => c.Id == "bending").Visible);
         Assert.Contains(preferences.Value.Layout.Columns, c => c.Id == "comment");
+        Assert.Contains(preferences.Value.Layout.Columns, c => c.Id == "chamfer");
     }
 
     private static void AssertInside(Window window, Control control)

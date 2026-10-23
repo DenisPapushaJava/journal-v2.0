@@ -26,6 +26,7 @@ public sealed partial class LocalJournalStore : IMachineCatalogReader, IMachineC
         {
             if (!(book.Machines ?? []).OrderBy(machine => machine.TableName, StringComparer.Ordinal)
                     .SequenceEqual(snapshot.ExpectedMachines.OrderBy(machine => machine.TableName, StringComparer.Ordinal))) throw MachineCreation.Conflict();
+            MachineSettings.Validate(MachineSettings.Build((book.Machines ?? []).Append(snapshot.Machine), book.MachineLabels));
             return (book with { Machines = [.. book.Machines ?? [], snapshot.Machine],
                 Prices = [.. book.Prices, new(snapshot.Machine.TableName, true, snapshot.Rates)] }, snapshot.Machine);
         }, cancellationToken);

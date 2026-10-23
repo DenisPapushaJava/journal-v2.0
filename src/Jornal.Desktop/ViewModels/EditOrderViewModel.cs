@@ -144,10 +144,13 @@ public partial class EditOrderViewModel : ObservableObject
         var changes = Fields.Where(field => field.Value != _initial[field])
             .Select(field => new OrderFieldChange(field.Label, Display(_initial[field]), Display(field.Value))).ToList();
         if (Annotations.HasBending != (_expected.Annotations?.HasBending ?? false)) changes.Add(new("Гибка", _expected.Annotations?.HasBending == true ? "Да" : "Нет", Annotations.HasBending ? "Да" : "Нет"));
+        if (Annotations.HasChamfer != (_expected.Operations?.HasChamfer ?? false)) changes.Add(new("Фаска", _expected.Operations?.HasChamfer == true ? "Да" : "Нет", Annotations.HasChamfer ? "Да" : "Нет"));
         if (Annotations.Comment != (_expected.Annotations?.Comment ?? "")) changes.Add(new("Комментарий", Display(_expected.Annotations?.Comment), Display(Annotations.Comment)));
         if (_expected.Annotations is { } annotations && !annotations.Matches(_expected.ToSummary()) && !Annotations.NeedsReview &&
             (Annotations.HasBending || Annotations.HasComment))
             changes.Add(new("Гибка и комментарий", "Требуют проверки", "Подтверждены"));
+        if (_expected.Operations is { } operations && !operations.Matches(_expected.ToSummary()) && !Annotations.NeedsReview && Annotations.HasChamfer)
+            changes.Add(new("Фаска", "Требует проверки", "Подтверждена"));
         if (_quote is { } quote && quote.StoredPrice != _expected.Price)
             changes.Add(new("Стоимость", StoredPriceText, PriceText));
         AddImportedCountChanges(changes); Changes = changes;
@@ -221,7 +224,7 @@ public partial class EditOrderViewModel : ObservableObject
         if (!CuttingDuration.TryParse(CuttingTime.Value, out var minutes))
         { CuttingTime.Error = CuttingDuration.ValidationMessage; throw new ArgumentException(CuttingTime.Error); }
         if (_timeEdited) values = values with { CuttingTime = minutes is { } time ? OrderCuttingTime.For(values.ToSummary(), time) : null };
-        values = values with { Annotations = Annotations.Build(values.ToSummary()) };
+        values = values with { Annotations = Annotations.Build(values.ToSummary()), Operations = Annotations.BuildOperations(values.ToSummary()) };
         var change = new OrderEditChange(_expected, values, _quote) { Machine = SelectedMachine }; change.Validate(); return change;
     }
 
@@ -308,6 +311,7 @@ public partial class EditOrderViewModel : ObservableObject
             if (current.Annotations?.HasBending != _expected.Annotations?.HasBending) differences.Add($"Гибка: {(_expected.Annotations?.HasBending == true ? "Да" : "Нет")} → {(current.Annotations?.HasBending == true ? "Да" : "Нет")}");
             if (current.Annotations?.Comment != _expected.Annotations?.Comment) differences.Add($"Комментарий: {Display(_expected.Annotations?.Comment)} → {Display(current.Annotations?.Comment)}");
         }
+        if (current.Operations != _expected.Operations) differences.Add($"Фаска: {(_expected.Operations?.HasChamfer == true ? "Да" : "Нет")} → {(current.Operations?.HasChamfer == true ? "Да" : "Нет")}");
         Comparison = differences.Count > 0 ? string.Join("\n\n", differences) : "Обновлены другие данные заявки";
         Error = "Заявка изменена другим пользователем. Проверьте различия.";
     }
@@ -326,9 +330,11 @@ public partial class EditOrderViewModel : ObservableObject
         if (_current is null || IsBusy || HasPendingImport) return;
         var edits = Fields.Where(field => field.Value != _initial[field] || ImportPreview is not null && ImportFields.Values.Contains(field)).ToDictionary(field => field, field => field.Value);
         var bendingEdited = Annotations.HasBending != (_expected.Annotations?.HasBending ?? false); var bending = Annotations.HasBending;
+        var chamferEdited = Annotations.HasChamfer != (_expected.Operations?.HasChamfer ?? false); var chamfer = Annotations.HasChamfer;
         var commentEdited = Annotations.Comment != (_expected.Annotations?.Comment ?? ""); var comment = Annotations.Comment;
         _expected = _current; Populate(_current);
         if (bendingEdited) Annotations.HasBending = bending;
+        if (chamferEdited) Annotations.HasChamfer = chamfer;
         if (commentEdited) Annotations.Comment = comment;
         foreach (var (field, value) in edits) field.Value = value;
         if (ImportPreview is not null) _timeEdited = true;

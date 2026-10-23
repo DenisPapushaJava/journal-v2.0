@@ -47,7 +47,9 @@ public sealed class OrderAnnotationsTests
         Assert.True(text.IndexOf("3 мм", StringComparison.Ordinal) < text.IndexOf("10 мм", StringComparison.Ordinal));
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, "ГИБКА"));
         Assert.DoesNotContain("КОММЕНТАРИЙ", text);
-        Assert.Equal(OrderResultFormatter.Format([thin with { Annotations = null }]), OrderResultFormatter.Format([thin]));
+        var letter = OrderResultFormatter.Format([thin]);
+        Assert.Equal(OrderResultFormatter.Format([thin with { Annotations = null }]).TrimEnd('\n') + "   ГИБКА\n", letter);
+        Assert.DoesNotContain("КОММЕНТАРИЙ", letter);
         Assert.Equal(OrderCommentFormatter.Row(thin with { Annotations = null }), OrderCommentFormatter.Row(thin));
         Assert.Throws<ArgumentException>(() => OrderCommentFormatter.Telegram([thin with { AnnotationsUnavailable = true }]));
         var stale = thin with { SpecificationNumber = "новая" };

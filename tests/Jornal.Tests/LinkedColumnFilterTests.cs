@@ -12,13 +12,13 @@ public sealed class LinkedColumnFilterTests
         OrderSummary Row(int id, string manager, string customer, string machine, string material, decimal? thickness, int? color, bool bending = false)
         {
             var row = new OrderSummary(id, Date, $"1018-{id}", manager, customer, machine, material, thickness, 100, color);
-            return row with { Annotations = OrderAnnotations.For(row, bending, "") };
+            return row with { Annotations = OrderAnnotations.For(row, bending, ""), Operations = OrderOperations.For(row, bending) };
         }
         return [Row(1, "Анна", "Альфа", "Лазер", "Ст3", 2, OrderColors.Work, true),
             Row(2, "Борис", "Альфа", "Лазер", "Ст3", 10, OrderColors.Ready),
             Row(3, "Анна", "Бета", "Плазма", "09Г2С", 20, OrderColors.Shipped),
             Row(4, "Борис", "Бета", "ГАР", "5083H111", 3, -25089, true),
-            Row(5, "", "", "", "", null, null) with { AnnotationsUnavailable = true },
+            Row(5, "", "", "", "", null, null) with { AnnotationsUnavailable = true, OperationsUnavailable = true },
             Row(6, "Анна", "Альфа", "Лазер", "Ст3", 0.8m, null) with { OrderDate = Date.AddDays(-1) }];
     }
     internal sealed class Reader : IOrderReader

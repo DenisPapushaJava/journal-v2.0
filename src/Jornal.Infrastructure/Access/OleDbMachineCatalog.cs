@@ -80,6 +80,7 @@ public sealed partial class OleDbMachineCatalog(string path) : IMachineCatalogRe
             token.ThrowIfCancellationRequested(); DiagnosticStages.Run(DiagnosticStage.OpenDatabase, connection.Open);
             catalogExisted = Exists(connection, CuttingMachine.CatalogTable); before = Read(connection, null, token);
             if (!Same(before, creation.ExpectedMachines) || Exists(connection, creation.Machine.TableName)) throw MachineCreation.Conflict();
+            MachineSettings.Validate(MachineSettings.Build(before.Append(creation.Machine), OleDbMachineSettings.Labels(connection)));
             transaction = DiagnosticStages.Run(DiagnosticStage.BeginTransaction, () => connection.BeginTransaction(IsolationLevel.ReadCommitted));
             void Execute(string sql)
             {

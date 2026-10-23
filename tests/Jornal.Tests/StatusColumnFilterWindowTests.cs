@@ -105,7 +105,7 @@ public sealed class StatusColumnFilterWindowTests
             Assert.False(model.HasStatusFilter); Assert.Equal(7, model.Orders.Count); Assert.Equal("Технолог", model.SearchText);
             Assert.NotNull(model.FilterDate); Assert.True(model.UseTechnologistColor); Assert.Equal(StatusColumnFilterTests.PersonalColor, model.TechnologistColorArgb);
             Assert.DoesNotContain(window.FindControl<AppliedFilterStrip>("ActiveColumnFilters")!.Filters!, filter => filter.Source == model); Assert.Empty(grid.SelectedItems);
-            Assert.Equal(18, grid.Columns.Count);
+            Assert.Equal(19, grid.Columns.Count);
         }
         finally { window.Close(); Pump(); }
     }

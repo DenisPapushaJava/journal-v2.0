@@ -23,6 +23,7 @@ public partial class TrashViewModel(OrderTrashService service, string sourceDesc
     Action<IReadOnlyList<TrashEntry>>? entriesChanged = null) : ObservableObject
 {
     public string SourceDescription { get; } = sourceDescription;
+    public string RetentionDescription => $"Новые копии хранятся на этом компьютере {service.RetentionPeriodDays} дней.";
     public ObservableCollection<TrashItem> Items { get; } = [];
     public AccessHostHelpViewModel AccessHostHelp { get; } = new();
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanAct)), NotifyPropertyChangedFor(nameof(SelectedDetails))] private TrashItem? _selected;

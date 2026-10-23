@@ -109,7 +109,7 @@ public partial class MainWindowViewModel
         var rows = new List<OrderRowViewModel>();
         foreach (var order in _allOrders.Where(MatchesCurrentFilters))
         {
-            if (!_rowCache.TryGetValue(order.Id, out var row)) _rowCache[order.Id] = row = new(order);
+            if (!_rowCache.TryGetValue(order.Id, out var row)) _rowCache[order.Id] = row = new(order, MachineNameFormatter);
             else if (!ReferenceEquals(row.Source, order)) row.Update(order);
             rows.Add(row);
         }

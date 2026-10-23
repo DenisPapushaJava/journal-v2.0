@@ -39,7 +39,7 @@ public sealed class TableViewportTests
         try
         {
             window.Show(); Pump(); var grid = window.FindControl<DataGrid>("OrdersGrid")!;
-            Assert.Equal(18, grid.Columns.Count); Assert.All(grid.Columns, column => Assert.True(column.IsVisible)); AssertFilled(grid);
+            Assert.Equal(19, grid.Columns.Count); Assert.All(grid.Columns, column => Assert.True(column.IsVisible)); AssertFilled(grid);
             Assert.Null(window.FindControl<JournalButton>("FitTableToViewportButton"));
             foreach (var column in grid.Columns.Skip(1))
             {
@@ -154,7 +154,7 @@ public sealed class TableViewportTests
             try
             {
                 AssertFilled(restored);
-                Assert.Equal(18, restored.Columns.Count);
+                Assert.Equal(19, restored.Columns.Count);
             }
             finally { reopened.Close(); Pump(); }
         }

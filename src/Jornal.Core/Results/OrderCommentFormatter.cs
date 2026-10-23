@@ -13,12 +13,12 @@ public static class OrderCommentFormatter
         return $"({Thickness(order)} мм)  {Line(order.SpecificationNumber)},  {Line(order.ManagerName)},  ({Line(order.CustomerName)}),  {Line(order.DeliveryNumber)}";
     }
 
-    public static string Telegram(IReadOnlyList<OrderSummary> orders)
+    public static string Telegram(IReadOnlyList<OrderSummary> orders, Func<string, string>? machineName = null)
     {
         if (orders.Count == 0) throw new ArgumentException("Выберите заявки.");
         RequireSameDeliveryNumber(orders);
-        if (orders.Any(order => order.AnnotationsUnavailable || order.AnnotationsNeedReview))
-            throw new ArgumentException("Не удалось проверить пометки выбранных заявок. Проверьте гибку в редакторе или обновите список (F5).");
+        if (orders.Any(order => order.AnnotationsUnavailable || order.AnnotationsNeedReview || order.OperationsUnavailable || order.OperationsNeedReview))
+            throw new ArgumentException("Не удалось проверить пометки выбранных заявок. Проверьте гибку и фаску в редакторе или обновите список (F5).");
         var groups = orders.GroupBy(order => (Number: Line(order.DeliveryNumber), Manager: Line(order.ManagerName), Customer: Line(order.CustomerName))).ToArray();
         var result = new StringBuilder();
         foreach (var group in groups)
@@ -34,9 +34,10 @@ public static class OrderCommentFormatter
                     .ThenBy(order => order.ThicknessMillimeters)
                     .ThenBy(order => Line(order.MaterialName), StringComparer.OrdinalIgnoreCase)
                     .ThenBy(order => order.Id))
-                    result.Append(Thickness(order)).Append(" мм ").Append(Line(order.MaterialName)).Append(order.HasBending ? " ГИБКА" : "").Append("  \n");
+                    result.Append(Thickness(order)).Append(" мм ").Append(Line(order.MaterialName)).Append(order.HasBending ? " ГИБКА" : "").Append(order.HasChamfer ? order.HasBending ? ", ФАСКА" : " ФАСКА" : "").Append("  \n");
                 result.Length--; // Прежний формат: подпись станка после последней строки группы.
-                var caption = machine.Key switch { "Плазма" => "Плазму", "Газо-кислородная" => "Кристалл резка газом", _ => machine.Key.Length > 0 ? machine.Key : "Станок не указан" };
+                var displayName = machineName?.Invoke(machine.Key) ?? machine.Key;
+                var caption = displayName != machine.Key ? Line(displayName) : machine.Key switch { "Плазма" => "Плазму", "Газо-кислородная" => "Кристалл резка газом", _ => machine.Key.Length > 0 ? machine.Key : "Станок не указан" };
                 result.Append(" на ").Append(caption);
                 if (machine.Key != "Газо-кислородная") result.Append("\n\n");
             }

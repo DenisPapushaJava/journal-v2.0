@@ -6,7 +6,7 @@ using Jornal.Core.Orders;
 
 namespace Jornal.Desktop.ViewModels;
 
-public enum OrderFilterColumn { Manager, CuttingType, Material, Thickness, Bending }
+public enum OrderFilterColumn { Manager, CuttingType, Material, Thickness, Bending, Chamfer }
 public sealed record ColumnFilterChoices(IReadOnlyList<ColumnFilterOption> Options, int TotalValueCount);
 
 public sealed partial class ColumnFilterOption(string key, string label, int count) : ObservableObject
@@ -85,7 +85,7 @@ public sealed partial class ColumnFilterEditorViewModel : ObservableObject
 
 public sealed partial class OrderColumnFilterViewModel(OrderFilterColumn column,
     Func<OrderFilterColumn, ColumnFilterChoices> optionsFactory,
-    Func<bool> canUse, Action changed, Action? beginEdit = null) : ObservableObject
+    Func<bool> canUse, Action changed, Action? beginEdit = null, Func<string, string>? displayName = null) : ObservableObject
 {
     private static readonly CultureInfo Russian = CultureInfo.GetCultureInfo("ru-RU");
     private const string DecimalFormat = "0.############################";
@@ -95,7 +95,7 @@ public sealed partial class OrderColumnFilterViewModel(OrderFilterColumn column,
     {
         OrderFilterColumn.Manager => "Менеджер",
         OrderFilterColumn.CuttingType => "Вид резки", OrderFilterColumn.Material => "Материал",
-        OrderFilterColumn.Thickness => "Толщина", _ => "Гибка"
+        OrderFilterColumn.Thickness => "Толщина", OrderFilterColumn.Chamfer => "Фаска", _ => "Гибка"
     };
     public string Header => Column == OrderFilterColumn.Thickness ? "Толщ., мм" : Title;
     public string FilterLabel => "Фильтр: " + Title;
@@ -103,9 +103,10 @@ public sealed partial class OrderColumnFilterViewModel(OrderFilterColumn column,
     public bool CanUseJournal => canUse();
     public bool HasFilter => _selection is not null;
     public string Summary => Title + ": " + (_selection is { Count: 1 }
-        ? Label(Column, _selection.Single()) : _selection?.Count.ToString(Russian));
+        ? DisplayLabel(_selection.Single()) : _selection?.Count.ToString(Russian));
     public string Description => _selection is null ? FilterLabel : Title + ": " +
-        string.Join(", ", _selection.Select(key => Label(Column, key)));
+        string.Join(", ", _selection.Select(DisplayLabel));
+    private string DisplayLabel(string key) => Label(Column, displayName?.Invoke(key) ?? key);
     public ColumnFilterEditorViewModel Editor { get; } = new();
     public void BeginEdit() { beginEdit?.Invoke(); Editor.Begin(optionsFactory(Column), _selection); }
     public bool ApplyEdit()
@@ -129,7 +130,7 @@ public sealed partial class OrderColumnFilterViewModel(OrderFilterColumn column,
     internal void Reset() { _selection = null; NotifySelection(); }
     internal void NotifyAvailability() => OnPropertyChanged(nameof(CanUseJournal));
     public int ContextVersion { get; private set; }
-    internal void NotifyContextChanged() { ContextVersion++; OnPropertyChanged(nameof(ContextVersion)); }
+    internal void NotifyContextChanged() { ContextVersion++; OnPropertyChanged(nameof(ContextVersion)); OnPropertyChanged(nameof(Summary)); OnPropertyChanged(nameof(Description)); }
     private void NotifySelection()
     {
         OnPropertyChanged(nameof(HasFilter)); OnPropertyChanged(nameof(Summary)); OnPropertyChanged(nameof(Description));
@@ -142,11 +143,12 @@ public sealed partial class OrderColumnFilterViewModel(OrderFilterColumn column,
         OrderFilterColumn.CuttingType => order.CuttingType?.Trim() ?? "",
         OrderFilterColumn.Material => order.MaterialName?.Trim() ?? "",
         OrderFilterColumn.Thickness => order.ThicknessMillimeters?.ToString(DecimalFormat, CultureInfo.InvariantCulture) ?? "",
+        OrderFilterColumn.Chamfer => order.OperationsUnavailable || order.OperationsNeedReview ? "unknown" : order.HasChamfer ? "yes" : "no",
         _ => order.AnnotationsUnavailable || order.AnnotationsNeedReview ? "unknown" : order.HasBending ? "yes" : "no"
     };
     internal static string Label(OrderFilterColumn column, string key) => column switch
     {
-        OrderFilterColumn.Bending => key switch { "yes" => "Есть", "no" => "Нет", _ => "Неизвестно" },
+        OrderFilterColumn.Bending or OrderFilterColumn.Chamfer => key switch { "yes" => "Есть", "no" => "Нет", _ => "Неизвестно" },
         OrderFilterColumn.Thickness when key.Length > 0 => decimal.Parse(key, CultureInfo.InvariantCulture).ToString(DecimalFormat, Russian),
         _ => key.Length == 0 ? "(Пусто)" : key
     };

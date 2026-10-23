@@ -70,8 +70,8 @@ public partial class PriceEditorWindow : Window
         try
         {
             var window = new MachineImportWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
-            if (await window.ShowDialog<CuttingMachine?>(this) is { } machine) await model.ShowCreatedMachineAsync(machine);
+            if (await window.ShowDialog<MachineSettings?>(this) is { } machine) await model.ShowMachineSettingsAsync(machine);
         }
-        catch (Exception exception) { model.Error = AppDiagnostics.Describe(DiagnosticOperation.AccessHost, exception, "Не удалось открыть импорт спецификаций."); }
+        catch (Exception exception) { model.Error = AppDiagnostics.Describe(DiagnosticOperation.AccessHost, exception, "Не удалось открыть параметры станка."); }
     }
 }

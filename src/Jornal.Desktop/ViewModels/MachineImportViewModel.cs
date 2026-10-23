@@ -8,16 +8,19 @@ namespace Jornal.Desktop.ViewModels;
 
 public sealed partial class MachineImportViewModel : ObservableObject
 {
-    private readonly IMachineImportEditor _editor;
-    private readonly IMachineCatalogReader _catalog;
-    private CuttingMachine _expected;
-    private MachineImportChange? _attempt;
-    public MachineImportViewModel(CuttingMachine machine, IMachineImportEditor editor, IMachineCatalogReader catalog)
+    private readonly IMachineSettingsEditor _editor;
+    private readonly IMachineSettingsReader _catalog;
+    private MachineSettings _expected;
+    private MachineSettingsChange? _attempt;
+    public MachineImportViewModel(MachineSettings machine, IMachineSettingsEditor editor, IMachineSettingsReader catalog)
     {
-        machine.Validate(); _expected = machine; _editor = editor; _catalog = catalog;
+        _name = machine.DisplayName; _expected = machine; _editor = editor; _catalog = catalog;
         _profile = Profiles.Single(choice => choice.Id == machine.SpecificationProfileId);
     }
-    public string Name => _expected.Name;
+    private string _name;
+    public string Name { get => _name; set { if (SetProperty(ref _name, value ?? "")) { Error = null; Notify(); } } }
+    public bool CanChangeImport => CanEdit && _expected.CanEditImport;
+    public string CalculationText => "Тариф по толщине × длина реза × коэффициент";
     public IReadOnlyList<MachineProfileChoice> Profiles => MachineProfileChoice.Available;
     [ObservableProperty] private MachineProfileChoice _profile;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasError))] private string? _error;
@@ -28,9 +31,10 @@ public sealed partial class MachineImportViewModel : ObservableObject
     public bool HasError => !string.IsNullOrEmpty(Error);
     public bool IsBusy => IsSaving || IsReading;
     public bool CanEdit => !IsBusy && !RequiresReload && SavedMachine is null;
-    public bool HasChanges => Profile is not null && Profile.Id != _expected.SpecificationProfileId;
-    public bool CanSave => CanEdit && HasChanges && Profiles.Contains(Profile);
-    public CuttingMachine? SavedMachine { get; private set; }
+    public bool HasChanges => Profile is not null && (Name.Trim() != _expected.DisplayName || Profile.Id != _expected.SpecificationProfileId);
+    public bool CanSave => CanEdit && HasChanges && MachineSettings.IsValidName(Name.Trim()) && Profiles.Contains(Profile) &&
+        (_expected.CanEditImport || Profile.Id == _expected.SpecificationProfileId);
+    public MachineSettings? SavedMachine { get; private set; }
     public event EventHandler? Saved;
     public event EventHandler? SavingChanged;
     partial void OnProfileChanged(MachineProfileChoice value) { Error = null; Notify(); }
@@ -39,7 +43,7 @@ public sealed partial class MachineImportViewModel : ObservableObject
     partial void OnRequiresReloadChanged(bool value) => Notify();
     private void Notify()
     {
-        foreach (var property in new[] { nameof(IsBusy), nameof(CanEdit), nameof(HasChanges), nameof(CanSave) }) OnPropertyChanged(property);
+        foreach (var property in new[] { nameof(IsBusy), nameof(CanEdit), nameof(HasChanges), nameof(CanSave), nameof(CanChangeImport) }) OnPropertyChanged(property);
         SaveCommand.NotifyCanExecuteChanged(); ReloadCommand.NotifyCanExecuteChanged();
     }
     [RelayCommand(CanExecute = nameof(CanSave))]
@@ -49,15 +53,15 @@ public sealed partial class MachineImportViewModel : ObservableObject
         Error = null; IsSaving = true;
         try
         {
-            _attempt = new MachineImportChange(_expected, Profile.Id).Snapshot();
-            var saved = await _editor.UpdateMachineImportAsync(_attempt);
+            _attempt = new MachineSettingsChange(_expected, Name.Trim(), Profile.Id).Snapshot();
+            var saved = await _editor.UpdateMachineSettingsAsync(_attempt);
             if (saved != _attempt.Values) throw new OrderWriteException(OrderWriteFailure.OutcomeUnknown, "Сохранение не подтверждено. Обновите станок.");
             SavedMachine = saved;
         }
         catch (Exception exception)
         {
             RequiresReload = exception is OrderWriteException { Failure: OrderWriteFailure.Conflict or OrderWriteFailure.OutcomeUnknown };
-            Error = AppDiagnostics.Describe(DiagnosticOperation.AccessHost, exception, "Не удалось изменить импорт спецификаций.");
+            Error = AppDiagnostics.Describe(DiagnosticOperation.AccessHost, exception, "Не удалось изменить параметры станка.");
         }
         finally { IsSaving = false; }
         if (SavedMachine is not null) Saved?.Invoke(this, EventArgs.Empty);
@@ -66,15 +70,20 @@ public sealed partial class MachineImportViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanReload))]
     private async Task ReloadAsync(CancellationToken cancellationToken)
     {
+        var nameEdited = Name.Trim() != _expected.DisplayName;
+        var profileEdited = Profile.Id != _expected.SpecificationProfileId;
         Error = null; IsReading = true;
         try
         {
-            var machines = CuttingMachine.Snapshot(await _catalog.ReadMachinesAsync(cancellationToken));
-            var current = machines.SingleOrDefault(machine => machine.TableName == _expected.TableName);
+            var machines = await _catalog.ReadMachineSettingsAsync(cancellationToken);
+            var current = machines.SingleOrDefault(machine => machine.Key == _expected.Key);
             if (current is null || current.Name != _expected.Name) throw new PriceReadException("Станок недоступен. Закройте окно и обновите прайсы.");
             if (_attempt is { } attempt && current == attempt.Values)
             { SavedMachine = current; Saved?.Invoke(this, EventArgs.Empty); return; }
-            _expected = current; RequiresReload = false; Notify();
+            _expected = current;
+            if (!nameEdited) Name = current.DisplayName;
+            if (!profileEdited) Profile = Profiles.Single(choice => choice.Id == current.SpecificationProfileId);
+            RequiresReload = false; Notify();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception) { Error = AppDiagnostics.Describe(DiagnosticOperation.PriceRead, exception, "Не удалось обновить станок."); }

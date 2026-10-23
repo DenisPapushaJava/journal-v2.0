@@ -1,12 +1,15 @@
 using Jornal.Core.Orders;
+using Jornal.Core.Pricing;
 
 namespace Jornal.Infrastructure.Access;
 
 // Только рабочее подключение UI инициирует миграцию; обычный IOrderReader остаётся read-only.
-public sealed class OrderDurationPreparingReader(IOrderReader reader, IOrderDurationInitializer initializer, IOrderAnnotationsInitializer? annotations = null) : IOrderReader
+public sealed class OrderDurationPreparingReader(IOrderReader reader, IOrderDurationInitializer initializer, IOrderAnnotationsInitializer? annotations = null, IOrderOperationsInitializer? operations = null, IMachineLabelsInitializer? labels = null) : IOrderReader
 {
     private bool _prepared;
     private bool _annotationsPrepared;
+    private bool _operationsPrepared;
+    private bool _labelsPrepared;
     public string? PreparationWarning { get; private set; }
     // Фоновая проверка не инициирует/не повторяет подготовку схемы.
     public Task<IReadOnlyList<OrderSummary>> ReadSnapshotAsync(DateOnly? date, CancellationToken cancellationToken = default) =>
@@ -36,6 +39,17 @@ public sealed class OrderDurationPreparingReader(IOrderReader reader, IOrderDura
             try { await annotations.PrepareAnnotationsAsync(cancellationToken); _annotationsPrepared = true; }
             catch (OrderWriteException exception) { warnings.Add(exception.Message); }
         }
+        if (operations is not null && !_operationsPrepared)
+        {
+            try { await operations.PrepareOperationsAsync(cancellationToken); _operationsPrepared = true; }
+            catch (OrderWriteException exception) { warnings.Add(exception.Message); }
+        }
+        if (labels is not null && !_labelsPrepared)
+        {
+            try { await labels.PrepareMachineLabelsAsync(cancellationToken); _labelsPrepared = true; }
+            catch (OrderWriteException exception) { warnings.Add(exception.Message); }
+        }
+        if (rows.Any(row => row.OperationsUnavailable)) warnings.Add(OrderOperations.UnavailableMessage);
         if (rows.Any(row => row.AnnotationsUnavailable)) warnings.Add(OrderAnnotations.UnavailableMessage);
         PreparationWarning = warnings.Count > 0 ? string.Join("\n", warnings) : null;
         return rows;

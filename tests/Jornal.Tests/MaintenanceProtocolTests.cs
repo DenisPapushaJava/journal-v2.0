@@ -82,9 +82,50 @@ public sealed class MaintenanceProtocolTests
         Assert.Equal(value, JsonSerializer.Deserialize<AccessHostResponse>(encoded)!.Orders![0].Annotations);
     }
 
-    private static AccessHostClient Client(AccessHostResponse response, bool annotationsSupported = true, Action? onStart = null)
+    [Fact]
+    public async Task OperationsRequireExplicitCapabilityAndPreparationAcknowledgement()
     {
-        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response with { AnnotationsSupported = annotationsSupported })));
+        var token = TestContext.Current.CancellationToken;
+        var row = LocalJournalFixture.Draft.ToOrder(42, 500);
+        var legacy = await Client(new(1, [row]), operationsSupported: false).ReadAsync(token);
+        Assert.True(Assert.Single(legacy).OperationsUnavailable);
+        await Assert.ThrowsAsync<OrderReadException>(() => Client(new(1, Record: OrderRecord.FromSummary(row), MaintenanceCompleted: true), operationsSupported: false).ReadRecordAsync(42, token));
+        await Client(new(1, OperationsPrepared: true)).PrepareOperationsAsync(token);
+        foreach (var response in new AccessHostResponse[] { new(1), new(1, OperationsPrepared: false), new(1, [row], OperationsPrepared: true), new(1, AnnotationsPrepared: true, OperationsPrepared: true) })
+            Assert.Equal(OrderWriteFailure.NotSaved, (await Assert.ThrowsAsync<OrderWriteException>(() => Client(response).PrepareOperationsAsync(token))).Failure);
+        Assert.Equal(OrderWriteFailure.NotSaved, (await Assert.ThrowsAsync<OrderWriteException>(() => Client(new(1, OperationsPrepared: true), operationsSupported: false).PrepareOperationsAsync(token))).Failure);
+        await Assert.ThrowsAsync<OrderReadException>(() => Client(new(1, [], OperationsPrepared: true)).ReadAsync(token));
+        var starts = 0;
+        var error = await Assert.ThrowsAsync<OrderWriteException>(() => Client(new(1), onStart: () => starts++).CreateAsync(LocalJournalFixture.Draft with { HasChamfer = true }, token));
+        Assert.Equal(OrderWriteFailure.NotSaved, error.Failure); Assert.Equal(1, starts);
+        var unavailable = await Assert.ThrowsAsync<OrderWriteException>(() => Client(new(1, Error: "База данных недоступна", Failure: OrderWriteFailure.NotSaved)).PrepareOperationsAsync(token));
+        Assert.Contains("База данных недоступна", unavailable.Message); Assert.Contains("Ввод сохранён в форме", unavailable.Message);
+        Assert.Equal(19, (int)AccessHostOperation.PrepareOperations); Assert.Equal(18, (int)AccessHostOperation.UpdateMachineImport);
+    }
+
+    [Fact]
+    public async Task MachineSettingsRequireCapabilitiesCompleteSnapshotsAndExplicitPreparation()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var rows = MachineSettings.Build([]).ToArray();
+        Assert.Equal(rows, await Client(new(1, Settings: rows)).ReadMachineSettingsAsync(token));
+        await Assert.ThrowsAsync<OrderReadException>(() => Client(new(1, Settings: rows), machineSettingsSupported: false).ReadMachineSettingsAsync(token));
+        foreach (var response in new AccessHostResponse[] { new(1), new(1, Settings: []), new(1, Settings: [rows[0], rows[0], rows[2], rows[3]]), new(1, [], Settings: rows) })
+            await Assert.ThrowsAsync<OrderReadException>(() => Client(response).ReadMachineSettingsAsync(token));
+        await Client(new(1, MachineLabelsPrepared: true)).PrepareMachineLabelsAsync(token);
+        foreach (var response in new AccessHostResponse[] { new(1), new(1, MachineLabelsPrepared: false), new(1, Settings: rows, MachineLabelsPrepared: true) })
+            Assert.Equal(OrderWriteFailure.NotSaved, (await Assert.ThrowsAsync<OrderWriteException>(() => Client(response).PrepareMachineLabelsAsync(token))).Failure);
+        var starts = 0;
+        var client = Client(new(1), onStart: () => starts++);
+        await client.UpdateMachineSettingsAsync(new(rows[0], rows[0].DisplayName, rows[0].SpecificationProfileId), token); Assert.Equal(0, starts);
+        var failed = await Assert.ThrowsAsync<OrderWriteException>(() => client.UpdateMachineSettingsAsync(new(rows[0], "Другое название", rows[0].SpecificationProfileId), token));
+        Assert.Equal(OrderWriteFailure.NotSaved, failed.Failure); Assert.Equal(1, starts);
+        Assert.Equal(20, (int)AccessHostOperation.ReadMachineSettings); Assert.Equal(22, (int)AccessHostOperation.PrepareMachineLabels);
+    }
+
+    private static AccessHostClient Client(AccessHostResponse response, bool annotationsSupported = true, Action? onStart = null, bool operationsSupported = true, bool machineSettingsSupported = true)
+    {
+        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response with { AnnotationsSupported = annotationsSupported, OperationsSupported = operationsSupported, MachineSettingsSupported = machineSettingsSupported })));
         return new("unused.mdb", "synthetic-host", process =>
         {
             onStart?.Invoke();

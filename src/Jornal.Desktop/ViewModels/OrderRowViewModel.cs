@@ -5,7 +5,7 @@ using Jornal.Desktop.Tables;
 
 namespace Jornal.Desktop.ViewModels;
 
-public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
+public sealed class OrderRowViewModel(OrderSummary order, Func<string, string>? machineName = null) : ObservableObject
 {
     private OrderSummary _order = order;
     private long? _cuttingDurationMinutes = order.CuttingDurationMinutes;
@@ -31,6 +31,10 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
     public (DateOnly? Date, SpecificationNumberSortKey Specification, int Id) OrderDateSortKey => (OrderDate, _specificationNumberSortKey, Id);
     public (SpecificationNumberSortKey Number, int Id) SpecificationSortKey => (_specificationNumberSortKey, Id);
     public int? Color => _order.Color;
+    public bool HasChamfer => _order.HasChamfer;
+    public string ChamferText => _order.OperationsUnavailable || _order.OperationsNeedReview ? "?" : HasChamfer ? "✓" : "";
+    public string? OperationHint => _order.OperationsUnavailable ? OrderOperations.UnavailableMessage : _order.OperationsNeedReview ? "Проверьте фаску в редакторе заявки." : null;
+    public string ChamferDescription => OperationHint ?? (HasChamfer ? "Фаска: да" : "Фаска: нет");
     public bool HasBending => _order.HasBending;
     public string BendingText => _order.AnnotationsUnavailable || _order.AnnotationsNeedReview ? "?" : HasBending ? "✓" : "";
     public string? AnnotationHint => _order.AnnotationsUnavailable ? OrderAnnotations.UnavailableMessage : _order.AnnotationsNeedReview ? OrderAnnotations.ReviewMessage : null;
@@ -49,7 +53,8 @@ public sealed class OrderRowViewModel(OrderSummary order) : ObservableObject
     public string SpecificationNumber => _order.SpecificationNumber;
     public string ManagerName => _order.ManagerName;
     public string CustomerName => _order.CustomerName;
-    public string CuttingType => _order.CuttingType;
+    public string CuttingType => machineName?.Invoke(_order.CuttingType) ?? _order.CuttingType;
+    internal void NotifyMachineName() => OnPropertyChanged(nameof(CuttingType));
     public string MaterialName => _order.MaterialName;
     public string ThicknessText => _order.ThicknessMillimeters?.ToString("0.###", DisplayCulture) ?? "—";
     public string StoredPriceText => _order.StoredCuttingPrice is { } price

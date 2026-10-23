@@ -23,7 +23,7 @@ public sealed record TrashEntry(int Version, Guid OperationId, TrashSource Sourc
     [JsonIgnore] public int RetentionPeriodDays => RetentionDays ?? OrderTrashService.RetentionDays;
     public void Validate()
     {
-        if (Version != 1 || OperationId == Guid.Empty || !Enum.IsDefined(State) || Source is null || Record is null || DeletedAt == default)
+        if (Version is not (1 or 2) || Version == 1 && Record?.Operations is not null || OperationId == Guid.Empty || !Enum.IsDefined(State) || Source is null || Record is null || DeletedAt == default)
             throw new InvalidDataException("Неподдерживаемая запись корзины. Архив не изменён.");
         Source.Validate(); Record.Validate();
         if (!OrderTrashService.IsSupportedRetention(RetentionPeriodDays))
@@ -113,7 +113,7 @@ public sealed class OrderTrashService(IOrderMaintenance maintenance, TrashSource
     {
         if (pending.Contains(expected.Id))
             throw new OrderWriteException(OrderWriteFailure.Conflict, "Для этой заявки есть неподтверждённая операция. Обновите список и корзину перед повтором.");
-        var entry = new TrashEntry(1, Guid.NewGuid(), source, expected, _clock.GetUtcNow(), TrashState.DeletePending)
+        var entry = new TrashEntry(expected.Operations is null ? 1 : 2, Guid.NewGuid(), source, expected, _clock.GetUtcNow(), TrashState.DeletePending)
             { RetentionDays = RetentionPeriodDays };
         try { await lease.SaveAsync(entry); }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

@@ -21,7 +21,7 @@ public partial class NewOrderViewModel : ObservableObject
         _creator = creator; _priceTimeProvider = priceTimeProvider ?? TimeProvider.System;
         InitialColor = initialColor;
         Annotations.PropertyChanged += (_, e) =>
-        { if (e.PropertyName is nameof(OrderAnnotationsEditor.HasBending) or nameof(OrderAnnotationsEditor.Comment)) { if (_submitted) Validate(); NotifyBatchState(); } };
+        { if (e.PropertyName is nameof(OrderAnnotationsEditor.HasBending) or nameof(OrderAnnotationsEditor.HasChamfer) or nameof(OrderAnnotationsEditor.Comment)) { if (_submitted) Validate(); NotifyBatchState(); } };
         IsLocalCopy = isLocalCopy;
         IsDatabase = isDatabase;
         foreach (var field in Fields) field.PropertyChanged += (_, e) =>
@@ -220,7 +220,7 @@ public partial class NewOrderViewModel : ObservableObject
             SheetCount.Value.Trim(), length, Weight.Value.Trim(), coefficient,
             IsHansLaser ? MaterialId.Value.Trim() : "", IsHansLaser ? Gas.Value.Trim() : "")
             { Machine = SelectedMachine, InitialColor = InitialColor, ExpectedQuote = _quote, PartCount = ImportPreview?.PartCount, PunchCount = ImportPreview?.PunchCount,
-                HasBending = Annotations.HasBending, Comment = Annotations.Comment,
+                HasBending = Annotations.HasBending, HasChamfer = Annotations.HasChamfer, Comment = Annotations.Comment,
                 CuttingDurationMinutes = CuttingDuration.TryParse(CuttingTime.Value, out var minutes) ? minutes : null };
     }
 

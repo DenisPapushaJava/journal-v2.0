@@ -75,7 +75,8 @@ public partial class NewOrderViewModel
                 if (ImportPreview is { } previous) form.ApplyImport(previous, _importSourcePath);
                 for (var index = 0; index < Fields.Count; index++) form.Fields[index].Value = Fields[index].Value;
                 form.Material.NeedsReview = Material.NeedsReview;
-                form.Annotations.HasBending = Annotations.HasBending; form.Annotations.Comment = Annotations.Comment;
+                form.Annotations.HasBending = Annotations.HasBending; form.Annotations.HasChamfer = Annotations.HasChamfer; form.Annotations.Comment = Annotations.Comment;
+                form._machineNames = _machineNames; form.CuttingType.SetChoiceNames(_machineNames);
                 form._quote = _quote; form.PriceText = PriceText; form.PriceBreakdown = PriceBreakdown;
                 var current = new BatchSpecificationItem(this, form, ImportPreview?.FileName ?? "Текущая заявка", _importSourcePath) { HasParameters = true, IsReading = false };
                 BatchItems.Add(current);
@@ -105,7 +106,7 @@ public partial class NewOrderViewModel
         form.PriceEditorFactory = PriceEditorFactory;
         form.Manager.Suggestions = Manager.Suggestions; form.Customer.Suggestions = Customer.Suggestions;
         form.Material.Suggestions = Material.Suggestions;
-        form.SetMachines(_machines); return form;
+        form._machineNames = _machineNames; form.SetMachines(_machines); return form;
     }
 
     private async Task ReadBatchItemAsync(BatchSpecificationItem item, CancellationToken cancellationToken)

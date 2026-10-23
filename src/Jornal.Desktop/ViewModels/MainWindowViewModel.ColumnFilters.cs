@@ -8,13 +8,14 @@ public partial class MainWindowViewModel
     private IReadOnlyList<OrderColumnFilterViewModel>? _columnFilters;
     public IReadOnlyList<OrderColumnFilterViewModel> ColumnFilters => _columnFilters ??=
         Enum.GetValues<OrderFilterColumn>().Select(column => new OrderColumnFilterViewModel(column,
-            BuildColumnFilterOptions, () => CanBrowseJournal, ApplySearch, CancelRefreshForFilter)).ToArray();
+            BuildColumnFilterOptions, () => CanBrowseJournal, ApplySearch, CancelRefreshForFilter, column == OrderFilterColumn.CuttingType ? MachineName : null)).ToArray();
     private void CancelRefreshForFilter() { if (IsRefreshingOrders) CancelOrderLoading(); }
     public OrderColumnFilterViewModel ManagerFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.Manager);
     public OrderColumnFilterViewModel CuttingTypeFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.CuttingType);
     public OrderColumnFilterViewModel MaterialFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.Material);
     public OrderColumnFilterViewModel ThicknessFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.Thickness);
     public OrderColumnFilterViewModel BendingFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.Bending);
+    public OrderColumnFilterViewModel ChamferFilter => ColumnFilters.Single(filter => filter.Column == OrderFilterColumn.Chamfer);
     public bool HasAnyColumnFilter => HasStatusFilter || ColumnFilters.Any(filter => filter.HasFilter);
     public IReadOnlyList<AppliedTableFilter> ActiveTableFilters =>
         (HasStatusFilter ? new[] { new AppliedTableFilter(this, StatusFilterSummary, StatusFilterDescription,
@@ -26,7 +27,7 @@ public partial class MainWindowViewModel
     private bool MatchesColumnFilters(OrderSummary order, OrderFilterColumn? except = null) =>
         ColumnFilters.All(filter => filter.Column == except || filter.Matches(order));
     private bool MatchesSearchAndDate(OrderSummary order) =>
-        (!FilterDate.HasValue || order.OrderDate == DateOnly.FromDateTime(FilterDate.Value)) && _searchQuery.Matches(order);
+        (!FilterDate.HasValue || order.OrderDate == DateOnly.FromDateTime(FilterDate.Value)) && _searchQuery.Matches(order, MachineName(order.CuttingType));
 
     private ColumnFilterChoices BuildColumnFilterOptions(OrderFilterColumn column)
     {
@@ -42,12 +43,12 @@ public partial class MainWindowViewModel
         // Даже исчезнувшее/несовместимое выбранное значение можно снять из меню.
         foreach (var key in ColumnFilters.Single(filter => filter.Column == column).SelectedKeys) counts.TryAdd(key, 0);
         var options = counts.Select(pair => new ColumnFilterOption(pair.Key,
-            OrderColumnFilterViewModel.Label(column, pair.Key), pair.Value));
+            OrderColumnFilterViewModel.Label(column, column == OrderFilterColumn.CuttingType ? MachineName(pair.Key) : pair.Key), pair.Value));
         var sorted = column == OrderFilterColumn.Thickness
             ? options.OrderBy(option => option.Key.Length == 0 ? decimal.MinValue : decimal.Parse(option.Key, CultureInfo.InvariantCulture)).ToArray()
-            : column == OrderFilterColumn.Bending
+            : column is OrderFilterColumn.Bending or OrderFilterColumn.Chamfer
                 ? options.OrderBy(option => option.Key switch { "yes" => 0, "no" => 1, _ => 2 }).ToArray()
-                : options.OrderBy(option => option.Key, StringComparer.Create(CultureInfo.GetCultureInfo("ru-RU"), true)).ToArray();
+                : options.OrderBy(option => column == OrderFilterColumn.CuttingType ? option.Label : option.Key, StringComparer.Create(CultureInfo.GetCultureInfo("ru-RU"), true)).ToArray();
         return new(sorted, allKeys.Count);
     }
     private void NotifyFilterContextChanged()

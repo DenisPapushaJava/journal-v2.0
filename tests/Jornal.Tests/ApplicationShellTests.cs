@@ -39,7 +39,7 @@ public sealed class ApplicationShellTests
             var grid = window.FindControl<DataGrid>("OrdersGrid")!;
             Assert.Equal(32, grid.RowHeight);
             Assert.Equal(13, grid.FontSize);
-            Assert.Equal(18, grid.Columns.Count);
+            Assert.Equal(19, grid.Columns.Count);
 
             foreach (var name in new[] { "ResultPanel", "OrdersCommands", "ClipboardCommands", "FiltersPanel", "TablePanel", "ColumnsButton" })
             {

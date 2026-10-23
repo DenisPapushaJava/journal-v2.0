@@ -41,6 +41,8 @@ public partial class MainWindowViewModel
             var date = RequiresReload && !changed ? null : RequestedDate;
             var orders = date is { } day ? await candidate.Reader.ReadDayAsync(day, cancellationToken)
                 : await candidate.Reader.ReadAsync(cancellationToken);
+            var namesSource = candidate.Prices as Jornal.Core.Pricing.IMachineSettingsReader;
+            var (names, namesLoaded) = await ReadMachineNamesAsync(namesSource, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             // До успешной проверки и сохранения пути прежний источник и экран остаются действующими.
             sourceManager.Save(candidate);
@@ -52,6 +54,8 @@ public partial class MainWindowViewModel
             UpdateTrashBadge([]);
             _allOrders = orders;
             _ordersLoaded = true; _loadedDate = date; _scopeLoadFailed = false;
+            _machineNamesRequest++;
+            ApplyMachineNames(namesSource, names, namesLoaded);
             RequiresReload = false;
             if (changed)
             {
@@ -65,6 +69,7 @@ public partial class MainWindowViewModel
                 ApplySearch();
             }
             else ApplySearch();
+            _appliedMachineNamesVersion = _machineNamesVersion;
             NotifySourceChanged();
             ErrorMessage = (candidate.Reader as Jornal.Infrastructure.Access.OrderDurationPreparingReader)?.PreparationWarning;
             UpdatedText = $"Обновлено в {DateTime.Now:HH:mm} · F5 — обновить";

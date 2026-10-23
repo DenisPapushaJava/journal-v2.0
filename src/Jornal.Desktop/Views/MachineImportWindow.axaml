@@ -1,16 +1,20 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Jornal.Desktop.ViewModels" xmlns:ui="using:Jornal.Desktop.Controls"
         x:Class="Jornal.Desktop.Views.MachineImportWindow" x:DataType="vm:MachineImportViewModel"
-        Title="Импорт спецификаций" Width="500" Height="350" MinWidth="460" MinHeight="350" WindowStartupLocation="CenterOwner">
+        Title="Настройка станка" Width="540" Height="460" MinWidth="460" MinHeight="420" WindowStartupLocation="CenterOwner">
   <Grid RowDefinitions="*,Auto">
     <ScrollViewer Margin="24,20" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="12">
-      <TextBlock Text="Импорт спецификаций" FontSize="20" FontWeight="SemiBold" />
-      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+      <TextBlock Text="Настройка станка" FontSize="20" FontWeight="SemiBold" />
+      <TextBlock Text="Название" FontWeight="Medium" />
+      <TextBox x:Name="MachineDisplayNameInput" Text="{Binding Name, Mode=TwoWay}" MaxLength="255" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Название станка" />
+      <TextBlock Text="Импорт спецификаций" FontWeight="Medium" />
       <ComboBox x:Name="MachineImportProfileInput" ItemsSource="{Binding Profiles}" SelectedItem="{Binding Profile, Mode=TwoWay}"
-                HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Импорт спецификаций">
+                HorizontalAlignment="Stretch" IsEnabled="{Binding CanChangeImport}" AutomationProperties.Name="Импорт спецификаций">
         <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:MachineProfileChoice"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
       </ComboBox>
+      <TextBlock Text="Расчёт" FontWeight="Medium" />
+      <TextBlock Text="{Binding CalculationText}" Classes="muted" TextWrapping="Wrap" />
       <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" TextWrapping="Wrap" Foreground="{DynamicResource JournalDangerForeground}" AutomationProperties.LiveSetting="Polite" />
     </StackPanel>
     </ScrollViewer>

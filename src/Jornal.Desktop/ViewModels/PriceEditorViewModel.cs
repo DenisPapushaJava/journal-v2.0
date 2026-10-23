@@ -140,7 +140,7 @@ public sealed partial class PriceEditorViewModel(IPriceReader reader, IPriceEdit
     {
         foreach (var name in new[] { nameof(CanNavigate), nameof(CanEdit), nameof(CanSave), nameof(CanRefresh), nameof(CanCancel),
             nameof(CanClose), nameof(IsBusy), nameof(CanBrowse), nameof(HasInvalidPrices), nameof(HasRows), nameof(HasChanges), nameof(ChangesText), nameof(IsReadOnly),
-            nameof(CanBeginAddRate), nameof(CanStageRate), nameof(ShowExpansionNotice), nameof(CanAddMachine), nameof(CanEditMachineImport), nameof(IsCustomMachine), nameof(CanExport), nameof(ThicknessValidationError), nameof(HasInvalidThickness) }) OnPropertyChanged(name);
+            nameof(CanBeginAddRate), nameof(CanStageRate), nameof(ShowExpansionNotice), nameof(CanAddMachine), nameof(CanEditMachineImport), nameof(ShowMachineSettings), nameof(IsCustomMachine), nameof(CanExport), nameof(ThicknessValidationError), nameof(HasInvalidThickness) }) OnPropertyChanged(name);
         BeginEditCommand.NotifyCanExecuteChanged(); SaveCommand.NotifyCanExecuteChanged(); RefreshCommand.NotifyCanExecuteChanged(); CancelEditCommand.NotifyCanExecuteChanged();
         BeginAddRateCommand.NotifyCanExecuteChanged(); StageRateCommand.NotifyCanExecuteChanged(); CancelAddRateCommand.NotifyCanExecuteChanged();
     }

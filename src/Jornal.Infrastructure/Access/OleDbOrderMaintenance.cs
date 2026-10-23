@@ -9,8 +9,11 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 [SupportedOSPlatform("windows")]
-public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMachineCatalogReader
+public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMachineCatalogReader, IMachineSettingsReader, IMachineSettingsEditor
 {
+    public Task<IReadOnlyList<MachineSettings>> ReadMachineSettingsAsync(CancellationToken cancellationToken = default) => new OleDbMachineSettings(path).ReadMachineSettingsAsync(cancellationToken);
+    public Task<MachineSettings> UpdateMachineSettingsAsync(MachineSettingsChange change, CancellationToken cancellationToken = default) => new OleDbMachineSettings(path).UpdateMachineSettingsAsync(change, cancellationToken);
+
     public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => new OleDbMachineCatalog(path).ReadMachinesAsync(cancellationToken);
     private static readonly string[] Names = AccessOrderMapper.Columns.ToArray();
     private static readonly OleDbType[] Types = [OleDbType.Integer, OleDbType.Date, OleDbType.VarWChar, OleDbType.VarWChar,
@@ -39,9 +42,9 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
     public Task<OrderRecord> UpdateAsync(OrderEditChange change, CancellationToken cancellationToken = default)
     {
         change.Validate();
-        return PrepareAndWrite(change.Values.CuttingTime is not null, change.Values.Annotations is not null, (connection, transaction, token) =>
+        return PrepareAndWrite(change.Values.CuttingTime is not null, change.Values.Annotations is not null, change.Values.Operations is not null, (connection, transaction, operations, token) =>
         {
-            if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, change.Expected.Id)) != change.Expected) throw Conflict();
+            if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, change.Expected.Id, operations)) != change.Expected) throw Conflict();
             var machine = OleDbMachineCatalog.Verify(connection, transaction, change.PriceRequest.CuttingType, change.Machine, token);
             var table = change.RequiresPriceCalculation ? OleDbPriceReader.Read(connection, transaction, CuttingPriceCalculator.SelectTable(change.PriceRequest, machine), token) : null;
             var values = DiagnosticStages.Run(DiagnosticStage.CalculatePrice, () => change.Calculate(table, machine));
@@ -52,7 +55,8 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw Conflict();
             DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, values.Id, change.Expected.CuttingTime, values.CuttingTime));
             DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderAnnotations.Write(connection, transaction, values.Id, change.Expected.Annotations, values.Annotations));
-            var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => Read(connection, transaction, values.Id));
+            DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => operations.Write(values.Id, change.Expected.Operations, values.Operations));
+            var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => Read(connection, transaction, values.Id, operations));
             if (saved != values) throw new InvalidOperationException("MDB изменила сохраняемые поля.");
             return saved!;
         }, cancellationToken);
@@ -61,10 +65,10 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
     public async Task DeleteAsync(OrderRecord expected, CancellationToken cancellationToken = default)
     {
         expected.Validate();
-        await Write((connection, transaction, token) =>
+        await Write((connection, transaction, operations, token) =>
         {
             // Проверяем полный контракт до DELETE, включая отсутствие дополнительных полей.
-            if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, expected.Id)) != expected) throw Conflict();
+            if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, expected.Id, operations)) != expected) throw Conflict();
             using var relations = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Foreign_Keys, null);
             if (relations is null || relations.Rows.Cast<DataRow>().Any(row => string.Equals(row["PK_TABLE_NAME"] as string, "Orders", StringComparison.OrdinalIgnoreCase)))
                 throw new OrderWriteException(OrderWriteFailure.NotSaved, "У Orders есть зависимые таблицы либо связи не удалось проверить. Удаление остановлено: архив одной строки не сохраняет связанные записи.");
@@ -73,6 +77,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw Conflict();
             DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, expected.Id, expected.CuttingTime, null));
             DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderAnnotations.Write(connection, transaction, expected.Id, expected.Annotations, null));
+            DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => operations.Write(expected.Id, expected.Operations, null));
             return true;
         }, cancellationToken);
     }
@@ -80,9 +85,9 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
     public Task<OrderRecord> RestoreAsync(OrderRecord archived, CancellationToken cancellationToken = default)
     {
         archived.Validate();
-        return PrepareAndWrite(archived.CuttingTime is not null, archived.Annotations is not null, (connection, transaction, token) =>
+        return PrepareAndWrite(archived.CuttingTime is not null, archived.Annotations is not null, archived.Operations is not null, (connection, transaction, operations, token) =>
         {
-            if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, archived.Id)) is not null)
+            if (DiagnosticStages.Run(DiagnosticStage.CheckSnapshot, () => Read(connection, transaction, archived.Id, operations)) is not null)
                 throw new OrderWriteException(OrderWriteFailure.Conflict, "Исходный код уже занят. Существующая заявка не заменена; копия осталась в корзине.");
             using var command = Command(connection, transaction);
             command.CommandText = "INSERT INTO [Orders] (" + string.Join(", ", Names.Select(name => $"[{name}]")) + ") VALUES (" + string.Join(", ", Names.Select(_ => "?")) + ")";
@@ -90,20 +95,22 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             if (DiagnosticStages.Run(DiagnosticStage.WriteRecord, command.ExecuteNonQuery) != 1) throw new InvalidOperationException("INSERT не подтвердил восстановление.");
             DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, archived.Id, null, archived.CuttingTime));
             DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderAnnotations.Write(connection, transaction, archived.Id, null, archived.Annotations));
-            var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => Read(connection, transaction, archived.Id));
+            DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => operations.Write(archived.Id, null, archived.Operations));
+            var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => Read(connection, transaction, archived.Id, operations));
             if (saved != archived) throw new InvalidOperationException("MDB изменила восстановленные поля.");
             return saved!;
         }, cancellationToken);
     }
 
-    private async Task<T> PrepareAndWrite<T>(bool needsTime, bool needsAnnotations, Func<OleDbConnection, OleDbTransaction, CancellationToken, T> action, CancellationToken token)
+    private async Task<T> PrepareAndWrite<T>(bool needsTime, bool needsAnnotations, bool needsOperations, Func<OleDbConnection, OleDbTransaction, OleDbOrderOperations.Scope, CancellationToken, T> action, CancellationToken token)
     {
         if (needsTime) await DiagnosticStages.RunAsync(DiagnosticStage.PrepareCuttingTime, () => new OleDbOrderExtras(path).PrepareCuttingTimeAsync(token));
         if (needsAnnotations) await new OleDbOrderAnnotations(path).PrepareAnnotationsAsync(token);
+        if (needsOperations) await new OleDbOrderOperations(path).PrepareOperationsAsync(token);
         return await Write(action, token);
     }
 
-    private Task<T> Write<T>(Func<OleDbConnection, OleDbTransaction, CancellationToken, T> action, CancellationToken cancellationToken) => Task.Run(() =>
+    private Task<T> Write<T>(Func<OleDbConnection, OleDbTransaction, OleDbOrderOperations.Scope, CancellationToken, T> action, CancellationToken cancellationToken) => Task.Run(() =>
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(30));
@@ -120,7 +127,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             transaction = DiagnosticStages.Run(DiagnosticStage.BeginTransaction, () => connection.BeginTransaction(IsolationLevel.ReadCommitted));
             try
             {
-                var result = action(connection, transaction, deadline.Token);
+                var result = action(connection, transaction, new OleDbOrderOperations.Scope(connection, transaction), deadline.Token);
                 deadline.Token.ThrowIfCancellationRequested();
                 committing = true;
                 DiagnosticStages.Run(DiagnosticStage.CommitTransaction, transaction.Commit);
@@ -187,7 +194,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
         return " WHERE " + string.Join(" AND ", conditions);
     }
 
-    private static OrderRecord? Read(OleDbConnection connection, OleDbTransaction? transaction, int id)
+    private static OrderRecord? Read(OleDbConnection connection, OleDbTransaction? transaction, int id, OleDbOrderOperations.Scope? operations = null)
     {
         using var command = Command(connection, transaction);
         command.CommandText = "SELECT * FROM [Orders] WHERE [Код] = ?";
@@ -209,7 +216,7 @@ public sealed class OleDbOrderMaintenance(string path) : IOrderMaintenance, IMac
             (string?)Get("Кол_во_листов"), (decimal?)Get("Стоимость"), (double?)Get("Толщина"), (int?)Get("Ход"), (string?)Get("Вес"),
             (string?)Get("БЛЦБ"), (int?)Get("Color"), (string?)Get("Коэффициент"));
         reader.Close();
-        row = row with { CuttingTime = OleDbOrderExtras.ReadOne(connection, transaction, id), Annotations = OleDbOrderAnnotations.ReadOne(connection, transaction, id) };
+        row = row with { CuttingTime = OleDbOrderExtras.ReadOne(connection, transaction, id), Annotations = OleDbOrderAnnotations.ReadOne(connection, transaction, id), Operations = (operations ?? new OleDbOrderOperations.Scope(connection, transaction)).ReadOne(id) };
         row.Validate(); return row;
     }
 }

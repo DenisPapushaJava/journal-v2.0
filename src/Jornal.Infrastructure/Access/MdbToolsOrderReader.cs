@@ -14,17 +14,29 @@ public sealed class MdbToolsOrderReader(string? executable = null)
             var times = await export.ReadAsync(path, OrderExtrasData.TableName, OrderExtrasData.ReadExport, cancellationToken);
             rows = rows.Select(row => row with { CuttingTime = times.GetValueOrDefault(row.Id) }).ToArray();
         }
-        if (!tables.Contains(OrderAnnotationsData.TableName, StringComparer.OrdinalIgnoreCase)) return rows;
+        if (tables.Contains(OrderAnnotationsData.TableName, StringComparer.OrdinalIgnoreCase))
         try
         {
             var annotations = await export.ReadAsync(path, OrderAnnotationsData.TableName, OrderAnnotationsData.ReadExport, cancellationToken);
-            return rows.Select(row => row with { Annotations = annotations.GetValueOrDefault(row.Id) }).ToArray();
+            rows = rows.Select(row => row with { Annotations = annotations.GetValueOrDefault(row.Id) }).ToArray();
         }
         catch (Exception exception) when (exception is OrderReadException or IOException or UnauthorizedAccessException)
         {
             Jornal.Infrastructure.Diagnostics.AppDiagnostics.Capture(Jornal.Infrastructure.Diagnostics.DiagnosticOperation.OrderRead, exception);
-            return rows.Select(row => row with { AnnotationsUnavailable = true }).ToArray();
+            rows = rows.Select(row => row with { AnnotationsUnavailable = true }).ToArray();
         }
+        if (tables.Contains(OrderOperationsData.TableName, StringComparer.OrdinalIgnoreCase))
+        try
+        {
+            var operations = await export.ReadAsync(path, OrderOperationsData.TableName, OrderOperationsData.ReadExport, cancellationToken);
+            rows = rows.Select(row => row with { Operations = operations.GetValueOrDefault(row.Id) }).ToArray();
+        }
+        catch (Exception exception) when (exception is OrderReadException or IOException or UnauthorizedAccessException)
+        {
+            Jornal.Infrastructure.Diagnostics.AppDiagnostics.Capture(Jornal.Infrastructure.Diagnostics.DiagnosticOperation.OrderRead, exception);
+            rows = rows.Select(row => row with { OperationsUnavailable = true }).ToArray();
+        }
+        return rows;
     }
 
     public static IReadOnlyList<OrderSummary> ReadExport(TextReader reader, CancellationToken cancellationToken = default)

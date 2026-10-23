@@ -97,7 +97,89 @@ public sealed class ResultOutputTests
     public void SingleLinePreservesLegacyFieldsSeparatorsAndWeight()
     {
         var text = OrderResultFormatter.Format([Order()]);
-        Assert.Equal("Лист 2,5x1250x2500,\t   Материал: Амг3,\t   2 шт.\t   Вес 38,5 кг.\t   Резка 1250 ₽.\t   резка Лазер\n", text);
+        Assert.Equal("Лист 2,5x1250x2500,\t   Материал: Амг3,\t   2 шт.\t   Вес 38,5 кг.\t   Резка: 1250 ₽.\t   ЛАЗЕР\n", text);
+    }
+
+    [Theory]
+    [InlineData("Лазер", "ЛАЗЕР")]
+    [InlineData("Плазма", "ПЛАЗМА")]
+    [InlineData("Газо-кислородная", "ГАЗО-КИСЛОРОДНАЯ")]
+    [InlineData("HansLaser", "HANSLASER")]
+    [InlineData("Гидроабразивная", "ГИДРОАБРАЗИВНАЯ")]
+    public void MachineCaptionUsesUppercaseWithoutAnExtraCuttingLabel(string machine, string expected)
+    {
+        var row = Order() with { CuttingType = machine };
+        var text = OrderResultFormatter.Format([row]);
+        Assert.EndsWith("\t   " + expected + "\n", text);
+        Assert.DoesNotContain("резка ", text); Assert.Equal(machine, row.CuttingType);
+    }
+
+    [Fact]
+    public void DisplayNameCaseIsIndependentOfSystemCultureAndDoesNotChangeMaterialOrWorkingName()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("tr-TR");
+            var row = Order() with { MaterialName = "Aisi-430" };
+            var text = OrderResultFormatter.Format([row], machineName: _ => "iLaser");
+            Assert.EndsWith("\t   ILASER\n", text);
+            Assert.Contains("Материал: Aisi-430,", text);
+            Assert.Equal("Aisi-430", row.MaterialName); Assert.Equal("Лазер", row.CuttingType);
+        }
+        finally { CultureInfo.CurrentCulture = originalCulture; }
+    }
+
+    [Theory]
+    [InlineData(false, false, "")]
+    [InlineData(true, false, "   ГИБКА")]
+    [InlineData(false, true, "   ФАСКА")]
+    [InlineData(true, true, "   ФАСКА   ГИБКА")]
+    public void LetterAddsOnlyEnabledOperationsToTheirOwnRowInEitherOrder(bool bending, bool chamfer, string suffix)
+    {
+        var marked = Order() with { ThicknessMillimeters = 12, MaterialName = "Ст3", SheetSize = "1500x6000" };
+        marked = marked with { Annotations = OrderAnnotations.For(marked, bending, "Не включать в письмо"),
+            Operations = OrderOperations.For(marked, chamfer) };
+        var other = Order() with { Id = 2, ThicknessMillimeters = 3 };
+        foreach (var order in new[] { ResultRowOrder.ThicknessAndMaterial, ResultRowOrder.SelectionOrder })
+        {
+            var text = OrderResultFormatter.Format([marked, other], rowOrder: order);
+            var lines = text.Split('\n');
+            var markedIndex = order == ResultRowOrder.SelectionOrder ? 0 : 1;
+            Assert.StartsWith("Лист 12x1500x6000,", lines[markedIndex]);
+            Assert.EndsWith("ЛАЗЕР" + suffix, lines[markedIndex]);
+            Assert.DoesNotContain("ГИБКА", lines[1 - markedIndex]);
+            Assert.DoesNotContain("ФАСКА", lines[1 - markedIndex]);
+            Assert.DoesNotContain("Не включать", text);
+            Assert.Equal(3, lines.Length); Assert.Empty(lines[^1]);
+            var content = ResultClipboardContent.FromText(text);
+            Assert.Equal(text, content.Text);
+            var html = new HtmlParser().ParseDocument(content.Html);
+            Assert.Equal(bending, html.Body!.TextContent.Contains("ГИБКА"));
+            Assert.Equal(chamfer, html.Body.TextContent.Contains("ФАСКА"));
+            Assert.Equal(2, Regex.Matches(content.Rtf, @"\\par ").Count);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false)] [InlineData(false, true)]
+    [InlineData(true, false)] [InlineData(true, true)]
+    public async Task UnavailableOrStaleOperationsCannotSilentlyDisappearFromTheLetter(bool chamfer, bool unavailable)
+    {
+        var order = Order() with { Id = 100 };
+        order = order with { Annotations = chamfer ? null : OrderAnnotations.For(order, true, ""),
+            Operations = chamfer ? OrderOperations.For(order, true) : null };
+        order = unavailable
+            ? order with { AnnotationsUnavailable = !chamfer, OperationsUnavailable = chamfer }
+            : order with { SpecificationNumber = "Изменена другим приложением" };
+        Assert.Contains("F5", Assert.Throws<ArgumentException>(() => OrderResultFormatter.Format([order])).Message);
+        var model = new Jornal.Desktop.ViewModels.MainWindowViewModel(new Jornal.Infrastructure.Demo.DemoOrderStore());
+        await model.ReloadCommand.ExecuteAsync(null); model.AcceptCreatedOrder(order);
+        var row = model.Orders.Single(row => row.Id == order.Id); model.UpdateSelection([row], row);
+        model.ResultText = "Сохранить ручной текст";
+        model.AddOrdersToResult([row]);
+        Assert.True(model.HasResultError); Assert.Contains("F5", model.ResultMessage);
+        Assert.Equal("Сохранить ручной текст", model.ResultText);
     }
 
     [Theory]
@@ -113,7 +195,7 @@ public sealed class ResultOutputTests
         var value = decimal.Parse(stored, CultureInfo.InvariantCulture);
         var order = Order() with { StoredCuttingPrice = value };
         var result = OrderResultFormatter.Format([order]);
-        Assert.Equal(expected, Regex.Match(result, @"Резка\s+(\d+) ₽").Groups[1].Value);
+        Assert.Contains("Резка: " + expected + " ₽.", result);
         Assert.Equal(value, order.StoredCuttingPrice);
     }
 
@@ -124,8 +206,8 @@ public sealed class ResultOutputTests
         var second = Order() with { Id = 2, ThicknessMillimeters = 16, MaterialName = "5083H111",
             SheetCount = "22", WeightKilograms = "2", StoredCuttingPrice = 4850, CuttingType = "HansLaser" };
         var text = OrderResultFormatter.Format([first, second]);
-        Assert.Equal("Лист 2,5x1250x2500,\t   Материал:         Амг3,\t     1 шт.\t   Вес 38,5 кг.\t   Резка   500 ₽.\t   резка         Лазер\n" +
-            "Лист   16x1250x2500,\t   Материал: 5083H111,\t   22 шт.\t   Вес       2 кг.\t   Резка 4850 ₽.\t   резка HansLaser\n", text);
+        Assert.Equal("Лист 2,5x1250x2500,\t   Материал:         Амг3,\t     1 шт.\t   Вес 38,5 кг.\t   Резка:   500 ₽.\t           ЛАЗЕР\n" +
+            "Лист   16x1250x2500,\t   Материал: 5083H111,\t   22 шт.\t   Вес       2 кг.\t   Резка: 4850 ₽.\t   HANSLASER\n", text);
         var longMaterial = new string('М', 350) + "_неизвестная";
         Assert.Contains(longMaterial, OrderResultFormatter.Format([Order() with { MaterialName = longMaterial }, second]));
     }
@@ -146,10 +228,10 @@ public sealed class ResultOutputTests
         ];
         var original = orders.ToArray();
 
-        Assert.Equal("Лист 0,8x1000x2000,\t   Материал: Aisi-430,\t   253 шт.\t   Вес 4477,4 кг.\t   Резка 76012 ₽.\t   резка Лазер\n" +
-            "Лист 1,5x1250x2500,\t   Материал:     оцинк.,\t       7 шт.\t   Вес   260,9 кг.\t   Резка   2941 ₽.\t   резка Лазер\n" +
-            "Лист     3x1250x2500,\t   Материал:     оцинк.,\t       3 шт.\t   Вес   177,6 кг.\t   Резка   4385 ₽.\t   резка Лазер\n" +
-            "Лист   10x1500x6000,\t   Материал:           Cт3,\t       6 шт.\t   Вес 2554,6 кг.\t   Резка   7841 ₽.\t   резка Лазер\n",
+        Assert.Equal("Лист 0,8x1000x2000,\t   Материал: Aisi-430,\t   253 шт.\t   Вес 4477,4 кг.\t   Резка: 76012 ₽.\t   ЛАЗЕР\n" +
+            "Лист 1,5x1250x2500,\t   Материал:     оцинк.,\t       7 шт.\t   Вес   260,9 кг.\t   Резка:   2941 ₽.\t   ЛАЗЕР\n" +
+            "Лист     3x1250x2500,\t   Материал:     оцинк.,\t       3 шт.\t   Вес   177,6 кг.\t   Резка:   4385 ₽.\t   ЛАЗЕР\n" +
+            "Лист   10x1500x6000,\t   Материал:           Cт3,\t       6 шт.\t   Вес 2554,6 кг.\t   Резка:   7841 ₽.\t   ЛАЗЕР\n",
             OrderResultFormatter.Format(orders));
         Assert.Equal(original, orders);
     }
