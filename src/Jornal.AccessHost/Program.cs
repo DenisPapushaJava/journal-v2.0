@@ -52,6 +52,19 @@ try
         var machine = await new OleDbMachineCatalog(request.Path).CreateMachineAsync(creation);
         response = new(1, Machine: machine, PriceTable: new(machine.TableName, true, creation.Rates));
     }
+    else if (request.Operation == AccessHostOperation.ReadMachineSettings)
+        response = new(1, Settings: (await new OleDbMachineSettings(request.Path).ReadMachineSettingsAsync()).ToArray());
+    else if (request.Operation == AccessHostOperation.UpdateMachineSettings)
+        response = new(1, Settings: [await new OleDbMachineSettings(request.Path).UpdateMachineSettingsAsync(request.MachineSettingsChange ?? throw new ArgumentException("Нет параметров станка."))]);
+    else if (request.Operation == AccessHostOperation.PrepareMachineLabels)
+    {
+        await new OleDbMachineSettings(request.Path).PrepareMachineLabelsAsync(); response = new(1, MachineLabelsPrepared: true);
+    }
+    else if (request.Operation == AccessHostOperation.PrepareOperations)
+    {
+        await new OleDbOrderOperations(request.Path).PrepareOperationsAsync();
+        response = new(1, OperationsPrepared: true);
+    }
     else if (request.Operation == AccessHostOperation.PrepareAnnotations)
     {
         await new OleDbOrderAnnotations(request.Path).PrepareAnnotationsAsync();
@@ -109,13 +122,13 @@ catch (PriceCalculationException exception) { response = new(1, Error: exception
 catch (OrderWriteException exception) { response = new(1, Error: exception.Message, Failure: exception.Failure, Diagnostic: CaptureHost(exception, exception.Failure)); }
 catch (Exception exception)
 {
-    var failure = request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.UpdatePriceTable or AccessHostOperation.CreateMachine or AccessHostOperation.UpdateMachineImport
+    var failure = request?.Operation is AccessHostOperation.SetColor or AccessHostOperation.SetDeliveryNumber or AccessHostOperation.CreateOrder or AccessHostOperation.CreateOrders or AccessHostOperation.UpdateOrder or AccessHostOperation.DeleteOrder or AccessHostOperation.RestoreOrder or AccessHostOperation.UpdatePriceTable or AccessHostOperation.CreateMachine or AccessHostOperation.UpdateMachineImport or AccessHostOperation.UpdateMachineSettings
         ? exception is ArgumentException or InvalidDataException ? OrderWriteFailure.NotSaved : OrderWriteFailure.OutcomeUnknown : (OrderWriteFailure?)null;
     response = new(1, Error: exception is OrderReadException or PriceReadException or ArgumentException or InvalidDataException
         ? exception.Message : "Модуль Access не смог выполнить запрос.",
         Failure: failure, Diagnostic: CaptureHost(exception, failure));
 }
-await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response with { AnnotationsSupported = true }));
+await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response with { AnnotationsSupported = true, OperationsSupported = true, MachineSettingsSupported = true }));
 return 0;
 
 DiagnosticReport? CaptureHost(Exception exception, OrderWriteFailure? failure)

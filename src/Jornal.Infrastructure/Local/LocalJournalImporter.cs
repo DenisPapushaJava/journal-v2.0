@@ -40,8 +40,11 @@ public sealed class LocalJournalImporter(Func<string, IOrderReader>? orderReader
             var reader = priceReaderFactory?.Invoke(temporary) ?? new AccessPriceReader(temporary);
             var prices = new List<PriceTable>();
             var machines = reader is IMachineCatalogReader catalog ? await catalog.ReadMachinesAsync(cancellationToken) : [];
+            var labels = reader is IMachineSettingsReader settingsReader
+                ? (await settingsReader.ReadMachineSettingsAsync(cancellationToken)).Where(row => row.DisplayName != row.Name).ToDictionary(row => row.Key, row => row.DisplayName)
+                : null;
             foreach (var name in PriceTables.All.Concat(machines.Select(machine => machine.TableName))) prices.Add(await reader.ReadAsync(name, cancellationToken));
-            await LocalJournalStore.InitializeAsync(destinationPath, orders, prices, Path.GetFileName(sourcePath), hash, cancellationToken, machines);
+            await LocalJournalStore.InitializeAsync(destinationPath, orders, prices, Path.GetFileName(sourcePath), hash, cancellationToken, machines, labels);
         }
         finally { Directory.Delete(directory, recursive: true); }
     }

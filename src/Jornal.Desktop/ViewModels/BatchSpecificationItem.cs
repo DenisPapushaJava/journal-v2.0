@@ -52,7 +52,7 @@ public sealed partial class BatchSpecificationItem : ObservableObject
     }
     private void AnnotationsChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (HasParameters && e.PropertyName is nameof(OrderAnnotationsEditor.HasBending) or nameof(OrderAnnotationsEditor.Comment)) Refresh();
+        if (HasParameters && e.PropertyName is nameof(OrderAnnotationsEditor.HasBending) or nameof(OrderAnnotationsEditor.HasChamfer) or nameof(OrderAnnotationsEditor.Comment) or nameof(OrderAnnotationsEditor.NeedsReview)) Refresh();
     }
     private void FormChanged(object? sender, PropertyChangedEventArgs e)
     {

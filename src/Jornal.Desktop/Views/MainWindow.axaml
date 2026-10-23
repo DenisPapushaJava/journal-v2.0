@@ -387,6 +387,20 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Фаска" SortMemberPath="HasChamfer" Width="96*" MinWidth="94" IsReadOnly="True">
+                  <DataGridTemplateColumn.HeaderTemplate>
+                    <DataTemplate>
+                      <ui:ColumnFilterHeader DataContext="{ReflectionBinding $parent[DataGrid].DataContext.ChamferFilter}"
+                                             AttachedToVisualTree="OnJournalFilterAttached" DetachedFromVisualTree="OnJournalFilterDetached" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.HeaderTemplate>
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:OrderRowViewModel">
+                      <TextBlock Text="{Binding ChamferText}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"
+                                 ui:TableCellPresentation.Hint="{Binding OperationHint}" AutomationProperties.Name="{Binding ChamferDescription}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTemplateColumn Header="Комментарий" SortMemberPath="Comment" Width="140*" MinWidth="100" IsReadOnly="True">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate x:DataType="vm:OrderRowViewModel">

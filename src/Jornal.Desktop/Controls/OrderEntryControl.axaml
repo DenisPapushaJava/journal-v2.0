@@ -47,7 +47,7 @@
     </ui:EntrySuggestionComboBox>
     <Grid Grid.Column="2" ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding HasChoices}">
     <Grid>
-    <ComboBox x:Name="Choice" ItemsSource="{Binding Choices}" SelectedItem="{Binding SelectedChoice, Mode=TwoWay}"
+    <ComboBox x:Name="Choice" ItemsSource="{Binding Choices}" SelectedItem="{Binding SelectedChoice, Mode=TwoWay}" ItemTemplate="{ReflectionBinding ChoiceTemplate}"
               IsVisible="{Binding HasChoices}" MinHeight="36" FontSize="14" HorizontalAlignment="Stretch"
               IsEnabled="{Binding !IsChoiceLoading}"
               Classes.invalid="{Binding HasDisplayError}" ToolTip.Tip="{Binding InputHint}" AutomationProperties.Name="{Binding Label}" AutomationProperties.HelpText="{Binding DisplayError}" />

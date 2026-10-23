@@ -1,7 +1,8 @@
 namespace Jornal.Core.Pricing;
 
 public sealed record PriceProfile(string TableName, string Name, string Usage, bool CanEdit = true, bool IsUsedInCalculation = true);
-public sealed record PriceGroup(string Name, IReadOnlyList<PriceProfile> Profiles);
+public sealed record PriceGroup(string Name, IReadOnlyList<PriceProfile> Profiles)
+{ public string DisplayName { get; init; } = Name; }
 
 // Привязки к прежней MDB. Каталог не создаёт станки, таблицы или новые правила расчёта.
 public static class PriceCatalog

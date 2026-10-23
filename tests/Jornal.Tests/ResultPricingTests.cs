@@ -58,6 +58,47 @@ public sealed class ResultPricingTests
     }
 
     [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public void MixedPriceWidthsAndFractionsAlignUsingFinalDisplayedAmounts(bool enabled)
+    {
+        var stored = new[] { 0m, 0.0049m, 499.49m, 500.5m, 501.5m, -10m, 5000000000m,
+            922337203685477.5807m, decimal.MaxValue };
+        var expected = enabled
+            ? new[] { "500", "500", "500", "500", "502", "500", "5000000000", "922337203685478", "79228162514264337593543950335" }
+            : new[] { "0", "0", "499", "500", "502", "-10", "5000000000", "922337203685478", "79228162514264337593543950335" };
+        var rows = stored.Select((price, index) => ResultOutputTests.Order() with
+            { Id = index + 1, StoredCuttingPrice = price, ThicknessMillimeters = index + 1 }).Reverse().ToArray();
+        foreach (var order in new[] { ResultRowOrder.ThicknessAndMaterial, ResultRowOrder.SelectionOrder })
+        {
+            var text = OrderResultFormatter.Format(rows, new() { UseMinimumPrice = enabled }, order);
+            var lines = text.Split('\n');
+            var amounts = order == ResultRowOrder.SelectionOrder ? expected.Reverse().ToArray() : expected;
+            Assert.Equal(amounts, lines[..^1].Select(Price));
+            Assert.Empty(lines[^1]); Assert.Equal(rows.Length + 1, lines.Length);
+            var width = amounts.Max(amount => amount.Length);
+            Assert.Equal(amounts.Select(amount => "Резка:" + new string(' ', 1 + 2 * (width - amount.Length)) + amount + " ₽."),
+                lines[..^1].Select(line => Regex.Match(line, @"Резка: +-?\d+ ₽\.").Value));
+            var clipboard = ResultClipboardContent.FromText(text);
+            Assert.Equal(text, clipboard.Text);
+            var html = new HtmlParser().ParseDocument(clipboard.Html);
+            Assert.Equal(amounts, Regex.Matches(html.Body!.TextContent, @"Резка: +(-?\d+) ₽\.")
+                .Select(match => match.Groups[1].Value));
+            Assert.Equal(rows.Length, Regex.Matches(clipboard.Rtf, @"\\par ").Count);
+        }
+        Assert.Equal(stored.Reverse(), rows.Select(row => row.StoredCuttingPrice!.Value));
+    }
+
+    [Fact]
+    public void FractionsBelowTheMinimumDoNotCreatePaddingWhenAllFinalPricesHaveTheSameWidth()
+    {
+        var rows = new[] { 0.0001m, 12.3456m, 499.9999m, 604.5m }.Select((price, index) =>
+            ResultOutputTests.Order() with { Id = index + 1, StoredCuttingPrice = price }).ToArray();
+        var text = OrderResultFormatter.Format(rows);
+        Assert.Equal(new[] { "Резка: 500 ₽.", "Резка: 500 ₽.", "Резка: 500 ₽.", "Резка: 604 ₽." },
+            text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => Regex.Match(line, @"Резка: +-?\d+ ₽\.").Value));
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData(",\"ResultPricing\":null")]
     [InlineData(",\"ResultPricing\":\"bad\"")]
@@ -150,8 +191,8 @@ public sealed class ResultPricingTests
         finally { next.Close(); }
     }
 
-    private static string Price(string text) => Regex.Match(text, @"Резка\s+(-?\d+) ₽").Groups[1].Value;
-    private static string WithoutPrice(string text) => Regex.Replace(text, @"Резка\s+-?\d+ ₽", "Резка <цена> ₽");
+    private static string Price(string text) => Regex.Match(text, @"Резка: +(-?\d+) ₽").Groups[1].Value;
+    private static string WithoutPrice(string text) => Regex.Replace(text, @"Резка: +-?\d+ ₽", "Резка: <цена> ₽");
     private sealed class RecordingClipboard : IResultClipboard
     {
         public ResultClipboardContent? Content { get; private set; }

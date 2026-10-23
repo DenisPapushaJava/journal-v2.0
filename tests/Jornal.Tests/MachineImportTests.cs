@@ -28,7 +28,7 @@ public sealed class MachineImportTests
             Assert.False(form.HasError, form.Error);
             var machine = Assert.Single(await store.ReadMachinesAsync(Token), machine => machine.Name == form.Name);
             Assert.Equal(choice.Id, machine.SpecificationProfileId);
-            var reopened = new MachineImportViewModel(machine, store.Prices, store.Prices);
+            var reopened = new MachineImportViewModel(Settings(machine), store.Prices, store.Prices);
             Assert.Equal(choice, reopened.Profile);
             Assert.False(reopened.CanSave); await reopened.SaveCommand.ExecuteAsync(null);
             Assert.Equal(new PriceRate(6m, "6", 123), Assert.Single((await store.Prices.ReadAsync(machine.TableName, Token)).Rates));
@@ -81,7 +81,7 @@ public sealed class MachineImportTests
         var store = new DemoOrderStore(); var machine = MachineCatalogTests.Machine();
         await store.Prices.CreateMachineAsync(MachineCatalogTests.Creation(machine), Token);
         var editor = new UncertainEditor(store.Prices, applied);
-        var form = new MachineImportViewModel(machine, editor, store.Prices);
+        var form = new MachineImportViewModel(Settings(machine), editor, store.Prices);
         await form.SaveCommand.ExecuteAsync(null); Assert.Equal(0, editor.Calls);
         form.Profile = form.Profiles.Single(choice => choice.Id == CuttingMachine.HansProfile);
         Assert.True(form.HasChanges); Assert.True(form.CanSave);
@@ -101,7 +101,7 @@ public sealed class MachineImportTests
     {
         var store = new DemoOrderStore(); var machine = MachineCatalogTests.Machine();
         await store.Prices.CreateMachineAsync(MachineCatalogTests.Creation(machine), Token);
-        var form = new MachineImportViewModel(machine, store.Prices, store.Prices);
+        var form = new MachineImportViewModel(Settings(machine), store.Prices, store.Prices);
         form.Profile = form.Profiles.Single(choice => choice.Id == CuttingMachine.HansProfile);
         await store.Prices.UpdateMachineImportAsync(new(machine, null), Token);
         await form.SaveCommand.ExecuteAsync(null); Assert.True(form.RequiresReload);
@@ -181,14 +181,16 @@ public sealed class MachineImportTests
         _ => SpecificationImportPreview.Create("spec.pdf", new WaterjetPdfSpecificationParser().Parse(WaterjetPdfParserTests.Document()))
     };
 
-    private sealed class UncertainEditor(IMachineImportEditor inner, bool applied) : IMachineImportEditor
+    private static MachineSettings Settings(CuttingMachine machine) => MachineSettings.Build([machine]).Single(row => row.Key == machine.TableName);
+
+    private sealed class UncertainEditor(IMachineSettingsEditor inner, bool applied) : IMachineSettingsEditor
     {
         public int Calls { get; private set; }
-        public async Task<CuttingMachine> UpdateMachineImportAsync(MachineImportChange change, CancellationToken cancellationToken = default)
+        public async Task<MachineSettings> UpdateMachineSettingsAsync(MachineSettingsChange change, CancellationToken cancellationToken = default)
         {
             Calls++;
-            if (Calls > 1) return await inner.UpdateMachineImportAsync(change, cancellationToken);
-            if (applied) await inner.UpdateMachineImportAsync(change, cancellationToken);
+            if (Calls > 1) return await inner.UpdateMachineSettingsAsync(change, cancellationToken);
+            if (applied) await inner.UpdateMachineSettingsAsync(change, cancellationToken);
             throw new OrderWriteException(OrderWriteFailure.OutcomeUnknown, "Неизвестный исход.");
         }
     }

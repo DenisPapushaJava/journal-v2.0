@@ -9,7 +9,7 @@
         <ui:JournalButton x:Name="ClearTrashButton" Grid.Column="2" Label="Очистить корзину" Icon="trash" Classes="danger"
                           IsEnabled="{Binding CanClear}" Click="OnClearClick" />
       </Grid>
-      <TextBlock Text="Копии хранятся на этом компьютере 30 дней."
+      <TextBlock Text="{Binding RetentionDescription}"
                  Classes="muted" TextWrapping="Wrap" />
       <TextBlock Text="{Binding SourceDescription}" Classes="muted" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceDescription}" />
     </StackPanel>

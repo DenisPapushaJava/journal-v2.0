@@ -9,8 +9,11 @@ using Jornal.Core.Pricing;
 namespace Jornal.Infrastructure.Access;
 
 [SupportedOSPlatform("windows")]
-public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, IPriceReader, IManualOrderBatchCreator, IMachineCatalogReader
+public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, IPriceReader, IManualOrderBatchCreator, IMachineCatalogReader, IMachineSettingsReader, IMachineSettingsEditor
 {
+    public Task<IReadOnlyList<MachineSettings>> ReadMachineSettingsAsync(CancellationToken cancellationToken = default) => new OleDbMachineSettings(path).ReadMachineSettingsAsync(cancellationToken);
+    public Task<MachineSettings> UpdateMachineSettingsAsync(MachineSettingsChange change, CancellationToken cancellationToken = default) => new OleDbMachineSettings(path).UpdateMachineSettingsAsync(change, cancellationToken);
+
     public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => new OleDbMachineCatalog(path).ReadMachinesAsync(cancellationToken);
     public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) =>
         OleDbPriceReader.ReadAsync(path, tableName, cancellationToken);
@@ -31,6 +34,8 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
             DiagnosticStages.RunAsync(DiagnosticStage.PrepareCuttingTime, () => new OleDbOrderExtras(path).PrepareCuttingTimeAsync(cancellationToken)).GetAwaiter().GetResult();
         if (snapshot.Any(draft => draft.HasBending || draft.Comment.Length > 0))
             new OleDbOrderAnnotations(path).PrepareAnnotationsAsync(cancellationToken).GetAwaiter().GetResult();
+        if (snapshot.Any(draft => draft.HasChamfer))
+            new OleDbOrderOperations(path).PrepareOperationsAsync(cancellationToken).GetAwaiter().GetResult();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(30));
         var token = deadline.Token;
@@ -48,6 +53,7 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
             transaction = DiagnosticStages.Run(DiagnosticStage.BeginTransaction, () => connection.BeginTransaction(IsolationLevel.ReadCommitted));
             try
             {
+                var operations = new OleDbOrderOperations.Scope(connection, transaction);
                 var tables = new Dictionary<string, PriceTable>();
                 var preparedRows = new List<OrderSummary>();
                 for (var index = 0; index < snapshot.Length; index++)
@@ -78,8 +84,9 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
                     }
                     DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderExtras.Write(connection, transaction, id, null, prepared.CuttingTime));
                     DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => OleDbOrderAnnotations.Write(connection, transaction, id, null, prepared.Annotations));
+                    DiagnosticStages.Run(DiagnosticStage.WriteRecord, () => operations.Write(id, null, prepared.Operations));
                     // До commit проверяем сохранённое представление. После commit к MDB больше не обращаемся.
-                    var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => ReadCreated(connection, transaction, id));
+                    var saved = DiagnosticStages.Run(DiagnosticStage.ReadBack, () => ReadCreated(connection, transaction, operations, id));
                     if (saved != prepared with { Id = id }) throw new InvalidOperationException("MDB изменила значения новой заявки.");
                     savedRows.Add(saved);
                 }
@@ -142,7 +149,7 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
         parameter.Value = value ?? DBNull.Value;
     }
 
-    private static OrderSummary ReadCreated(OleDbConnection connection, OleDbTransaction transaction, int id)
+    private static OrderSummary ReadCreated(OleDbConnection connection, OleDbTransaction transaction, OleDbOrderOperations.Scope operations, int id)
     {
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
@@ -156,7 +163,7 @@ public sealed class OleDbManualOrderCreator(string path) : IManualOrderCreator, 
         var row = AccessOrderMapper.Map(columns.Select((name, index) => (name, value: (object?)reader.GetValue(index)))
             .ToDictionary(pair => pair.name, pair => pair.value, StringComparer.Ordinal));
         reader.Close();
-        return row with { CuttingTime = OleDbOrderExtras.Read(connection, transaction, id), Annotations = OleDbOrderAnnotations.ReadOne(connection, transaction, id) };
+        return row with { CuttingTime = OleDbOrderExtras.Read(connection, transaction, id), Annotations = OleDbOrderAnnotations.ReadOne(connection, transaction, id), Operations = operations.ReadOne(id) };
     }
 
     private static void Release(IDisposable? value)

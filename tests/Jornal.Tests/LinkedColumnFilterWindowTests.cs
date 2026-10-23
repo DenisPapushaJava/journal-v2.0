@@ -25,6 +25,7 @@ public sealed class LinkedColumnFilterWindowTests
     [InlineData(OrderFilterColumn.Material, false, 1.5)] [InlineData(OrderFilterColumn.Material, true, 1)]
     [InlineData(OrderFilterColumn.Thickness, false, 1)] [InlineData(OrderFilterColumn.Thickness, true, 1.5)]
     [InlineData(OrderFilterColumn.Bending, false, 1.5)] [InlineData(OrderFilterColumn.Bending, true, 1)]
+    [InlineData(OrderFilterColumn.Chamfer, false, 1)] [InlineData(OrderFilterColumn.Chamfer, true, 1.5)]
     public void EveryColumnOpensAppliesAndClearsFromVisibleChipWithoutChangingHeaderIdentity(OrderFilterColumn field, bool dark, double scale)
     {
         var (window, model, grid) = Open(dark, scale);
@@ -60,7 +61,7 @@ public sealed class LinkedColumnFilterWindowTests
             var chip = Chip(window, filter); InBounds(window, chip); Assert.True(chip.IsEffectivelyVisible); Click(chip);
             Assert.False(filter.HasFilter); Assert.False(model.HasAnyColumnFilter); Assert.Equal(6, model.Orders.Count);
             Assert.Contains(window.FindControl<StackPanel>("ColumnChoices")!.Children.OfType<CheckBox>(), item => Equals(item.Content, filter.Header));
-            Assert.Equal(18, grid.Columns.Count);
+            Assert.Equal(19, grid.Columns.Count);
         }
         finally { window.Close(); Pump(); }
     }
@@ -137,7 +138,7 @@ public sealed class LinkedColumnFilterWindowTests
                 Assert.Equal(tableHeight, table.Bounds.Height);
                 Assert.Equal(tableTop, table.TranslatePoint(default, window)!.Value.Y);
             }
-            Assert.Equal(6, strip.Filters!.Count);
+            Assert.Equal(7, strip.Filters!.Count);
             Assert.NotEmpty(strip.OverflowFilters);
             foreach (var chip in strip.GetVisualDescendants().OfType<Button>().Where(button => button.IsEffectivelyVisible)) InBounds(window, chip);
             var search = window.FindControl<TextBox>("SearchBox")!; Assert.True(search.Bounds.Width >= 160); InBounds(window, search);

@@ -21,7 +21,7 @@ public sealed class AccessHostStreamingTests
     {
         var row = Row(42);
         row = row with { CuttingTime = OrderCuttingTime.For(row, 1786), Annotations = OrderAnnotations.For(row, true, "Гнуть №2\nВторая строка") };
-        var json = JsonSerializer.SerializeToUtf8Bytes(new AccessHostResponse(1, [row], AnnotationsSupported: true),
+        var json = JsonSerializer.SerializeToUtf8Bytes(new AccessHostResponse(1, [row], AnnotationsSupported: true, OperationsSupported: true),
             new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
         using var stream = new ChunkedStream(new MemoryStream(json), chunkSize);
         var result = await AccessHostClient.ReadResponseAsync(stream, TestContext.Current.CancellationToken);
@@ -35,7 +35,7 @@ public sealed class AccessHostStreamingTests
     {
         var row = Row(42);
         var json = " \r\n{\"Unknown\":{\"value\":[1,2]},\"Orders\":[" + JsonSerializer.Serialize(row) +
-            "],\"AnnotationsSupported\":true,\"Protocol\":1}\r\n ";
+            "],\"AnnotationsSupported\":true,\"OperationsSupported\":true,\"Protocol\":1}\r\n ";
         var bytes = Encoding.UTF8.Preamble.ToArray().Concat(Encoding.UTF8.GetBytes(json)).ToArray();
         using var stream = new ChunkedStream(new MemoryStream(bytes), 1);
         var result = await AccessHostClient.ReadResponseAsync(stream, TestContext.Current.CancellationToken);
@@ -55,7 +55,7 @@ public sealed class AccessHostStreamingTests
     public async Task LargeReplyAndFullStderrAreReadWithoutPipeDeadlock()
     {
         var rows = Enumerable.Range(1, 4096).Select(Row).ToArray();
-        using var host = new Host(JsonSerializer.Serialize(new AccessHostResponse(1, rows, AnnotationsSupported: true)), "stderr");
+        using var host = new Host(JsonSerializer.Serialize(new AccessHostResponse(1, rows, AnnotationsSupported: true, OperationsSupported: true)), "stderr");
         var result = await host.Client.ReadAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
         Assert.Equal(rows, result);
         Assert.Equal(1, host.Starts);
@@ -101,7 +101,7 @@ public sealed class AccessHostStreamingTests
     public async Task CancellationDiscardsEvenACompleteJsonUntilEofAndExit(bool completeJson)
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        var json = JsonSerializer.Serialize(new AccessHostResponse(1, [Row(42)], AnnotationsSupported: true));
+        var json = JsonSerializer.Serialize(new AccessHostResponse(1, [Row(42)], AnnotationsSupported: true, OperationsSupported: true));
         using var host = new Host(completeJson ? json : json[..^5], "no-eof");
         var operation = host.Client.ReadAsync(cancellation.Token);
         await host.WaitForMarkerAsync();
@@ -116,7 +116,7 @@ public sealed class AccessHostStreamingTests
     public async Task CancellationAfterDispatchKeepsTheWriteUnconfirmedAndDoesNotRetry()
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        using var host = new Host(JsonSerializer.Serialize(new AccessHostResponse(1, [Row(42) with { Color = OrderColors.Work }], AnnotationsSupported: true)), "no-eof");
+        using var host = new Host(JsonSerializer.Serialize(new AccessHostResponse(1, [Row(42) with { Color = OrderColors.Work }], AnnotationsSupported: true, OperationsSupported: true)), "no-eof");
         var operation = host.Client.SetColorAsync([Row(42)], OrderColors.Work, cancellation.Token);
         await host.WaitForMarkerAsync();
         Assert.False(operation.IsCompleted);
@@ -143,7 +143,7 @@ public sealed class AccessHostStreamingTests
     [Fact]
     public async Task ValidJsonWithAFailedExitDoesNotConfirmAWrite()
     {
-        using var host = new Host(JsonSerializer.Serialize(new AccessHostResponse(1, [Row(42) with { Color = OrderColors.Work }], AnnotationsSupported: true)), exitCode: 7);
+        using var host = new Host(JsonSerializer.Serialize(new AccessHostResponse(1, [Row(42) with { Color = OrderColors.Work }], AnnotationsSupported: true, OperationsSupported: true)), exitCode: 7);
         var error = await Assert.ThrowsAsync<OrderWriteException>(() => host.Client.SetColorAsync([Row(42)], OrderColors.Work,
             TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
         Assert.Equal(OrderWriteFailure.OutcomeUnknown, error.Failure);
@@ -156,7 +156,7 @@ public sealed class AccessHostStreamingTests
     public async Task CancellationStopsOnlyTheStartedProcessAndClosesItsPipesBeforeReturning()
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        using var host = new Host(JsonSerializer.Serialize(new AccessHostResponse(1, [], AnnotationsSupported: true)), "no-eof-with-child");
+        using var host = new Host(JsonSerializer.Serialize(new AccessHostResponse(1, [], AnnotationsSupported: true, OperationsSupported: true)), "no-eof-with-child");
         var operation = host.Client.ReadAsync(cancellation.Token);
         await host.WaitForMarkerAsync();
         using var child = Process.GetProcessById(host.ChildProcessId);

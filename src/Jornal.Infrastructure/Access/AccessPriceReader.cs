@@ -4,8 +4,21 @@ using Jornal.Infrastructure.Diagnostics;
 
 namespace Jornal.Infrastructure.Access;
 
-public sealed class AccessPriceReader(string path) : IPriceReader, IMachineCatalogReader
+public sealed class AccessPriceReader(string path) : IPriceReader, IMachineCatalogReader, IMachineSettingsReader
 {
+    public Task<IReadOnlyList<MachineSettings>> ReadMachineSettingsAsync(CancellationToken cancellationToken = default) => Task.Run(async () =>
+    {
+        await AccessDatabaseFile.ValidateAsync(path, cancellationToken);
+        if (AccessHostClient.IsBundled) return await new AccessHostClient(path).ReadMachineSettingsAsync(cancellationToken);
+        if (OperatingSystem.IsWindows()) return await new OleDbMachineSettings(path).ReadMachineSettingsAsync(cancellationToken);
+        if (!OperatingSystem.IsLinux()) throw new PriceReadException("Чтение названий станков реализовано для Windows и Linux.");
+        var machines = await MdbToolsMachineCatalog.ReadAsync(path, cancellationToken);
+        var export = new MdbToolsTableExport();
+        var tables = await export.ListTablesAsync(path, cancellationToken);
+        var labels = tables.Contains(MachineLabelsData.TableName, StringComparer.OrdinalIgnoreCase)
+            ? await export.ReadAsync(path, MachineLabelsData.TableName, MachineLabelsData.ReadExport, cancellationToken) : null;
+        return MachineSettings.Build(machines, labels);
+    }, cancellationToken);
     public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) =>
         DiagnosticReads.ObserveAsync(DiagnosticOperation.PriceRead, DiagnosticReadAction.ReadMachineCatalog, path, () => Task.Run(async () =>
     {

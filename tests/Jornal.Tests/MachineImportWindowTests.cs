@@ -21,7 +21,7 @@ public sealed class MachineImportWindowTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task EditFromPricesKeepsTheNameFixedAndSupportsCancelAndSave(bool dark)
+    public async Task EditFromPricesKeepsTheWorkingKeyAndSupportsCancelAndSave(bool dark)
     {
         var store = new DemoOrderStore(); var machine = MachineCatalogTests.Machine();
         await store.Prices.CreateMachineAsync(MachineCatalogTests.Creation(machine));
@@ -30,7 +30,7 @@ public sealed class MachineImportWindowTests
         try
         {
             owner.Show(); Pump(); Assert.False(model.IsCustomMachine);
-            Assert.Null(model.CreateMachineImportForm());
+            Assert.NotNull(model.CreateMachineImportForm());
             await model.ShowCreatedMachineAsync(machine); Pump();
             var open = owner.FindControl<JournalButton>("EditMachineImportButton")!;
             Assert.True(open.IsEffectivelyVisible); Assert.True(open.IsEffectivelyEnabled);
@@ -38,10 +38,11 @@ public sealed class MachineImportWindowTests
             var window = Assert.Single(owner.OwnedWindows.OfType<MachineImportWindow>());
             var form = (MachineImportViewModel)window.DataContext!;
             Assert.Equal(machine.Name, form.Name);
-            Assert.DoesNotContain(window.GetVisualDescendants().OfType<TextBox>(), input => input.IsEffectivelyVisible);
+            var name = window.FindControl<TextBox>("MachineDisplayNameInput")!;
+            Assert.Equal(machine.Name, name.Text); name.Text = "Гидроабразив № 2"; Pump();
             var combo = window.FindControl<ComboBox>("MachineImportProfileInput")!;
             Assert.Equal(4, combo.ItemCount);
-            Assert.False(form.CanSave);
+            Assert.True(form.CanSave);
             combo.SelectedIndex = 1; Pump(); Assert.True(form.CanSave);
             window.Close(); Pump(); Assert.True(window.IsVisible); Assert.True(form.ConfirmDiscard);
             var keep = window.GetVisualDescendants().OfType<JournalButton>().Single(button => button.Label == "Продолжить");
@@ -64,6 +65,7 @@ public sealed class MachineImportWindowTests
             Assert.Equal(machine.Name, saved.Name); Assert.Equal(machine.TableName, saved.TableName);
             Assert.Equal(CuttingMachine.VintechProfile, saved.SpecificationProfileId);
             var reopened = model.CreateMachineImportForm()!;
+            Assert.Equal("Гидроабразив № 2", reopened.Name);
             Assert.Equal(CuttingMachine.VintechProfile, reopened.Profile.Id); Assert.False(reopened.CanSave);
         }
         finally

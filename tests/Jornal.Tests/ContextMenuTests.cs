@@ -118,6 +118,46 @@ public sealed class ContextMenuTests
 
     [AvaloniaTheory]
     [InlineData(false)] [InlineData(true)]
+    public async Task MyColorUsesTheCurrentSettingForTheSelectedBatchAndHidesWhenDisabled(bool dark)
+    {
+        var (window, model, grid) = Open(dark);
+        try
+        {
+            model.UseTechnologistColor = false;
+            Click(Box(grid, 1)); Click(Box(grid, 2)); RightClick(Cell(grid, 2));
+            var menu = grid.ContextMenu!; var parent = Item(menu, "OrderMenuColors");
+            Assert.DoesNotContain(parent.Items.OfType<MenuItem>(), item => item.Name == "OrderMenuMyColor");
+            menu.Close(); Pump();
+
+            model.SelectTechnologistColor(-25089); model.UseTechnologistColor = true;
+            RightClick(Cell(grid, 2)); parent = Item(menu, "OrderMenuColors"); Click(parent);
+            var oldItem = parent.Items.OfType<MenuItem>().Single(item => item.Name == "OrderMenuMyColor");
+            Assert.Equal("Мой цвет", oldItem.Header); Assert.True(oldItem.IsEffectivelyVisible);
+            Assert.Equal(Avalonia.Media.Color.FromUInt32(unchecked((uint)-25089)),
+                Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(Assert.IsType<Border>(oldItem.Icon).Background).Color);
+            Save(TopLevel.GetTopLevel(oldItem)!, $"context-my-color-{dark}");
+            menu.Close(); Pump();
+
+            model.SelectTechnologistColor(-8323200);
+            RightClick(Cell(grid, 2)); parent = Item(menu, "OrderMenuColors"); Click(parent);
+            var current = parent.Items.OfType<MenuItem>().Single(item => item.Name == "OrderMenuMyColor");
+            oldItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); Pump();
+            Assert.True(menu.IsOpen); Assert.Equal(OrderColors.Ready, model.Orders.Single(row => row.Id == 2).Color);
+            Click(current);
+            if (model.SetOrderColorCommand.ExecutionTask is { } task) await task;
+            Pump(); Assert.False(menu.IsOpen); Selected(grid, 1, 2);
+            Assert.Equal(-8323200, model.Orders.Single(row => row.Id == 1).Color);
+            Assert.Equal(-8323200, model.Orders.Single(row => row.Id == 2).Color);
+            Assert.Equal(OrderColors.None, model.Orders.Single(row => row.Id == 3).Color);
+            model.UseTechnologistColor = false;
+            RightClick(Cell(grid, 2)); parent = Item(menu, "OrderMenuColors");
+            Assert.DoesNotContain(parent.Items.OfType<MenuItem>(), item => item.Name == "OrderMenuMyColor");
+        }
+        finally { Close(window); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)] [InlineData(true)]
     public void HeaderMenuControlsSortingFiltersAndColumnVisibility(bool dark)
     {
         var (window, model, grid) = Open(dark);

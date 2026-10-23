@@ -16,7 +16,7 @@ public partial class MainWindowViewModel
         var resultChanged = _allOrders.Any(old => _resultOrderIds.Contains(old.Id) &&
             (date is null || old.OrderDate == date) && (!current.TryGetValue(old.Id, out var value) || value != old));
         var visible = rows.Where(MatchesCurrentFilters).ToDictionary(row => row.Id);
-        var viewChanged = Orders.Count != visible.Count || Orders.Any(row =>
+        var viewChanged = _machineNamesVersion != _appliedMachineNamesVersion || Orders.Count != visible.Count || Orders.Any(row =>
             !visible.TryGetValue(row.Id, out var value) || row.Source != value);
         // Выбор фиксируется сейчас, а не перед сетевым запросом.
         var selected = _selectedOrderIds.ToHashSet();
@@ -40,6 +40,7 @@ public partial class MainWindowViewModel
             if (!preserve) ApplyLoadedOrders();
             else { CountText = $"Заявок: {Orders.Count} из {_allOrders.Count}"; NotifyFilterContextChanged(); }
         }
+        _appliedMachineNamesVersion = _machineNamesVersion;
         if (resultChanged && ResultText.Length > 0)
         {
             HasResultError = true;

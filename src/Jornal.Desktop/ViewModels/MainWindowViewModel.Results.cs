@@ -64,7 +64,14 @@ public partial class MainWindowViewModel
             orders = _selectionOrder.Where(selectedOrders.ContainsKey).Select(id => selectedOrders[id])
                 .Concat(orders.Where(order => !_selectedOrderIds.Contains(order.Id))).ToArray();
         }
-        var result = OrderResultFormatter.Format(orders, CaptureResultPricing(), ResultRowOrder);
+        string result;
+        try { result = OrderResultFormatter.Format(orders, CaptureResultPricing(), ResultRowOrder, MachineName); }
+        catch (ArgumentException exception)
+        {
+            HasResultError = true;
+            ResultMessage = exception.Message;
+            return;
+        }
         ResultText = result;
         _resultOrderIds.Clear();
         foreach (var order in orders) _resultOrderIds.Add(order.Id);

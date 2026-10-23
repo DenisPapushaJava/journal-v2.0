@@ -97,11 +97,13 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
         }, cancellationToken);
 
     public static Task InitializeAsync(string path, IReadOnlyList<OrderSummary> orders, IReadOnlyList<PriceTable> prices,
-        string sourceName, string sourceSha256, CancellationToken cancellationToken = default, IReadOnlyList<CuttingMachine>? machines = null) => Task.Run(() =>
+        string sourceName, string sourceSha256, CancellationToken cancellationToken = default, IReadOnlyList<CuttingMachine>? machines = null,
+        IReadOnlyDictionary<string, string>? machineLabels = null) => Task.Run(() =>
         {
             var store = new LocalJournalStore(path);
             var book = new LocalJournalFile("Journal.LocalTestCopy", 1, sourceName, sourceSha256, DateTimeOffset.UtcNow,
-                Math.Max(0, orders.Select(row => row.Id).DefaultIfEmpty().Max()), orders.ToArray(), prices.ToArray(), Machines: machines?.ToArray());
+                Math.Max(0, orders.Select(row => row.Id).DefaultIfEmpty().Max()), orders.ToArray(), prices.ToArray(), Machines: machines?.ToArray(),
+                MachineLabels: machineLabels is null ? null : new Dictionary<string, string>(machineLabels, StringComparer.Ordinal));
             Validate(book);
             Directory.CreateDirectory(Path.GetDirectoryName(store._path)!);
             using var gate = store.Acquire(cancellationToken);
@@ -213,6 +215,7 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
     private static void Validate(LocalJournalFile book)
     {
         _ = CuttingMachine.Snapshot(book.Machines ?? []);
+        _ = MachineSettings.Build(book.Machines ?? [], book.MachineLabels);
         if (book.Format != "Journal.LocalTestCopy" || book.Version != 1 || string.IsNullOrEmpty(book.SourceName) ||
             book.SourceSha256 is not { Length: 64 } || !book.SourceSha256.All(Uri.IsHexDigit) ||
             book.Orders is null || book.Prices is null || book.LastIssuedId < 0 ||
@@ -236,8 +239,8 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
         }
         foreach (var row in book.Orders)
         {
-            row.CuttingTime?.Validate(); row.Annotations?.Validate();
-            if (row.AnnotationsUnavailable) throw new ArgumentException("Пометки исходной заявки недоступны.");
+            row.CuttingTime?.Validate(); row.Annotations?.Validate(); row.Operations?.Validate();
+            if (row.AnnotationsUnavailable || row.OperationsUnavailable) throw new ArgumentException("Пометки исходной заявки недоступны.");
         }
         foreach (var table in book.Prices) table.Validate();
     }
@@ -245,4 +248,4 @@ public sealed partial class LocalJournalStore : IOrderReader, IManualOrderCreato
 }
 
 internal sealed record LocalJournalFile(string Format, int Version, string SourceName, string SourceSha256,
-    DateTimeOffset ImportedAt, int LastIssuedId, OrderSummary[] Orders, PriceTable[] Prices, OrderRecord[]? Records = null, CuttingMachine[]? Machines = null);
+    DateTimeOffset ImportedAt, int LastIssuedId, OrderSummary[] Orders, PriceTable[] Prices, OrderRecord[]? Records = null, CuttingMachine[]? Machines = null, Dictionary<string, string>? MachineLabels = null);

@@ -118,6 +118,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        CancelCreatedOrderReveal();
         _resultFeedbackClosed = true;
         CancelResultFeedbackExpiration();
         SearchBox.CancelPendingInput();
@@ -183,6 +184,7 @@ public partial class MainWindow : Window
 
     private void ConnectViewModel()
     {
+        CancelCreatedOrderReveal();
         CancelResultFeedbackExpiration();
         CloseContextMenus();
         SearchBox.CancelPendingInput();
@@ -273,16 +275,12 @@ public partial class MainWindow : Window
     }
     private async Task ShowNewOrderAsync(NewOrderViewModel form)
     {
+        var model = _viewModel;
         var dialog = new NewOrderWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
         var order = await dialog.ShowDialog<OrderSummary?>(this);
-        if (order is null) return;
+        if (order is null || model is null || !ReferenceEquals(model, _viewModel) || !IsVisible) return;
         var created = form.CreatedOrders.Count > 0 ? form.CreatedOrders : [order];
-        _viewModel!.AcceptCreatedOrders(created);
-        var ids = created.Select(row => row.Id).ToHashSet();
-        OrdersGrid.SelectedItems.Clear();
-        foreach (var row in _viewModel.Orders.Where(row => ids.Contains(row.Id))) OrdersGrid.SelectedItems.Add(row);
-        if (created.Count == 1) OrdersGrid.SelectedItem = _viewModel.Orders.FirstOrDefault(row => row.Id == order.Id);
-        OrdersGrid.ScrollIntoView(_viewModel.Orders.FirstOrDefault(row => row.Id == order.Id), OrdersGrid.Columns[2]);
+        await RevealCreatedOrdersAsync(model, created);
     }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e) => UpdateSelection();
@@ -359,6 +357,7 @@ public partial class MainWindow : Window
         if (OwnedWindows.Count > 0 || _viewModel?.CreatePriceEditor() is not { } form) return;
         var dialog = new PriceEditorWindow { DataContext = form, RequestedThemeVariant = ActualThemeVariant };
         await dialog.ShowDialog(this);
+        if (ReferenceEquals(form, dialog.DataContext) && _viewModel is { } current) await current.RefreshMachineNamesAsync();
     }
 
     private async Task ShowSettingsAsync(SettingsSection section)

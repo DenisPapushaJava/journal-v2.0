@@ -56,8 +56,14 @@ public sealed class JournalPeriodTests
         if (!fail && day != Today) Assert.Equal(1, reader.Days.Count(value => value == day));
     }
     private static readonly DateOnly Today = DateOnly.FromDateTime(DateTime.Today);
-    internal static OrderSummary Row(int id, DateOnly? date) => GlobalJournalSearchTests.Rows()[0] with
-    { Id = id, OrderDate = date, SpecificationNumber = $"spec-{id}" };
+    internal static OrderSummary Row(int id, DateOnly? date)
+    {
+        var seed = GlobalJournalSearchTests.Rows()[0];
+        var row = seed with { Id = id, OrderDate = date, SpecificationNumber = $"spec-{id}" };
+        // Валидная синтетическая строка для периода; устаревшие привязки проверяются отдельно.
+        return row with { Annotations = OrderAnnotations.For(row, seed.HasBending, seed.Comment),
+            Operations = OrderOperations.For(row, seed.HasChamfer) };
+    }
 
     internal sealed class Reader : IOrderReader
     {

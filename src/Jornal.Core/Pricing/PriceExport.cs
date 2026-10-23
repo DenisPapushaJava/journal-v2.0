@@ -50,7 +50,7 @@ public sealed class PriceExportReader(IPriceReader reader)
                 };
                 profiles.Add(new(heading, table));
             }
-            sheets.Add(new(group.Name, profiles));
+            sheets.Add(new(group.DisplayName, profiles));
         }
         cancellationToken.ThrowIfCancellationRequested();
         return new(DateTimeOffset.Now, sheets);

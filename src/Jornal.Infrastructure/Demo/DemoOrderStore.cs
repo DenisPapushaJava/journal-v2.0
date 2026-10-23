@@ -113,7 +113,7 @@ public sealed partial class DemoOrderStore : IOrderReader, IManualOrderCreator, 
     }
 
     // Чтение/правка тарифов отдельно от создания демозаявок с исторически неизвестной ценой.
-    public sealed class PriceAccess(DemoOrderStore store) : IPriceReader, IPriceEditor, IMachineCatalogReader, IMachineCreator, IMachineImportEditor, IPriceImpactReader
+    public sealed class PriceAccess(DemoOrderStore store) : IPriceReader, IPriceEditor, IMachineCatalogReader, IMachineCreator, IMachineImportEditor, IPriceImpactReader, IMachineSettingsReader, IMachineSettingsEditor
     {
         public Task<IReadOnlyList<PriceThicknessUsage>> ReadThicknessUsageAsync(PriceTableChange change, CancellationToken cancellationToken = default)
         {
@@ -125,15 +125,18 @@ public sealed partial class DemoOrderStore : IOrderReader, IManualOrderCreator, 
                 return Task.FromResult<IReadOnlyList<PriceThicknessUsage>>(PriceThicknessUsage.Count(snapshot, store._orders.Select(PriceUsageOrder.From), store._machines));
             }
         }
+        public Task<IReadOnlyList<MachineSettings>> ReadMachineSettingsAsync(CancellationToken cancellationToken = default) => store.ReadMachineSettingsAsync(cancellationToken);
         public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => store.ReadMachinesAsync(cancellationToken);
         public Task<CuttingMachine> CreateMachineAsync(MachineCreation creation, CancellationToken cancellationToken = default) => store.CreateMachineAsync(creation, cancellationToken);
+        public Task<MachineSettings> UpdateMachineSettingsAsync(MachineSettingsChange change, CancellationToken cancellationToken = default) => store.UpdateMachineSettingsAsync(change, cancellationToken);
         public Task<CuttingMachine> UpdateMachineImportAsync(MachineImportChange change, CancellationToken cancellationToken = default) => store.UpdateMachineImportAsync(change, cancellationToken);
         public Task<PriceTable> ReadAsync(string tableName, CancellationToken cancellationToken = default) => store.ReadAsync(tableName, cancellationToken);
         public Task<PriceTable> SaveAsync(PriceTableChange change, CancellationToken cancellationToken = default) => store.SaveAsync(change, cancellationToken);
     }
 
-    private sealed class MaintenanceAdapter(DemoOrderStore store) : IOrderMaintenance, IMachineCatalogReader
+    private sealed class MaintenanceAdapter(DemoOrderStore store) : IOrderMaintenance, IMachineCatalogReader, IMachineSettingsReader
     {
+        public Task<IReadOnlyList<MachineSettings>> ReadMachineSettingsAsync(CancellationToken cancellationToken = default) => store.ReadMachineSettingsAsync(cancellationToken);
         public Task<IReadOnlyList<CuttingMachine>> ReadMachinesAsync(CancellationToken cancellationToken = default) => store.ReadMachinesAsync(cancellationToken);
         private OrderRecord? Find(int id) => store._orders.SingleOrDefault(row => row.Id == id) is { } row ? OrderRecord.FromSummary(row) : null;
         public Task<OrderRecord?> ReadRecordAsync(int id, CancellationToken cancellationToken = default)

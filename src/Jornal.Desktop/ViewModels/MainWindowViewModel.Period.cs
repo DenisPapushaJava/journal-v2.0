@@ -91,6 +91,7 @@ public partial class MainWindowViewModel
                 : date is { } selected ? await orderReader.ReadDayAsync(selected, cancellation.Token)
                 : await orderReader.ReadAsync(cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
+            if (!automatic && (force || NeedsMachineNameRefresh)) await RefreshMachineNamesAsync(cancellation.Token);
             if (generation != _readGeneration || automatic && !AutomaticJournalRefresh) return JournalRefreshOutcome.Deferred;
             var removed = ApplyReadSnapshot(rows, date, preserve);
             _scopeLoadFailed = false;

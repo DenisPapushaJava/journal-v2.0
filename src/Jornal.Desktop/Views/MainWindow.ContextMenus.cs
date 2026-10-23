@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Jornal.Core.Orders;
 using Jornal.Desktop.Controls;
@@ -70,6 +71,18 @@ public partial class MainWindow
             colors.Items.Add(JournalMenu.Item("OrderMenu" + name, label, model.CanUpdateSelectedOrders,
                 (_, _) => model.SetOrderColorCommand.Execute(color), Valid, CloseContextMenus));
         colors.Items.Add(new Separator());
+        var ownColor = model.EffectiveNewOrderColor;
+        if (Customization.NewOrderColorSettings.IsAllowed(ownColor))
+        {
+            var item = JournalMenu.Item("OrderMenuMyColor", "Мой цвет", model.CanUpdateSelectedOrders,
+                (_, _) => model.SetOrderColorCommand.Execute(ownColor),
+                () => Valid() && model.EffectiveNewOrderColor == ownColor, CloseContextMenus,
+                hint: "Применить свой цвет из настроек к выбранным заявкам");
+            item.Icon = new Border { Width = 14, Height = 14, CornerRadius = new CornerRadius(3),
+                Background = new SolidColorBrush(Color.FromUInt32(unchecked((uint)ownColor))),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(128, 128, 128, 128)), BorderThickness = new Thickness(1), IsHitTestVisible = false };
+            colors.Items.Add(item);
+        }
         colors.Items.Add(JournalMenu.Item("OrderMenuColor", "Цвет…", model.CanUpdateSelectedOrders, OnSetCustomColorClick, Valid, CloseContextMenus, "palette"));
         colors.Items.Add(JournalMenu.Item("OrderMenuClearColor", "Снять цвет", model.CanUpdateSelectedOrders,
             (_, _) => model.SetOrderColorCommand.Execute(OrderColors.None), Valid, CloseContextMenus));

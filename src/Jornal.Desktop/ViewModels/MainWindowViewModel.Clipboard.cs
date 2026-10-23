@@ -49,7 +49,7 @@ public partial class MainWindowViewModel
     public bool CanCopyRowComment => CanUseJournal && !RequiresReload && !IsCopyingResult && _selectedCount == 1;
     public bool CanCopyTelegramComment => CanUseJournal && !RequiresReload && !IsCopyingResult && _selectedCount > 0;
     public bool CanPrepareFolders => CanCopyTelegramComment;
-    public string RowCommentHint => _selectedCount == 1 ? "Скопировать комментарий строки" : "Выберите одну заявку";
+    public string RowCommentHint => _selectedCount == 1 ? "Скопировать комментарий и отметить заявку «В работе»" : "Выберите одну заявку";
     private OrderSummary[] ClipboardSelection() => Orders.Where(row => _selectedOrderIds.Contains(row.Id)).Select(row => row.Source).ToArray();
     private void NotifyClipboardAvailability()
     {
@@ -61,12 +61,25 @@ public partial class MainWindowViewModel
     {
         if (!(telegram ? CanCopyTelegramComment : CanCopyRowComment)) return;
         string text;
-        try { var rows = ClipboardSelection(); text = telegram ? OrderCommentFormatter.Telegram(rows) : OrderCommentFormatter.Row(rows.Single()); }
+        OrderSummary[] rows;
+        try { rows = ClipboardSelection(); text = telegram ? OrderCommentFormatter.Telegram(rows, MachineName) : OrderCommentFormatter.Row(rows.Single()); }
         catch (ArgumentException exception) { ShowSelectionNotice(telegram ? ClipboardPreparation.CuttingTask : ClipboardPreparation.Row, exception); return; }
         ErrorMessage = null; IsCopyingSelection = true; AppDiagnostics.Current?.Mark(DiagnosticOperation.Clipboard);
         try { await clipboard.WriteTextAsync(text); UpdatedText = telegram ? "Задание на резку скопировано" : "Комментарий скопирован"; }
-        catch (Exception exception) { ErrorMessage = AppDiagnostics.Describe(DiagnosticOperation.Clipboard, exception, "Не удалось скопировать комментарий."); }
+        catch (Exception exception) { ErrorMessage = AppDiagnostics.Describe(DiagnosticOperation.Clipboard, exception, "Не удалось скопировать комментарий."); return; }
         finally { IsCopyingSelection = false; }
+        if (telegram) return;
+        // Используем снимок на момент копирования: выбор мог измениться, пока отвечал буфер.
+        var order = rows.Single();
+        if (order.Color == OrderColors.Work) { UpdatedText = "Комментарий скопирован · В работе"; return; }
+        if (orderEditor is null)
+        {
+            ErrorMessage = "Комментарий скопирован. Изменение статуса недоступно для этого источника данных.";
+            return;
+        }
+        if (!await UpdateOrdersAsync([order.Id], () => orderEditor.SetColorAsync([order], OrderColors.Work),
+                "Комментарий скопирован · В работе"))
+            ErrorMessage = "Комментарий скопирован. " + (ErrorMessage ?? "Не удалось изменить статус. Обновите список (F5) и проверьте заявку.");
     }
     public FolderClipboardViewModel? CreateFolderForm(IJournalClipboard clipboard)
     {

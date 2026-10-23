@@ -81,7 +81,11 @@ public sealed class PlainRowSelectionTests(ITestOutputHelper output)
             if (horizontal.IsVisible && horizontal.Maximum > 0)
             {
                 horizontal.ScrollTo(horizontal.Maximum / 2); Pump();
-                Assert.Equal(frameOrigin, firstOutline.TranslatePoint(default, grid)!.Value);
+                var scrolledOrigin = firstOutline.TranslatePoint(default, grid)!.Value;
+                // Дробный DPI допускает округление половины физического пикселя,
+                // но не перемещение замороженной рамки вслед за столбцами.
+                Assert.InRange(Math.Abs(frameOrigin.X - scrolledOrigin.X) * scale, 0, .500001);
+                Assert.Equal(frameOrigin.Y, scrolledOrigin.Y);
                 horizontal.ScrollTo(0); Pump();
             }
             var green = visible.First(row => ((OrderRowViewModel)row.DataContext!).Color == unchecked((int)0xFFB9D5AC));

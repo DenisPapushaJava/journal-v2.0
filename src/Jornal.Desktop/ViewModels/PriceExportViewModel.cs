@@ -9,7 +9,7 @@ namespace Jornal.Desktop.ViewModels;
 public sealed partial class PriceExportChoice(PriceGroup group) : ObservableObject
 {
     public PriceGroup Group { get; } = group;
-    public string Name => Group.Name;
+    public string Name => Group.DisplayName;
     [ObservableProperty] private bool _isSelected = true;
 }
 

@@ -18,6 +18,12 @@ public sealed record OrderSummary(
     public OrderAnnotations? Annotations { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool AnnotationsUnavailable { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OrderOperations? Operations { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OperationsUnavailable { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore] public bool OperationsNeedReview => Operations is not null && !Operations.Matches(this);
+    [System.Text.Json.Serialization.JsonIgnore] public bool HasChamfer => !OperationsUnavailable && !OperationsNeedReview && Operations?.HasChamfer == true;
     [System.Text.Json.Serialization.JsonIgnore] public bool AnnotationsNeedReview => Annotations is not null && !Annotations.Matches(this);
     [System.Text.Json.Serialization.JsonIgnore] public bool HasBending => !AnnotationsUnavailable && !AnnotationsNeedReview && Annotations?.HasBending == true;
     [System.Text.Json.Serialization.JsonIgnore] public string Comment => !AnnotationsUnavailable && !AnnotationsNeedReview ? Annotations?.Comment ?? "" : "";
