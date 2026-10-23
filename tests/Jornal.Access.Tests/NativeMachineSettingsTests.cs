@@ -14,7 +14,7 @@ public sealed partial class NativeAccessTests
     {
         using var database = Database.Create();
         using var holder = new FileStream(database.Path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-        using var connection = database.Connection();
+        using var connection = OleDbAccessConnection.Create(database.Path, false);
         var error = Assert.Throws<OleDbException>(connection.Open);
         Assert.True(AccessSchemaContention.IsBusy(error),
             $"HResult=0x{error.HResult:X8}; provider records: " +
