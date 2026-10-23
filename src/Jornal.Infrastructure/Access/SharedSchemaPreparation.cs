@@ -3,8 +3,21 @@ namespace Jornal.Infrastructure.Access;
 // Повторяется только идемпотентная подготовка схемы, никогда запись заявки.
 internal static class SharedSchemaPreparation
 {
+    // Jet разделяет состояние движка между соединениями процесса. Не открываем
+    // второй каталог одновременно с DDL первого; другие процессы защищает
+    // исключительное подключение MDB и прежний ограниченный retry.
+    private static readonly SemaphoreSlim PreparationGate = new(1, 1);
+
     internal static async Task EnsureAsync(Func<bool> ready, Action prepare, Func<Exception, bool> busy,
         CancellationToken token, Func<TimeSpan, CancellationToken, Task>? delay = null)
+    {
+        await PreparationGate.WaitAsync(token).ConfigureAwait(false);
+        try { await EnsureCoreAsync(ready, prepare, busy, token, delay).ConfigureAwait(false); }
+        finally { PreparationGate.Release(); }
+    }
+
+    private static async Task EnsureCoreAsync(Func<bool> ready, Action prepare, Func<Exception, bool> busy,
+        CancellationToken token, Func<TimeSpan, CancellationToken, Task>? delay)
     {
         delay ??= Task.Delay;
         for (var attempt = 0; ; attempt++)
