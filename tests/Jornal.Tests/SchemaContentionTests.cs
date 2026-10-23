@@ -7,6 +7,35 @@ namespace Jornal.Tests;
 public sealed class SchemaContentionTests
 {
     [Fact]
+    public async Task ConcurrentPreparationsWaitWithoutOpeningAnotherCatalogAndCancellationDoesNotReleaseTheOwner()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var prepared = false; var secondReads = 0;
+        var first = SharedSchemaPreparation.EnsureAsync(() => prepared,
+            () => throw new IOException("Synthetic lock"), exception => exception is IOException,
+            TestContext.Current.CancellationToken, async (_, token) =>
+            { entered.SetResult(); await resume.Task.WaitAsync(token); prepared = true; });
+        await entered.Task.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            using var cancellation = new CancellationTokenSource();
+            var cancelled = SharedSchemaPreparation.EnsureAsync(() => throw new Exception("Must not open"),
+                () => throw new Exception("Must not prepare"), _ => false, cancellation.Token);
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+            var second = SharedSchemaPreparation.EnsureAsync(() => { secondReads++; return prepared; },
+                () => throw new Exception("Must not prepare twice"), _ => false, TestContext.Current.CancellationToken);
+            Assert.False(second.IsCompleted);
+            Assert.Equal(0, secondReads);
+            resume.SetResult();
+            await Task.WhenAll(first, second);
+            Assert.Equal(1, secondReads);
+        }
+        finally { resume.TrySetResult(); await first; }
+    }
+
+    [Fact]
     public async Task RechecksReadinessOnlyAfterTheLockBackoff()
     {
         var reads = 0; var writes = 0; var waited = false;
