@@ -135,7 +135,8 @@ public sealed class OrderOperationsTests
         Assert.Equal(1, creates); Assert.Equal(0, delays);
         ready = false;
         await SharedSchemaPreparation.EnsureAsync(() => ready, () => { ready = true; throw new IOException("Other client finished"); }, Busy, Token, Delay);
-        Assert.Equal(0, delays);
+        // После блокировки готовность другого клиента проверяется после паузы.
+        Assert.Equal(1, delays);
     }
 
     [Fact]
